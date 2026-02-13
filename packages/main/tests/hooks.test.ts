@@ -25,6 +25,8 @@ describe("Raven Lifecycle Hooks", () => {
 			return res;
 		});
 
+		app.get("/", () => new Response("ok"));
+
 		// Trigger handleRequest manually for testing
 		const request = new Request("http://localhost/");
 		// @ts-ignore - access private for testing
@@ -56,6 +58,8 @@ describe("Raven Lifecycle Hooks", () => {
 		app.beforeHandle(() => {
 			throw new Error("test error");
 		});
+
+		app.get("/", () => new Response("ok"));
 
 		app.onError((error) => {
 			return new Response(`Caught: ${(error as Error).message}`, { status: 500 });

@@ -18,16 +18,13 @@ describe("Raven Basic Server", () => {
 
 	test("should start and stop the server", async () => {
 		const app = new Raven();
-		// Port 0 tells Bun to pick an available port
-		const port = 0;
+		// Try a specific port
+		const port = 3001;
 		
 		// Start listening
-		app.listen({ port });
-		
-		// Get the actual port if possible, or just assume it started since no error
-		// For now we'll just test the logic
+		await app.listen({ port });
 		
 		// Stop the server
-		app.stop();
+		await app.stop();
 	});
 });
