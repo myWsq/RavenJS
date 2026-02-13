@@ -1,5 +1,5 @@
 {
-  "name": "@ravenjs/main",
+  "name": "@ravenjs/core",
   "version": "0.0.1",
   "private": true
 }

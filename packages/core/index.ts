@@ -1,7 +1,7 @@
-import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters";
-import { createScopedToken, runScoped } from "./utils/scoped-token";
+import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters.ts";
+import { createScopedToken, runScoped } from "./utils/scoped-token.ts";
 import { RavenError } from "./utils/error.ts";
-import { RadixRouter } from "./utils/router";
+import { RadixRouter } from "./utils/router.ts";
 
 /**
  * 框架核心 Context 的作用域令牌。
