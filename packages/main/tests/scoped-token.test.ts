@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { runScoped, createScopedToken, ContextToken, type Context } from "../index";
+import { ContextToken, type Context } from "../index";
+import { runScoped, createScopedToken } from "../utils/scoped-token";
 
 describe("ScopedToken Mechanism", () => {
   it("should support independent storage via tokens", async () => {

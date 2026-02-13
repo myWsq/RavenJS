@@ -1,5 +1,10 @@
 import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { createScopedToken, runScoped } from "./utils/scoped-token";
+
+/**
+ * 框架核心 Context 的作用域令牌。
+ */
+export const ContextToken = createScopedToken<Context>("raven:context");
 
 /**
  * Server configuration options
@@ -44,62 +49,6 @@ export type BeforeResponseHook = (response: Response) => void | Response | Promi
  * Hook for global error handling
  */
 export type OnErrorHook = (error: unknown) => Response | Promise<Response>;
-
-/**
- * 内部存储引擎，不直接导出。
- */
-const storage = new AsyncLocalStorage<Map<symbol, any>>();
-
-/**
- * 启动一个新的异步作用域。
- */
-export function runScoped<R>(callback: () => R): R {
-	return storage.run(new Map(), callback);
-}
-
-/**
- * ScopedToken 代表一个在异步作用域中注册的变量令牌。
- */
-export class ScopedToken<T> {
-	public readonly symbol: symbol;
-
-	constructor(public readonly name: string) {
-		this.symbol = Symbol(name);
-	}
-
-	public get(): T | undefined {
-		const store = storage.getStore();
-		return store?.get(this.symbol);
-	}
-
-	public getOrFailed(): T {
-		const store = storage.getStore();
-		if (!store) {
-			throw new Error(`Scope is not initialized. Cannot access scoped token: ${this.name}`);
-		}
-		return store.get(this.symbol);
-	}
-
-	public set(value: T): void {
-		const store = storage.getStore();
-		if (!store) {
-			throw new Error(`Cannot set value for scoped token "${this.name}": Scope is not initialized.`);
-		}
-		store.set(this.symbol, value);
-	}
-}
-
-/**
- * 创建一个新的作用域令牌。
- */
-export function createScopedToken<T>(name: string): ScopedToken<T> {
-	return new ScopedToken<T>(name);
-}
-
-/**
- * 框架核心 Context 的作用域令牌。
- */
-export const ContextToken = createScopedToken<Context>("context");
 
 export class Raven {
 	private adapter: ServerAdapter | null = null;

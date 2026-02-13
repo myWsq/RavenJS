@@ -5,13 +5,6 @@
 
 ## Requirements
 
-### Requirement: Unified Scoped Execution
-The system SHALL provide a `runScoped(callback)` function to execute a callback within a new asynchronous scope.
-
-#### Scenario: Verify scope initialization
-- **WHEN** `runScoped` is called
-- **THEN** a new `Map` SHALL be initialized as the store for all `ScopedToken`s in that execution branch
-
 ### Requirement: Scoped Token Creation
 The system SHALL provide a `createScopedToken<T>(name: string)` function to create unique, type-safe tokens for scoped variables.
 
@@ -25,3 +18,10 @@ Developers SHALL declare `ScopedToken`s as global constants (typically at the mo
 #### Scenario: Identity consistency
 - **WHEN** a token is declared once globally and used across different hooks/handlers
 - **THEN** it SHALL resolve to the same underlying data within the same scope
+
+### Requirement: Built-in Token Naming Convention
+Raven framework's built-in tokens SHALL use the `raven:` prefix for their names.
+
+#### Scenario: Built-in tokens
+- **WHEN** a built-in token like ContextToken is created
+- **THEN** its name SHALL follow the pattern `raven:<feature>` (e.g., `raven:context`)
