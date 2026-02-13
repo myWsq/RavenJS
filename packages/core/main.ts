@@ -2,7 +2,7 @@ import {
   BunAdapter,
   NodeAdapter,
   type ServerAdapter,
-} from "./utils/adapters.ts";
+} from "./utils/server-adapter.ts";
 import {
   createRequestState,
   currentAppStorage,
