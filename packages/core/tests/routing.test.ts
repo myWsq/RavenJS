@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "@ravenjs/testing";
 import { Raven, RavenContext } from "../main";
 
 describe("Routing System", () => {

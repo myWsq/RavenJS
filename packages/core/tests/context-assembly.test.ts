@@ -1,13 +1,4 @@
-// Use a conditional import for test runners to support both Bun and Node.js (via Vitest)
-const { describe, test, expect } = await (async () => {
-	// @ts-ignore
-	if (typeof Bun !== "undefined") {
-		return await import("bun:test");
-	} else {
-		return await import("vitest");
-	}
-})() as typeof import("vitest");
-
+import { describe, test, expect } from "@ravenjs/testing";
 import { Raven, RavenContext } from "../main.ts";
 
 describe("Raven Context Assembly", () => {

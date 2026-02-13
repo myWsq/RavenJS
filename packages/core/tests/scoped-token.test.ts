@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "@ravenjs/testing";
 import { RavenContext, type Context } from "../main";
 import { runScoped, createScopedToken } from "../utils/scoped-token";
 

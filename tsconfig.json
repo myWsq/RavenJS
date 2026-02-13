@@ -15,6 +15,9 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
 
+    "paths": {
+      "@ravenjs/testing": ["./packages/testing/index.ts"]
+    },
     // Best practices
     "strict": true,
     "skipLibCheck": true,

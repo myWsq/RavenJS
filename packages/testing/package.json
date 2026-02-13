@@ -1,12 +1,12 @@
 {
-  "name": "@ravenjs/core",
+  "name": "@ravenjs/testing",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./index.ts"
   },
-  "devDependencies": {
-    "@ravenjs/testing": "workspace:*"
+  "peerDependencies": {
+    "vitest": "^4.0.18"
   }
 }
