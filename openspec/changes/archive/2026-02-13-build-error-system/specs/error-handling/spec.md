@@ -3,7 +3,7 @@
 ## Purpose
 该规范定义了 Raven 框架的全局错误处理机制。
 
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 全局错误捕获与处理
 框架 SHALL 捕获请求生命周期内（包括所有钩子和 Handler）抛出的任何异常，并将其传递给 `onError` 钩子。

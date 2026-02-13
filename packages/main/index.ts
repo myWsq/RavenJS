@@ -1,5 +1,6 @@
 import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters";
 import { createScopedToken, runScoped } from "./utils/scoped-token";
+import { RavenError } from "./utils/error.ts";
 
 /**
  * 框架核心 Context 的作用域令牌。
@@ -64,7 +65,7 @@ export class Raven {
 	 */
 	async listen(config: ServerConfig): Promise<void> {
 		if (this.adapter) {
-			throw new Error("Server is already running");
+			throw RavenError.ERR_SERVER_ALREADY_RUNNING();
 		}
 
 		// Environment detection

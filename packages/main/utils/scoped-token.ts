@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { RavenError } from "./error.ts";
 
 const storage = new AsyncLocalStorage<Map<symbol, any>>();
 
@@ -21,7 +22,7 @@ export class ScopedToken<T> {
 	public getOrFailed(): T {
 		const store = storage.getStore();
 		if (!store) {
-			throw new Error(`Scope is not initialized. Cannot access scoped token: ${this.name}`);
+			throw RavenError.ERR_SCOPED_TOKEN_NOT_INITIALIZED(this.name);
 		}
 		return store.get(this.symbol);
 	}
@@ -29,7 +30,7 @@ export class ScopedToken<T> {
 	public set(value: T): void {
 		const store = storage.getStore();
 		if (!store) {
-			throw new Error(`Cannot set value for scoped token "${this.name}": Scope is not initialized.`);
+			throw RavenError.ERR_SCOPED_TOKEN_CANNOT_SET(this.name);
 		}
 		store.set(this.symbol, value);
 	}
