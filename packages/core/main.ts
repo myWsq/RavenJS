@@ -96,17 +96,12 @@ interface RouteData {
 /**
  * Plugin definition
  */
-export type Plugin<Options = any> = (
-  instance: Raven,
-  opts: Options
-) => void | Promise<void>;
+export type Plugin = (instance: Raven) => void | Promise<void>;
 
 /**
  * Helper to create a type-safe plugin
  */
-export function createPlugin<Options = any>(
-  plugin: Plugin<Options>
-): Plugin<Options> {
+export function createPlugin(plugin: Plugin): Plugin {
   return plugin;
 }
 
@@ -136,12 +131,9 @@ export class Raven {
   /**
    * Register a plugin
    */
-  async register<Options = any>(
-    plugin: Plugin<Options>,
-    opts: Options = {} as Options
-  ): Promise<this> {
+  async register(plugin: Plugin): Promise<this> {
     this.plugins.push(plugin);
-    await plugin(this, opts);
+    await plugin(this);
     return this;
   }
 

@@ -9,7 +9,7 @@ describe("Plugin System", () => {
 		});
 
 		await raven.register(plugin);
-		expect(plugin).toHaveBeenCalledWith(raven, {});
+		expect(plugin).toHaveBeenCalledWith(raven);
 	});
 
 	it("should register an async plugin", async () => {
@@ -36,16 +36,16 @@ describe("Plugin System", () => {
 		expect(raven.hooks.onRequest).toContain(hook);
 	});
 
-	it("should create a type-safe plugin using createPlugin helper", async () => {
+	it("should create a plugin using factory pattern", async () => {
 		const raven = new Raven();
 		interface MyOptions {
 			foo: string;
 		}
-		const plugin = createPlugin<MyOptions>((instance, opts) => {
+		const myPlugin = (opts: MyOptions) => createPlugin((instance) => {
 			expect(opts.foo).toBe("bar");
 		});
 
-		await raven.register(plugin, { foo: "bar" });
+		await raven.register(myPlugin({ foo: "bar" }));
 	});
 
 	it("should execute hooks in registration order", async () => {
