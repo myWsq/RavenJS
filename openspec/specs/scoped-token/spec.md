@@ -23,5 +23,5 @@ Developers SHALL declare `ScopedToken`s as global constants (typically at the mo
 Raven framework's built-in tokens SHALL use the `raven:` prefix for their names.
 
 #### Scenario: Built-in tokens
-- **WHEN** a built-in token like ContextToken is created
+- **WHEN** a built-in token like RavenContext is created
 - **THEN** its name SHALL follow the pattern `raven:<feature>` (e.g., `raven:context`)

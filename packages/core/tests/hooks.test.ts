@@ -8,7 +8,7 @@ const { describe, test, expect } = await (async () => {
 	}
 })() as typeof import("vitest");
 
-import { Raven, ContextToken } from "../main.ts";
+import { Raven, RavenContext } from "../main.ts";
 
 describe("Raven Lifecycle Hooks", () => {
 	test("should execute hooks in order and have context access", async () => {

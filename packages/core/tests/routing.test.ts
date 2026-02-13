@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Raven, ContextToken } from "../main";
+import { Raven, RavenContext } from "../main";
 
 describe("Routing System", () => {
 	it("should match simple GET route", async () => {
@@ -16,7 +16,7 @@ describe("Routing System", () => {
 	it("should extract path parameters", async () => {
 		const raven = new Raven();
 		raven.get("/user/:id", () => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			return new Response(`User ${ctx?.params.id}`);
 		});
 
@@ -28,7 +28,7 @@ describe("Routing System", () => {
 	it("should extract multiple path parameters", async () => {
 		const raven = new Raven();
 		raven.get("/org/:orgId/project/:projectId", () => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			return new Response(`Org: ${ctx?.params.orgId}, Project: ${ctx?.params.projectId}`);
 		});
 
@@ -42,7 +42,7 @@ describe("Routing System", () => {
 	it("should extract query parameters", async () => {
 		const raven = new Raven();
 		raven.get("/search", () => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			return new Response(`Search: ${ctx?.query.q}`);
 		});
 
@@ -109,14 +109,14 @@ describe("Routing System", () => {
 		let beforeHandleParams: any = undefined;
 
 		raven.onRequest(() => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			if (ctx) {
 				onRequestParams = ctx.params;
 			}
 		});
 
 		raven.get("/test/:id", () => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			if (ctx) {
 				beforeHandleParams = ctx.params;
 			}

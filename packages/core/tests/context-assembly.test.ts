@@ -8,7 +8,7 @@ const { describe, test, expect } = await (async () => {
 	}
 })() as typeof import("vitest");
 
-import { Raven, ContextToken } from "../main.ts";
+import { Raven, RavenContext } from "../main.ts";
 
 describe("Raven Context Assembly", () => {
 	test("onRequest should NOT have access to params and query, but beforeHandle SHOULD", async () => {
@@ -18,12 +18,12 @@ describe("Raven Context Assembly", () => {
 		let beforeHandleQuery: any = null;
 
 		app.onRequest((req) => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			onRequestHasCtx = !!ctx;
 		});
 
 		app.beforeHandle(() => {
-			const ctx = ContextToken.get();
+			const ctx = RavenContext.get();
 			if (ctx) {
 				beforeHandleParams = { ...ctx.params };
 				beforeHandleQuery = { ...ctx.query };

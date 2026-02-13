@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { ContextToken, type Context } from "../main";
+import { RavenContext, type Context } from "../main";
 import { runScoped, createScopedToken } from "../utils/scoped-token";
 
 describe("ScopedToken Mechanism", () => {
@@ -71,7 +71,7 @@ describe("ScopedToken Mechanism", () => {
     );
   });
 
-  it("should work with predefined ContextToken", async () => {
+  it("should work with predefined RavenContext", async () => {
     const mockContext: Context = {
       request: new Request("http://test.com"),
       url: new URL("http://test.com"),
@@ -83,9 +83,9 @@ describe("ScopedToken Mechanism", () => {
     };
 
     await runScoped(async () => {
-      ContextToken.set(mockContext);
-      expect(ContextToken.get()).toBe(mockContext);
-      expect(ContextToken.getOrFailed().method).toBe("POST");
+      RavenContext.set(mockContext);
+      expect(RavenContext.get()).toBe(mockContext);
+      expect(RavenContext.getOrFailed().method).toBe("POST");
     });
   });
 });
