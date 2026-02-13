@@ -24,8 +24,34 @@ export interface Context {
  */
 export type RequestHandler = (ctx: Context) => Response | Promise<Response>;
 
+/**
+ * Lifecycle hook for when a request is received
+ */
+export type OnRequestHook = (request: Request) => void | Response | Promise<void | Response>;
+
+/**
+ * Lifecycle hook before the request handler is called
+ */
+export type BeforeHandleHook = () => void | Response | Promise<void | Response>;
+
+/**
+ * Lifecycle hook after the handler is called, before the response is sent
+ */
+export type BeforeResponseHook = (response: Response) => void | Response | Promise<void | Response>;
+
+/**
+ * Hook for global error handling
+ */
+export type OnErrorHook = (error: unknown) => Response | Promise<Response>;
+
 export class Raven {
 	private adapter: ServerAdapter | null = null;
+	private hooks = {
+		onRequest: [] as OnRequestHook[],
+		beforeHandle: [] as BeforeHandleHook[],
+		beforeResponse: [] as BeforeResponseHook[],
+		onError: [] as OnErrorHook[],
+	};
 
 	/**
 	 * Start the HTTP server with the given configuration
@@ -56,19 +82,108 @@ export class Raven {
 	}
 
 	/**
+	 * Register an onRequest hook
+	 */
+	onRequest(hook: OnRequestHook): this {
+		this.hooks.onRequest.push(hook);
+		return this;
+	}
+
+	/**
+	 * Register a beforeHandle hook
+	 */
+	beforeHandle(hook: BeforeHandleHook): this {
+		this.hooks.beforeHandle.push(hook);
+		return this;
+	}
+
+	/**
+	 * Register a beforeResponse hook
+	 */
+	beforeResponse(hook: BeforeResponseHook): this {
+		this.hooks.beforeResponse.push(hook);
+		return this;
+	}
+
+	/**
+	 * Register an onError hook
+	 */
+	onError(hook: OnErrorHook): this {
+		this.hooks.onError.push(hook);
+		return this;
+	}
+
+	/**
 	 * Handle incoming HTTP request
 	 */
-	private handleRequest(request: Request): Response | Promise<Response> {
-		const url = new URL(request.url);
-		const context: Context = {
-			request,
-			url,
-			method: request.method,
-			headers: request.headers,
-			body: request.body,
-		};
+	private async handleRequest(request: Request): Promise<Response> {
+		try {
+			// 1. onRequest hooks
+			for (const hook of this.hooks.onRequest) {
+				const result = await hook(request);
+				if (result instanceof Response) {
+					return this.handleResponseHooks(result);
+				}
+			}
 
-		return this.defaultHandler(context);
+			// 2. Create context
+			const url = new URL(request.url);
+			const context: Context = {
+				request,
+				url,
+				method: request.method,
+				headers: request.headers,
+				body: request.body,
+			};
+
+			// 3. beforeHandle hooks
+			for (const hook of this.hooks.beforeHandle) {
+				const result = await hook();
+				if (result instanceof Response) {
+					return this.handleResponseHooks(result, context);
+				}
+			}
+
+			// 4. Main handler
+			const response = await this.defaultHandler(context);
+
+			// 5. beforeResponse hooks
+			return this.handleResponseHooks(response, context);
+		} catch (error) {
+			return this.handleError(error, request);
+		}
+	}
+
+	/**
+	 * Run beforeResponse hooks
+	 */
+	private async handleResponseHooks(response: Response, _ctx?: Context): Promise<Response> {
+		let currentResponse = response;
+		for (const hook of this.hooks.beforeResponse) {
+			const result = await hook(currentResponse);
+			if (result instanceof Response) {
+				currentResponse = result;
+			}
+		}
+		return currentResponse;
+	}
+
+	/**
+	 * Run error hooks
+	 */
+	private async handleError(error: unknown, request: Request): Promise<Response> {
+		if (this.hooks.onError.length > 0) {
+			for (const hook of this.hooks.onError) {
+				const result = await hook(error);
+				if (result instanceof Response) {
+					return result;
+				}
+			}
+		}
+
+		// Default error fallback
+		console.error("Unhandled error:", error);
+		return new Response("Internal Server Error", { status: 500 });
 	}
 
 	/**
