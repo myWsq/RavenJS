@@ -8,14 +8,17 @@ const { describe, test, expect } = await (async () => {
 	}
 })() as typeof import("vitest");
 
-import { Raven } from "../index.ts";
+import { Raven, ContextToken } from "../index.ts";
 
 describe("Raven Lifecycle Hooks", () => {
-	test("should execute hooks in order", async () => {
+	test("should execute hooks in order and have context access", async () => {
 		const app = new Raven();
 		const executionOrder: string[] = [];
 
-		app.onRequest(() => { executionOrder.push("onRequest"); });
+		app.onRequest(() => { 
+			const ctx = ContextToken.get();
+			if (ctx) executionOrder.push(`onRequest:${ctx.method}`); 
+		});
 		app.beforeHandle(() => { executionOrder.push("beforeHandle"); });
 		app.beforeResponse((res) => { 
 			executionOrder.push("beforeResponse");
@@ -27,7 +30,7 @@ describe("Raven Lifecycle Hooks", () => {
 		// @ts-ignore - access private for testing
 		await app.handleRequest(request);
 
-		expect(executionOrder).toEqual(["onRequest", "beforeHandle", "beforeResponse"]);
+		expect(executionOrder).toEqual(["onRequest:GET", "beforeHandle", "beforeResponse"]);
 	});
 
 	test("should short-circuit on onRequest return", async () => {

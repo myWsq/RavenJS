@@ -1,4 +1,5 @@
 import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
  * Server configuration options
@@ -27,7 +28,7 @@ export type RequestHandler = (ctx: Context) => Response | Promise<Response>;
 /**
  * Lifecycle hook for when a request is received
  */
-export type OnRequestHook = (request: Request) => void | Response | Promise<void | Response>;
+export type OnRequestHook = () => void | Response | Promise<void | Response>;
 
 /**
  * Lifecycle hook before the request handler is called
@@ -43,6 +44,62 @@ export type BeforeResponseHook = (response: Response) => void | Response | Promi
  * Hook for global error handling
  */
 export type OnErrorHook = (error: unknown) => Response | Promise<Response>;
+
+/**
+ * 内部存储引擎，不直接导出。
+ */
+const storage = new AsyncLocalStorage<Map<symbol, any>>();
+
+/**
+ * 启动一个新的异步作用域。
+ */
+export function runScoped<R>(callback: () => R): R {
+	return storage.run(new Map(), callback);
+}
+
+/**
+ * ScopedToken 代表一个在异步作用域中注册的变量令牌。
+ */
+export class ScopedToken<T> {
+	public readonly symbol: symbol;
+
+	constructor(public readonly name: string) {
+		this.symbol = Symbol(name);
+	}
+
+	public get(): T | undefined {
+		const store = storage.getStore();
+		return store?.get(this.symbol);
+	}
+
+	public getOrFailed(): T {
+		const store = storage.getStore();
+		if (!store) {
+			throw new Error(`Scope is not initialized. Cannot access scoped token: ${this.name}`);
+		}
+		return store.get(this.symbol);
+	}
+
+	public set(value: T): void {
+		const store = storage.getStore();
+		if (!store) {
+			throw new Error(`Cannot set value for scoped token "${this.name}": Scope is not initialized.`);
+		}
+		store.set(this.symbol, value);
+	}
+}
+
+/**
+ * 创建一个新的作用域令牌。
+ */
+export function createScopedToken<T>(name: string): ScopedToken<T> {
+	return new ScopedToken<T>(name);
+}
+
+/**
+ * 框架核心 Context 的作用域令牌。
+ */
+export const ContextToken = createScopedToken<Context>("context");
 
 export class Raven {
 	private adapter: ServerAdapter | null = null;
@@ -117,47 +174,50 @@ export class Raven {
 	 * Handle incoming HTTP request
 	 */
 	private async handleRequest(request: Request): Promise<Response> {
-		try {
-			// 1. onRequest hooks
-			for (const hook of this.hooks.onRequest) {
-				const result = await hook(request);
-				if (result instanceof Response) {
-					return this.handleResponseHooks(result);
+		return runScoped(async () => {
+			try {
+				// 1. Create context and inject it as early as possible
+				const url = new URL(request.url);
+				const context: Context = {
+					request,
+					url,
+					method: request.method,
+					headers: request.headers,
+					body: request.body,
+				};
+				ContextToken.set(context);
+
+				// 2. onRequest hooks (now has access to ContextToken)
+				for (const hook of this.hooks.onRequest) {
+					const result = await hook();
+					if (result instanceof Response) {
+						return this.handleResponseHooks(result);
+					}
 				}
-			}
 
-			// 2. Create context
-			const url = new URL(request.url);
-			const context: Context = {
-				request,
-				url,
-				method: request.method,
-				headers: request.headers,
-				body: request.body,
-			};
-
-			// 3. beforeHandle hooks
-			for (const hook of this.hooks.beforeHandle) {
-				const result = await hook();
-				if (result instanceof Response) {
-					return this.handleResponseHooks(result, context);
+				// 3. beforeHandle hooks
+				for (const hook of this.hooks.beforeHandle) {
+					const result = await hook();
+					if (result instanceof Response) {
+						return this.handleResponseHooks(result);
+					}
 				}
+
+				// 4. Main handler
+				const response = await this.defaultHandler(context);
+
+				// 5. beforeResponse hooks
+				return this.handleResponseHooks(response);
+			} catch (error) {
+				return this.handleError(error);
 			}
-
-			// 4. Main handler
-			const response = await this.defaultHandler(context);
-
-			// 5. beforeResponse hooks
-			return this.handleResponseHooks(response, context);
-		} catch (error) {
-			return this.handleError(error, request);
-		}
+		});
 	}
 
 	/**
 	 * Run beforeResponse hooks
 	 */
-	private async handleResponseHooks(response: Response, _ctx?: Context): Promise<Response> {
+	private async handleResponseHooks(response: Response): Promise<Response> {
 		let currentResponse = response;
 		for (const hook of this.hooks.beforeResponse) {
 			const result = await hook(currentResponse);
@@ -171,7 +231,7 @@ export class Raven {
 	/**
 	 * Run error hooks
 	 */
-	private async handleError(error: unknown, request: Request): Promise<Response> {
+	private async handleError(error: unknown): Promise<Response> {
 		if (this.hooks.onError.length > 0) {
 			for (const hook of this.hooks.onError) {
 				const result = await hook(error);
