@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Raven, createPlugin } from "../index";
+import { Raven, createPlugin } from "../main";
 
 describe("Plugin System", () => {
 	it("should register a simple sync plugin", async () => {

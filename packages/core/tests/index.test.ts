@@ -8,7 +8,7 @@ const { describe, test, expect } = await (async () => {
 	}
 })() as typeof import("vitest");
 
-import { Raven } from "../index.ts";
+import { Raven } from "../main.ts";
 
 describe("Raven Basic Server", () => {
 	test("should initialize correctly", () => {

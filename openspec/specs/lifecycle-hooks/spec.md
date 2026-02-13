@@ -7,15 +7,15 @@
 
 ### Requirement: onRequest 钩子执行
 框架 SHALL 支持注册 `onRequest` 钩子，并在接收到请求后第一时间执行。
-引入路由系统后，`onRequest` 钩子执行时 `Context` 尚未完全组装（不包含 `params` 和 `query`）。
+在 `onRequest` 钩子执行期间，`Context` 尚未组装（不包含 `params` 和 `query`）。路由匹配及 `Context` 的组装必须在该钩子执行完成后进行。
 
 #### Scenario: 成功执行 onRequest 钩子
 - **WHEN** 注册了 `onRequest` 钩子并接收到请求
 - **THEN** 钩子函数被调用，且传入原始 `Request` 对象
 
 #### Scenario: onRequest 钩子短路响应
-- **WHEN** `onRequest` 钩子返回一个 `Response` 对象
-- **THEN** 框架 SHALL 停止后续执行（不执行路由匹配、beforeHandle 和 Handler）
+- **WHEN** `onRequest` 钩子返回 a `Response` 对象
+- **THEN** 框架 SHALL 停止后续执行（不执行路由匹配、Context 组装、beforeHandle 和 Handler）
 - **AND** 直接进入响应阶段
 
 #### Scenario: 上下文作用域覆盖

@@ -8,16 +8,15 @@ const { describe, test, expect } = await (async () => {
 	}
 })() as typeof import("vitest");
 
-import { Raven, ContextToken } from "../index.ts";
+import { Raven, ContextToken } from "../main.ts";
 
 describe("Raven Lifecycle Hooks", () => {
 	test("should execute hooks in order and have context access", async () => {
 		const app = new Raven();
 		const executionOrder: string[] = [];
 
-		app.onRequest(() => { 
-			const ctx = ContextToken.get();
-			if (ctx) executionOrder.push(`onRequest:${ctx.method}`); 
+		app.onRequest((req) => { 
+			executionOrder.push(`onRequest:${req.method}`); 
 		});
 		app.beforeHandle(() => { executionOrder.push("beforeHandle"); });
 		app.beforeResponse((res) => { 

@@ -1,0 +1,17 @@
+{
+  "name": "@ravenjs/plugins",
+  "version": "0.0.1",
+  "private": true,
+  "peerDependencies": {
+    "@ravenjs/core": "workspace:*"
+  },
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

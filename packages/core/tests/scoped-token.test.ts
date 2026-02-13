@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { ContextToken, type Context } from "../index";
+import { ContextToken, type Context } from "../main";
 import { runScoped, createScopedToken } from "../utils/scoped-token";
 
 describe("ScopedToken Mechanism", () => {
@@ -23,7 +23,7 @@ describe("ScopedToken Mechanism", () => {
       return runScoped(async () => {
         TaskToken.set(id);
         // Simulate async work
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise((r) => setTimeout(r, Math.random() * 10));
         return TaskToken.get() === id;
       });
     };
@@ -35,7 +35,7 @@ describe("ScopedToken Mechanism", () => {
       runTask(4),
     ]);
 
-    expect(results.every(r => r === true)).toBe(true);
+    expect(results.every((r) => r === true)).toBe(true);
   });
 
   it("should handle nested scopes correctly", async () => {
@@ -59,12 +59,16 @@ describe("ScopedToken Mechanism", () => {
 
   it("should throw when accessing tokens outside of runScoped", () => {
     const AnonymousToken = createScopedToken<string>("anon");
-    
+
     expect(() => AnonymousToken.get()).not.toThrow(); // Should return undefined
     expect(AnonymousToken.get()).toBeUndefined();
-    
-    expect(() => AnonymousToken.set("value")).toThrow("Scope is not initialized");
-    expect(() => AnonymousToken.getOrFailed()).toThrow("Scope is not initialized");
+
+    expect(() => AnonymousToken.set("value")).toThrow(
+      "Scope is not initialized"
+    );
+    expect(() => AnonymousToken.getOrFailed()).toThrow(
+      "Scope is not initialized"
+    );
   });
 
   it("should work with predefined ContextToken", async () => {
@@ -74,6 +78,8 @@ describe("ScopedToken Mechanism", () => {
       method: "POST",
       headers: new Headers(),
       body: null,
+      params: {},
+      query: {},
     };
 
     await runScoped(async () => {

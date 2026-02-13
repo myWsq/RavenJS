@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Raven, ContextToken } from "../index";
+import { Raven, ContextToken } from "../main";
 
 describe("Routing System", () => {
 	it("should match simple GET route", async () => {

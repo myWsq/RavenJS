@@ -14,9 +14,16 @@
         "typescript": "^5",
       },
     },
-    "packages/main": {
-      "name": "@ravenjs/main",
+    "packages/core": {
+      "name": "@ravenjs/core",
       "version": "0.0.1",
+    },
+    "packages/plugins": {
+      "name": "@ravenjs/plugins",
+      "version": "0.0.1",
+      "peerDependencies": {
+        "@ravenjs/core": "workspace:*",
+      },
     },
   },
   "packages": {
@@ -92,7 +99,9 @@
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "https://bnpm.byted.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
-    "@ravenjs/main": ["@ravenjs/main@workspace:packages/main"],
+    "@ravenjs/core": ["@ravenjs/core@workspace:packages/core"],
+
+    "@ravenjs/plugins": ["@ravenjs/plugins@workspace:packages/plugins"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.57.1", "https://bnpm.byted.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.57.1.tgz", { "os": "android", "cpu": "arm" }, "sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg=="],
 

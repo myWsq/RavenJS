@@ -1,4 +1,4 @@
-import type { ServerConfig } from "../index";
+import type { ServerConfig } from "../main";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 /**
