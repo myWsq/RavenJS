@@ -1,0 +1,22 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  Tech stack: Bun, TypeScript
+  Coding Guidelines:
+    - Core logic should primarily reside in packages/main/index.ts
+    - Reusable utility functions should be placed in a separate utils/ directory
+    - Focus on high performance, leveraging Bun's native APIs
+    - Use Pascal naming convention strictly (as per user rule)
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
