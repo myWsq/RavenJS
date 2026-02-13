@@ -1,3 +1,5 @@
+import { BunAdapter, NodeAdapter, type ServerAdapter } from "./utils/adapters";
+
 /**
  * Server configuration options
  */
@@ -23,39 +25,40 @@ export interface Context {
 export type RequestHandler = (ctx: Context) => Response | Promise<Response>;
 
 export class Raven {
-	private server: ReturnType<typeof Bun.serve> | null = null;
+	private adapter: ServerAdapter | null = null;
 
 	/**
 	 * Start the HTTP server with the given configuration
 	 */
-	listen(config: ServerConfig): void {
-		if (this.server) {
+	async listen(config: ServerConfig): Promise<void> {
+		if (this.adapter) {
 			throw new Error("Server is already running");
 		}
 
-		this.server = Bun.serve({
-			port: config.port,
-			hostname: config.hostname,
-			fetch: (request) => {
-				return this.handleRequest(request);
-			},
+		// Environment detection
+		// @ts-ignore
+		const isBun = typeof Bun !== "undefined";
+		this.adapter = isBun ? new BunAdapter() : new NodeAdapter();
+
+		await this.adapter.listen(config, (request) => {
+			return this.handleRequest(request);
 		});
 	}
 
 	/**
 	 * Stop the running server
 	 */
-	stop(): void {
-		if (this.server) {
-			this.server.stop();
-			this.server = null;
+	async stop(): Promise<void> {
+		if (this.adapter) {
+			await this.adapter.stop();
+			this.adapter = null;
 		}
 	}
 
 	/**
 	 * Handle incoming HTTP request
 	 */
-	private handleRequest(request: Request): Response {
+	private handleRequest(request: Request): Response | Promise<Response> {
 		const url = new URL(request.url);
 		const context: Context = {
 			request,

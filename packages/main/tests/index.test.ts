@@ -1,4 +1,13 @@
-import { expect, test, describe } from "bun:test";
+// Use a conditional import for test runners to support both Bun and Node.js (via Vitest)
+const { describe, test, expect } = await (async () => {
+	// @ts-ignore
+	if (typeof Bun !== "undefined") {
+		return await import("bun:test");
+	} else {
+		return await import("vitest");
+	}
+})() as typeof import("vitest");
+
 import { Raven } from "../index.ts";
 
 describe("Raven Basic Server", () => {
