@@ -12,6 +12,9 @@
     "@biomejs/biome": "^2.3.14",
     "@types/bun": "latest"
   },
+  "scripts": {
+    "test": "bun test packages/*/tests/*.test.ts"
+  },
   "peerDependencies": {
     "typescript": "^5"
   }

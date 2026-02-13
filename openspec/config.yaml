@@ -8,6 +8,8 @@ context: |
   Coding Guidelines:
     - Core logic should primarily reside in packages/main/index.ts
     - Reusable utility functions should be placed in a separate utils/ directory
+    - Unit tests should be implemented in the tests/ directory within each package (e.g., packages/main/tests/)
+    - Do not use root-level test scripts like test-server.ts for automated testing
     - Focus on high performance, leveraging Bun's native APIs
     - Use Pascal naming convention strictly (as per user rule)
 
