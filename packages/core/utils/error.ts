@@ -22,14 +22,14 @@ export class RavenError extends Error {
 		return new RavenError("ERR_SERVER_ALREADY_RUNNING", "Server is already running", {});
 	}
 
-	public static ERR_SCOPED_TOKEN_NOT_INITIALIZED(name: string): RavenError {
-		const message = `Scope is not initialized. Cannot access scoped token: ${name}`;
-		return new RavenError("ERR_SCOPED_TOKEN_NOT_INITIALIZED", message, {});
+	public static ERR_STATE_NOT_INITIALIZED(name: string): RavenError {
+		const message = `State is not initialized. Cannot access state: ${name}`;
+		return new RavenError("ERR_STATE_NOT_INITIALIZED", message, {});
 	}
 
-	public static ERR_SCOPED_TOKEN_CANNOT_SET(name: string): RavenError {
-		const message = `Cannot set value for scoped token "${name}": Scope is not initialized.`;
-		return new RavenError("ERR_SCOPED_TOKEN_CANNOT_SET", message, {});
+	public static ERR_STATE_CANNOT_SET(name: string): RavenError {
+		const message = `Cannot set value for state "${name}": Scope is not initialized.`;
+		return new RavenError("ERR_STATE_CANNOT_SET", message, {});
 	}
 
 	public toJSON(): Record<string, unknown> {

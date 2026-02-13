@@ -3,14 +3,19 @@ import {
   NodeAdapter,
   type ServerAdapter,
 } from "./utils/adapters.ts";
-import { createScopedToken, runScoped } from "./utils/scoped-token.ts";
+import {
+  createRequestState,
+  currentAppStorage,
+  requestStorage,
+  type RavenInstance,
+} from "./utils/state.ts";
 import { RavenError } from "./utils/error.ts";
 import { RadixRouter } from "./utils/router.ts";
 
 /**
- * Scope token for the framework's core Context.
+ * Scope state for the framework's core Context.
  */
-export const RavenContext = createScopedToken<Context>("raven:context");
+export const RavenContext = createRequestState<Context>("raven:context");
 
 /**
  * Server configuration options
@@ -105,11 +110,12 @@ export function createPlugin(plugin: Plugin): Plugin {
   return plugin;
 }
 
-export class Raven {
+export class Raven implements RavenInstance {
   private adapter: ServerAdapter | null = null;
   private router: RadixRouter<RouteData>;
   private prefix: string;
-  private parent: Raven | null;
+  public readonly parent: Raven | null;
+  public readonly internalStateMap = new Map<symbol, any>();
   private plugins: Plugin[] = [];
   private hooks = {
     onRequest: [] as OnRequestHook[],
@@ -133,7 +139,7 @@ export class Raven {
    */
   async register(plugin: Plugin): Promise<this> {
     this.plugins.push(plugin);
-    await plugin(this);
+    await currentAppStorage.run(this, () => plugin(this));
     return this;
   }
 
@@ -149,7 +155,7 @@ export class Raven {
       parent: this,
       router: this.router,
     });
-    await callback(child);
+    await currentAppStorage.run(child, () => callback(child));
     return this;
   }
 
@@ -269,59 +275,61 @@ export class Raven {
   /**
    * Handle incoming HTTP request
    */
-  private async handleRequest(request: Request): Promise<Response> {
-    return runScoped(async () => {
-      try {
-        // 1. Global onRequest hooks - Context not yet available
-        const globalOnRequest = this.getAllHooks("onRequest");
-        for (const hook of globalOnRequest) {
-          const result = await hook(request);
-          if (result instanceof Response) {
-            return result;
+  public async handleRequest(request: Request): Promise<Response> {
+    return currentAppStorage.run(this, () => {
+      return requestStorage.run(new Map(), async () => {
+        try {
+          // 1. Global onRequest hooks - Context not yet available
+          const globalOnRequest = this.getAllHooks("onRequest");
+          for (const hook of globalOnRequest) {
+            const result = await hook(request);
+            if (result instanceof Response) {
+              return result;
+            }
           }
-        }
 
-        // 2. Route matching
-        const url = new URL(request.url);
-        const match = this.router.find(request.method, url.pathname);
-        if (!match) {
-          // Initialize minimal context for error handling
-          const ctx = new Context(request);
+          // 2. Route matching
+          const url = new URL(request.url);
+          const match = this.router.find(request.method, url.pathname);
+          if (!match) {
+            // Initialize minimal context for error handling
+            const ctx = new Context(request);
+            RavenContext.set(ctx);
+            return this.handleError(new Error("Not Found"), 404);
+          }
+
+          const { data: routeData, params } = match;
+
+          // 3. Assemble full context
+          const query: Record<string, string> = {};
+          url.searchParams.forEach((value, key) => {
+            query[key] = value;
+          });
+
+          const ctx = new Context(request, params, query);
           RavenContext.set(ctx);
-          return this.handleError(new Error("Not Found"), 404);
-        }
 
-        const { data: routeData, params } = match;
-
-        // 3. Assemble full context
-        const query: Record<string, string> = {};
-        url.searchParams.forEach((value, key) => {
-          query[key] = value;
-        });
-
-        const ctx = new Context(request, params, query);
-        RavenContext.set(ctx);
-
-        // 4. Execute route-specific pipeline (beforeHandle and onwards)
-        for (const hook of routeData.pipeline.beforeHandle) {
-          const result = await hook();
-          if (result instanceof Response) {
-            return this.handleResponseHooks(result, routeData.pipeline);
+          // 4. Execute route-specific pipeline (beforeHandle and onwards)
+          for (const hook of routeData.pipeline.beforeHandle) {
+            const result = await hook();
+            if (result instanceof Response) {
+              return this.handleResponseHooks(result, routeData.pipeline);
+            }
           }
-        }
 
-        // 5. Main handler
-        const response = await routeData.handler();
+          // 5. Main handler
+          const response = await routeData.handler();
 
-        // 6. beforeResponse hooks
-        return this.handleResponseHooks(response, routeData.pipeline);
-      } catch (error) {
-        // Ensure context is available for error handlers if it wasn't set yet
-        if (!RavenContext.get()) {
-          RavenContext.set(new Context(request));
+          // 6. beforeResponse hooks
+          return this.handleResponseHooks(response, routeData.pipeline);
+        } catch (error) {
+          // Ensure context is available for error handlers if it wasn't set yet
+          if (!RavenContext.get()) {
+            RavenContext.set(new Context(request));
+          }
+          return this.handleError(error);
         }
-        return this.handleError(error);
-      }
+      });
     });
   }
 
