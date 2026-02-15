@@ -216,7 +216,7 @@ export class Raven implements RavenInstance {
    * Start the HTTP server with the given configuration
    */
   async listen(config: ServerConfig): Promise<void> {
-    if (this.adapter || (this.parent && this.parent.adapter)) {
+    if (this.adapter || (this.parent?.adapter)) {
       throw RavenError.ERR_SERVER_ALREADY_RUNNING();
     }
 
