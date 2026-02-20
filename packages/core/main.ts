@@ -4,7 +4,6 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import Ajv, { type ValidateFunction } from "ajv/dist/jtd";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -14,199 +13,6 @@ export interface ErrorContext {
   [key: string]: unknown;
 }
 
-// =============================================================================
-// SECTION: JTD (JSON Type Definition)
-// =============================================================================
-
-export const OPTIONAL = Symbol("optional");
-
-export type JTDType =
-  | "boolean"
-  | "string"
-  | "timestamp"
-  | "float32"
-  | "float64"
-  | "int8"
-  | "int16"
-  | "int32"
-  | "uint8"
-  | "uint16"
-  | "uint32";
-
-type JTDBaseSchema =
-  | { type: JTDType; nullable?: true }
-  | { enum: readonly string[]; nullable?: true }
-  | { elements: JTDBaseSchema; nullable?: true }
-  | { values: JTDBaseSchema; nullable?: true }
-  | {
-      properties?: Record<string, JTDBaseSchema>;
-      optionalProperties?: Record<string, JTDBaseSchema>;
-      nullable?: true;
-    }
-  | { discriminator: string; mapping: Record<string, JTDBaseSchema> }
-  | { ref: string }
-  | Record<string, never>;
-
-export type JTDSchema = JTDBaseSchema;
-
-export interface FieldSchema<T extends JTDBaseSchema = JTDBaseSchema> {
-  readonly [OPTIONAL]?: true;
-  readonly schema: T;
-  optional(): FieldSchema<T> & { readonly [OPTIONAL]: true };
-  nullable(): FieldSchema<T & { nullable: true }>;
-}
-
-function createField<T extends JTDBaseSchema>(
-  schema: T,
-  isOptional?: true
-): FieldSchema<T> {
-  const field: FieldSchema<T> = {
-    schema,
-    optional() {
-      return { ...this, [OPTIONAL]: true as const } as FieldSchema<T> & {
-        readonly [OPTIONAL]: true;
-      };
-    },
-    nullable() {
-      const newField = createField(
-        { ...schema, nullable: true as const },
-        this[OPTIONAL]
-      ) as FieldSchema<T & { nullable: true }>;
-      if (this[OPTIONAL]) {
-        return { ...newField, [OPTIONAL]: true as const } as typeof newField & {
-          readonly [OPTIONAL]: true;
-        };
-      }
-      return newField;
-    },
-  };
-  if (isOptional) {
-    (field as any)[OPTIONAL] = true;
-  }
-  return field;
-}
-
-type InferJTDType<T extends JTDType> = T extends "boolean"
-  ? boolean
-  : T extends "string" | "timestamp"
-    ? string
-    : T extends
-          | "float32"
-          | "float64"
-          | "int8"
-          | "int16"
-          | "int32"
-          | "uint8"
-          | "uint16"
-          | "uint32"
-      ? number
-      : never;
-
-type InferNullable<T, Base> = T extends { nullable: true } ? Base | null : Base;
-
-type InferFieldSchema<T> = T extends FieldSchema<infer S> ? InferSchema<S> : never;
-
-type RequiredKeys<T> = {
-  [K in keyof T]: T[K] extends { readonly [OPTIONAL]: true } ? never : K;
-}[keyof T];
-
-type OptionalKeys<T> = {
-  [K in keyof T]: T[K] extends { readonly [OPTIONAL]: true } ? K : never;
-}[keyof T];
-
-type InferObjectFields<T> = {
-  [K in RequiredKeys<T>]: InferFieldSchema<T[K]>;
-} & {
-  [K in OptionalKeys<T>]?: InferFieldSchema<T[K]>;
-};
-
-type InferSchema<T> = T extends { type: infer U extends JTDType }
-  ? InferNullable<T, InferJTDType<U>>
-  : T extends { enum: readonly (infer E)[] }
-    ? InferNullable<T, E>
-    : T extends { elements: infer E extends JTDBaseSchema }
-      ? InferNullable<T, InferSchema<E>[]>
-      : T extends { values: infer V extends JTDBaseSchema }
-        ? InferNullable<T, Record<string, InferSchema<V>>>
-        : T extends {
-              properties: infer P;
-              optionalProperties?: infer O;
-            }
-          ? InferNullable<
-              T,
-              { [K in keyof P]: InferSchema<P[K]> } & {
-                [K in keyof O]?: InferSchema<O[K]>;
-              }
-            >
-          : T extends { properties: infer P }
-            ? InferNullable<T, { [K in keyof P]: InferSchema<P[K]> }>
-            : T extends { optionalProperties: infer O }
-              ? InferNullable<T, { [K in keyof O]?: InferSchema<O[K]> }>
-              : unknown;
-
-export type Infer<T> = T extends FieldSchema<infer S>
-  ? InferSchema<S>
-  : T extends JTDBaseSchema
-    ? InferSchema<T>
-    : never;
-
-type ExtractSchema<T> = T extends FieldSchema<infer S> ? S : never;
-
-export const J = {
-  string: () => createField({ type: "string" as const }),
-  boolean: () => createField({ type: "boolean" as const }),
-  number: () => createField({ type: "float64" as const }),
-  int: () => createField({ type: "int32" as const }),
-  int8: () => createField({ type: "int8" as const }),
-  int16: () => createField({ type: "int16" as const }),
-  int32: () => createField({ type: "int32" as const }),
-  uint8: () => createField({ type: "uint8" as const }),
-  uint16: () => createField({ type: "uint16" as const }),
-  uint32: () => createField({ type: "uint32" as const }),
-  float32: () => createField({ type: "float32" as const }),
-  float64: () => createField({ type: "float64" as const }),
-  timestamp: () => createField({ type: "timestamp" as const }),
-
-  enum: <const T extends readonly string[]>(values: T) =>
-    createField({ enum: values }),
-
-  array: <T extends FieldSchema>(item: T) =>
-    createField({ elements: item.schema } as { elements: ExtractSchema<T> }),
-
-  record: <T extends FieldSchema>(value: T) =>
-    createField({ values: value.schema } as { values: ExtractSchema<T> }),
-
-  object: <T extends Record<string, FieldSchema>>(fields: T) => {
-    const properties: Record<string, JTDBaseSchema> = {};
-    const optionalProperties: Record<string, JTDBaseSchema> = {};
-
-    for (const [key, field] of Object.entries(fields)) {
-      if (field[OPTIONAL]) {
-        optionalProperties[key] = field.schema;
-      } else {
-        properties[key] = field.schema;
-      }
-    }
-
-    const schema: JTDBaseSchema = {};
-    if (Object.keys(properties).length > 0) {
-      (schema as any).properties = properties;
-    }
-    if (Object.keys(optionalProperties).length > 0) {
-      (schema as any).optionalProperties = optionalProperties;
-    }
-
-    type ResultSchema = {
-      properties: { [K in RequiredKeys<T>]: ExtractSchema<T[K]> };
-      optionalProperties: { [K in OptionalKeys<T>]: ExtractSchema<T[K]> };
-    };
-
-    const result = createField(schema as ResultSchema);
-
-    return result as typeof result & { __fields: T };
-  },
-};
-
 export interface RavenInstance {
   parent: RavenInstance | null;
   internalStateMap: Map<symbol, any>;
@@ -214,7 +20,6 @@ export interface RavenInstance {
 
 export interface StateOptions {
   name?: string;
-  schema?: object;
 }
 
 export interface RouteMatch<T> {
@@ -337,12 +142,10 @@ let stateCounter = 0;
 export abstract class ScopedState<T> {
   public readonly symbol: symbol;
   public readonly name: string;
-  public readonly schema?: object;
 
   constructor(options?: StateOptions) {
     this.name = options?.name ?? `state:${++stateCounter}`;
     this.symbol = Symbol(this.name);
-    this.schema = options?.schema;
   }
 
   public abstract get(): T | undefined;
@@ -418,28 +221,6 @@ export const ParamsState = createRequestState<unknown>({ name: "raven:params" })
 export const HeadersState = createRequestState<unknown>({
   name: "raven:headers",
 });
-
-export function useBody<T extends FieldSchema>(_schema: T): Infer<T> {
-  return BodyState.getOrFailed() as Infer<T>;
-}
-
-export function useQuery<T extends FieldSchema>(_schema: T): Infer<T> {
-  return QueryState.getOrFailed() as Infer<T>;
-}
-
-export function useParams<T extends FieldSchema>(_schema: T): Infer<T> {
-  return ParamsState.getOrFailed() as Infer<T>;
-}
-
-export function useHeaders<T extends FieldSchema>(_schema: T): Infer<T> {
-  return HeadersState.getOrFailed() as Infer<T>;
-}
-
-// =============================================================================
-// SECTION: Validation
-// =============================================================================
-
-const ajv = new Ajv();
 
 // =============================================================================
 // SECTION: Router
@@ -658,70 +439,7 @@ export class Context {
   }
 }
 
-export type HandlerFn = () => Response | Promise<Response>;
-
-export type Handler = HandlerFn & {
-  bodySchema?: JTDSchema;
-  querySchema?: JTDSchema;
-  paramsSchema?: JTDSchema;
-  headersSchema?: JTDSchema;
-  bodyValidator?: ValidateFunction<unknown>;
-  queryValidator?: ValidateFunction<unknown>;
-  paramsValidator?: ValidateFunction<unknown>;
-  headersValidator?: ValidateFunction<unknown>;
-};
-
-export class HandlerBuilder {
-  private _bodySchema?: JTDSchema;
-  private _querySchema?: JTDSchema;
-  private _paramsSchema?: JTDSchema;
-  private _headersSchema?: JTDSchema;
-  private _bodyValidator?: ValidateFunction<unknown>;
-  private _queryValidator?: ValidateFunction<unknown>;
-  private _paramsValidator?: ValidateFunction<unknown>;
-  private _headersValidator?: ValidateFunction<unknown>;
-
-  bodySchema<T extends FieldSchema>(schema: T): this {
-    this._bodySchema = schema.schema;
-    this._bodyValidator = ajv.compile(schema.schema as any);
-    return this;
-  }
-
-  querySchema<T extends FieldSchema>(schema: T): this {
-    this._querySchema = schema.schema;
-    this._queryValidator = ajv.compile(schema.schema as any);
-    return this;
-  }
-
-  paramsSchema<T extends FieldSchema>(schema: T): this {
-    this._paramsSchema = schema.schema;
-    this._paramsValidator = ajv.compile(schema.schema as any);
-    return this;
-  }
-
-  headersSchema<T extends FieldSchema>(schema: T): this {
-    this._headersSchema = schema.schema;
-    this._headersValidator = ajv.compile(schema.schema as any);
-    return this;
-  }
-
-  handle(fn: HandlerFn): Handler {
-    const handler = fn as Handler;
-    handler.bodySchema = this._bodySchema;
-    handler.querySchema = this._querySchema;
-    handler.paramsSchema = this._paramsSchema;
-    handler.headersSchema = this._headersSchema;
-    handler.bodyValidator = this._bodyValidator;
-    handler.queryValidator = this._queryValidator;
-    handler.paramsValidator = this._paramsValidator;
-    handler.headersValidator = this._headersValidator;
-    return handler;
-  }
-}
-
-export function createHandler(): HandlerBuilder {
-  return new HandlerBuilder();
-}
+export type Handler = () => Response | Promise<Response>;
 
 export type OnRequestHook = (
   request: Request
@@ -913,7 +631,7 @@ export class Raven implements RavenInstance {
           const ctx = new Context(request, params, query);
           RavenContext.set(ctx);
 
-          await this.processStates(routeData.handler, request, params, query);
+          await this.processStates(request, params, query);
 
           for (const hook of routeData.pipeline.beforeHandle) {
             const result = await hook();
@@ -936,7 +654,6 @@ export class Raven implements RavenInstance {
   }
 
   private async processStates(
-    handler: Handler,
     request: Request,
     params: Record<string, string>,
     query: Record<string, string>
@@ -961,27 +678,7 @@ export class Raven implements RavenInstance {
         );
       }
       BodyState.set(data);
-      this.runValidator(handler.bodyValidator, data, "body");
     }
-
-    this.runValidator(handler.queryValidator, query, "query");
-    this.runValidator(handler.paramsValidator, params, "params");
-    this.runValidator(handler.headersValidator, headersObj, "headers");
-  }
-
-  private runValidator(
-    validator: ValidateFunction<unknown> | undefined,
-    data: unknown,
-    name: string
-  ): void {
-    if (!validator) return;
-    if (validator(data)) return;
-
-    const errors = validator.errors ?? [];
-    const message = errors
-      .map((err) => `${err.instancePath || "/"}: ${err.message || "invalid"}`)
-      .join("; ");
-    throw RavenError.ERR_VALIDATION(message || `Invalid ${name}`);
   }
 
   private async handleResponseHooks(

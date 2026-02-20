@@ -1,0 +1,19 @@
+{
+  "name": "@ravenjs/jtd-validator",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    }
+  },
+  "dependencies": {
+    "ajv": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@ravenjs/core": "workspace:*"
+  }
+}

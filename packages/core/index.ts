@@ -21,11 +21,8 @@ export {
   HeadersState,
 } from "./main.ts";
 
-// Handler & Plugin
-export { createHandler, createPlugin, HandlerBuilder } from "./main.ts";
-
-// JTD Schema Builder & Type Inference
-export { J, useBody, useQuery, useParams, useHeaders } from "./main.ts";
+// Plugin
+export { createPlugin } from "./main.ts";
 
 // Types
 export type {
@@ -33,15 +30,11 @@ export type {
   StateOptions,
   ErrorContext,
   Handler,
-  HandlerFn,
   Plugin,
   OnRequestHook,
   BeforeHandleHook,
   BeforeResponseHook,
   OnErrorHook,
-  JTDSchema,
-  JTDType,
-  Infer,
 } from "./main.ts";
 
 // =============================================================================
