@@ -1,16 +1,4 @@
-# handler-schema-validation Specification
-
-## Purpose
-该规范定义了 Raven 框架的 Handler Schema 校验机制，允许开发者通过 State Slots 声明式地定义请求数据的校验规则，框架在请求生命周期内自动完成数据提取、校验和注入。
-
-## Requirements
-
-### Requirement: Handler 插槽声明 (Handler Slot Declaration)
-开发者 SHALL 能够通过 `createHandler` 为处理器声明所需的 State Slots。
-
-#### Scenario: 声明 Handler 依赖的 Slots
-- **WHEN** 调用 `createHandler({ slots: [bodyState, queryState] }, handler)`
-- **THEN** 返回的 Handler 应当携带该 Slot 列表作为元数据
+## MODIFIED Requirements
 
 ### Requirement: 自动数据注入与校验 (Auto Data Injection and Validation)
 框架 MUST 在请求生命周期中自动激活声明的 Slots，并使用 Ajv 的 `ValidateFunction` 进行 JSON Schema 校验。Body 数据 SHALL 使用 `request.json()` 解析后再通过 validator 校验。
@@ -38,14 +26,8 @@
 - **THEN** 框架 SHALL 自动中断请求并返回 400 响应
 - **AND** 响应体 SHALL 包含 JSON 解析错误信息
 
-### Requirement: Schema 库无关性 (Schema Library Agnostic)
-Core 层 SHALL 只依赖标准 JSON Schema 对象，不与任何特定的 Schema 生成库（TypeBox、Zod 等）绑定。
+## REMOVED Requirements
 
-#### Scenario: 使用原生 JSON Schema
-- **WHEN** 创建 State 时传入标准 JSON Schema 对象 `{ type: 'object', properties: { ... } }`
-- **THEN** 框架应当能够正确使用 Ajv 进行校验
-
-#### Scenario: 通过插件使用 TypeBox
-- **WHEN** 用户安装 `@ravenjs/typebox` 插件并使用其提供的工厂函数
-- **THEN** 应当获得完整的 TypeScript 类型推断能力
-- **AND** 生成的 Schema 应当被 Core 正确识别和校验
+### Requirement: JTD Parser 用于 Body 解析
+**Reason**: 基准测试表明 JTD Parser 在 Bun 运行时下比 JSON.parse + ValidateFunction 慢 3.9 倍，且与其他 schema 类型的验证方式不一致。
+**Migration**: Body 验证自动改为使用 JSON.parse + ValidateFunction，无需用户代码变更。

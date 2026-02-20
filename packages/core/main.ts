@@ -4,7 +4,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import Ajv, { type JTDParser, type ValidateFunction } from "ajv/dist/jtd";
+import Ajv, { type ValidateFunction } from "ajv/dist/jtd";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -586,7 +586,7 @@ export type Handler = HandlerFn & {
   querySchema?: JTDSchema;
   paramsSchema?: JTDSchema;
   headersSchema?: JTDSchema;
-  bodyParser?: JTDParser<unknown>;
+  bodyValidator?: ValidateFunction<unknown>;
   queryValidator?: ValidateFunction<unknown>;
   paramsValidator?: ValidateFunction<unknown>;
   headersValidator?: ValidateFunction<unknown>;
@@ -597,14 +597,14 @@ export class HandlerBuilder {
   private _querySchema?: JTDSchema;
   private _paramsSchema?: JTDSchema;
   private _headersSchema?: JTDSchema;
-  private _bodyParser?: JTDParser<unknown>;
+  private _bodyValidator?: ValidateFunction<unknown>;
   private _queryValidator?: ValidateFunction<unknown>;
   private _paramsValidator?: ValidateFunction<unknown>;
   private _headersValidator?: ValidateFunction<unknown>;
 
   bodySchema<T extends JTDSchema>(schema: T): this {
     this._bodySchema = schema;
-    this._bodyParser = ajv.compileParser(schema);
+    this._bodyValidator = ajv.compile(schema);
     return this;
   }
 
@@ -632,7 +632,7 @@ export class HandlerBuilder {
     handler.querySchema = this._querySchema;
     handler.paramsSchema = this._paramsSchema;
     handler.headersSchema = this._headersSchema;
-    handler.bodyParser = this._bodyParser;
+    handler.bodyValidator = this._bodyValidator;
     handler.queryValidator = this._queryValidator;
     handler.paramsValidator = this._paramsValidator;
     handler.headersValidator = this._headersValidator;
@@ -873,34 +873,16 @@ export class Raven implements RavenInstance {
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
-      if (handler.bodyParser) {
-        let text: string;
-        try {
-          text = await request.text();
-        } catch (err) {
-          throw RavenError.ERR_BAD_REQUEST(
-            `Failed to read request body: ${err instanceof Error ? err.message : "unknown error"}`
-          );
-        }
-        const data = handler.bodyParser(text);
-        if (data === undefined) {
-          const pos = handler.bodyParser.position;
-          throw RavenError.ERR_VALIDATION(
-            `Invalid body at position ${pos}: parse error`
-          );
-        }
-        BodyState.set(data);
-      } else {
-        let data: unknown;
-        try {
-          data = await request.json();
-        } catch (err) {
-          throw RavenError.ERR_BAD_REQUEST(
-            `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`
-          );
-        }
-        BodyState.set(data);
+      let data: unknown;
+      try {
+        data = await request.json();
+      } catch (err) {
+        throw RavenError.ERR_BAD_REQUEST(
+          `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`
+        );
       }
+      BodyState.set(data);
+      this.runValidator(handler.bodyValidator, data, "body");
     }
 
     this.runValidator(handler.queryValidator, query, "query");
