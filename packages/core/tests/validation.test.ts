@@ -1,6 +1,5 @@
 import { describe, it, expect } from "@ravenjs/testing";
-import { Raven, createHandler } from "../main";
-import { createRequestState } from "../utils/state";
+import { Raven, createHandler, createRequestState } from "../main";
 
 describe("State Slots Validation", () => {
   describe("Body Validation", () => {

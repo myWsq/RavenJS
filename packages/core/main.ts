@@ -1,36 +1,452 @@
-import {
-  BunAdapter,
-  NodeAdapter,
-  type ServerAdapter,
-} from "./utils/server-adapter.ts";
-import {
-  createRequestState,
-  currentAppStorage,
-  requestStorage,
-  type RavenInstance,
-  type ScopedState,
-} from "./utils/state.ts";
-import { RavenError, isRavenError } from "./utils/error.ts";
+// =============================================================================
+// SECTION: Imports
+// =============================================================================
 
-import { RadixRouter } from "./utils/router.ts";
-import { validate } from "./utils/validator.ts";
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import Ajv, { type ValidateFunction } from "ajv";
 
-/**
- * Scope state for the framework's core Context.
- */
-export const RavenContext = createRequestState<Context>({ name: "raven:context" });
+// =============================================================================
+// SECTION: Types & Interfaces
+// =============================================================================
 
-/**
- * Server configuration options
- */
+export interface ErrorContext {
+  [key: string]: unknown;
+}
+
+export interface RavenInstance {
+  parent: RavenInstance | null;
+  internalStateMap: Map<symbol, any>;
+}
+
+export type StateSource = "body" | "query" | "params" | "header";
+
+export interface StateOptions {
+  name?: string;
+  schema?: object;
+  source?: StateSource;
+}
+
+export interface RouteMatch<T> {
+  data: T;
+  params: Record<string, string>;
+}
+
 export interface ServerConfig {
   port: number;
   hostname?: string;
 }
 
-/**
- * Context class that encapsulates request and response information
- */
+export interface ServerAdapter {
+  listen(
+    config: ServerConfig,
+    handler: (request: Request) => Response | Promise<Response>
+  ): void | Promise<void>;
+  stop(): void | Promise<void>;
+}
+
+// =============================================================================
+// SECTION: Error Handling
+// =============================================================================
+
+export class RavenError extends Error {
+  public readonly code: string;
+  public readonly context: ErrorContext;
+  public readonly statusCode?: number;
+  public override readonly cause?: unknown;
+
+  private constructor(
+    code: string,
+    message: string,
+    context: ErrorContext,
+    statusCode?: number
+  ) {
+    super(message);
+    this.code = code;
+    this.context = context;
+    this.statusCode = statusCode;
+  }
+
+  public setContext(context: ErrorContext): this {
+    Object.assign(this.context, context);
+    return this;
+  }
+
+  public static ERR_SERVER_ALREADY_RUNNING(): RavenError {
+    return new RavenError(
+      "ERR_SERVER_ALREADY_RUNNING",
+      "Server is already running",
+      {}
+    );
+  }
+
+  public static ERR_STATE_NOT_INITIALIZED(name: string): RavenError {
+    return new RavenError(
+      "ERR_STATE_NOT_INITIALIZED",
+      `State is not initialized. Cannot access state: ${name}`,
+      {}
+    );
+  }
+
+  public static ERR_STATE_CANNOT_SET(name: string): RavenError {
+    return new RavenError(
+      "ERR_STATE_CANNOT_SET",
+      `Cannot set value for state "${name}": Scope is not initialized.`,
+      {}
+    );
+  }
+
+  public static ERR_VALIDATION(message: string): RavenError {
+    return new RavenError("ERR_VALIDATION", message, {}, 400);
+  }
+
+  public toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      code: this.code,
+      message: this.message,
+      context: this.context,
+      statusCode: this.statusCode,
+      cause: this.cause,
+      stack: this.stack,
+    };
+  }
+
+  public toResponse(): Response {
+    const status = this.statusCode ?? 500;
+    return new Response(JSON.stringify({ message: this.message }), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+Object.defineProperty(RavenError.prototype, "name", {
+  value: "RavenError",
+  writable: true,
+  configurable: true,
+});
+
+export function isRavenError(value: unknown): value is RavenError {
+  return value instanceof RavenError;
+}
+
+// =============================================================================
+// SECTION: State Management
+// =============================================================================
+
+export const currentAppStorage = new AsyncLocalStorage<RavenInstance>();
+export const requestStorage = new AsyncLocalStorage<Map<symbol, any>>();
+
+let stateCounter = 0;
+
+export abstract class ScopedState<T> {
+  public readonly symbol: symbol;
+  public readonly name: string;
+  public readonly schema?: object;
+  public readonly source?: StateSource;
+
+  constructor(options?: StateOptions) {
+    this.name = options?.name ?? `state:${++stateCounter}`;
+    this.symbol = Symbol(this.name);
+    this.schema = options?.schema;
+    this.source = options?.source;
+  }
+
+  public abstract get(): T | undefined;
+  public abstract set(value: T): void;
+
+  public getOrFailed(): T {
+    const value = this.get();
+    if (value === undefined) {
+      throw RavenError.ERR_STATE_NOT_INITIALIZED(this.name);
+    }
+    return value;
+  }
+}
+
+export class AppState<T> extends ScopedState<T> {
+  constructor(options?: StateOptions) {
+    super(options);
+  }
+
+  public get(): T | undefined {
+    let current: RavenInstance | null | undefined =
+      currentAppStorage.getStore();
+    while (current) {
+      if (current.internalStateMap.has(this.symbol)) {
+        return current.internalStateMap.get(this.symbol);
+      }
+      current = current.parent;
+    }
+    return undefined;
+  }
+
+  public set(value: T): void {
+    const app = currentAppStorage.getStore();
+    if (!app) {
+      throw RavenError.ERR_STATE_CANNOT_SET(this.name);
+    }
+    app.internalStateMap.set(this.symbol, value);
+  }
+}
+
+export class RequestState<T> extends ScopedState<T> {
+  constructor(options?: StateOptions) {
+    super(options);
+  }
+
+  public get(): T | undefined {
+    const store = requestStorage.getStore();
+    return store?.get(this.symbol);
+  }
+
+  public set(value: T): void {
+    const store = requestStorage.getStore();
+    if (!store) {
+      throw RavenError.ERR_STATE_CANNOT_SET(this.name);
+    }
+    store.set(this.symbol, value);
+  }
+}
+
+export function createAppState<T>(options?: StateOptions): AppState<T> {
+  return new AppState<T>(options);
+}
+
+export function createRequestState<T>(
+  options?: StateOptions
+): RequestState<T> {
+  return new RequestState<T>(options);
+}
+
+// =============================================================================
+// SECTION: Validation
+// =============================================================================
+
+const ajv = new Ajv({
+  coerceTypes: true,
+  removeAdditional: true,
+  useDefaults: true,
+  allErrors: true,
+});
+
+const compiledSchemas = new WeakMap<object, ValidateFunction>();
+
+export function validate<T>(schema: object, data: unknown): T {
+  let validator = compiledSchemas.get(schema);
+  if (!validator) {
+    validator = ajv.compile(schema);
+    compiledSchemas.set(schema, validator);
+  }
+
+  const clonedData = structuredClone(data);
+  const valid = validator(clonedData);
+
+  if (!valid) {
+    const errors = validator.errors ?? [];
+    const message = errors
+      .map((err) => `${err.instancePath || "/"}: ${err.message || "invalid"}`)
+      .join("; ");
+    throw RavenError.ERR_VALIDATION(message || "Validation failed");
+  }
+
+  return clonedData as T;
+}
+
+// =============================================================================
+// SECTION: Router
+// =============================================================================
+
+class RouterNode<T> {
+  children: Map<string, RouterNode<T>> = new Map();
+  paramChild: RouterNode<T> | null = null;
+  wildcardChild: RouterNode<T> | null = null;
+  paramName: string | null = null;
+  handlers: Map<string, T> = new Map();
+
+  insert(segments: string[], method: string, data: T) {
+    let current: RouterNode<T> = this;
+
+    for (const segment of segments) {
+      if (segment.startsWith(":")) {
+        if (!current.paramChild) {
+          current.paramChild = new RouterNode<T>();
+          current.paramName = segment.slice(1);
+        }
+        current = current.paramChild;
+      } else if (segment === "*") {
+        if (!current.wildcardChild) {
+          current.wildcardChild = new RouterNode<T>();
+        }
+        current = current.wildcardChild;
+        break;
+      } else {
+        if (!current.children.has(segment)) {
+          current.children.set(segment, new RouterNode<T>());
+        }
+        current = current.children.get(segment)!;
+      }
+    }
+
+    current.handlers.set(method.toUpperCase(), data);
+  }
+
+  search(
+    segments: string[],
+    method: string,
+    params: Record<string, string>
+  ): T | null {
+    let current: RouterNode<T> = this;
+
+    for (const segment of segments) {
+      const next = current.children.get(segment);
+      if (next) {
+        current = next;
+      } else if (current.paramChild) {
+        if (current.paramName) {
+          params[current.paramName] = segment;
+        }
+        current = current.paramChild;
+      } else if (current.wildcardChild) {
+        current = current.wildcardChild;
+        return current.handlers.get(method.toUpperCase()) || null;
+      } else {
+        return null;
+      }
+    }
+
+    return current.handlers.get(method.toUpperCase()) || null;
+  }
+}
+
+export class RadixRouter<T> {
+  private root = new RouterNode<T>();
+
+  add(method: string, path: string, data: T) {
+    const segments = this.splitPath(path);
+    this.root.insert(segments, method, data);
+  }
+
+  find(method: string, path: string): RouteMatch<T> | null {
+    const segments = this.splitPath(path);
+    const params: Record<string, string> = {};
+    const data = this.root.search(segments, method, params);
+
+    if (data === null) {
+      return null;
+    }
+
+    return { data, params };
+  }
+
+  private splitPath(path: string): string[] {
+    return path.split("/").filter((s) => s.length > 0);
+  }
+}
+
+// =============================================================================
+// SECTION: Server Adapters
+// =============================================================================
+
+export class BunAdapter implements ServerAdapter {
+  private server: any = null;
+
+  listen(
+    config: ServerConfig,
+    handler: (request: Request) => Response | Promise<Response>
+  ): void {
+    // @ts-ignore - Bun is global in Bun runtime
+    this.server = Bun.serve({
+      port: config.port,
+      hostname: config.hostname,
+      fetch: handler,
+    });
+  }
+
+  stop(): void {
+    if (this.server) {
+      this.server.stop();
+      this.server = null;
+    }
+  }
+}
+
+export class NodeAdapter implements ServerAdapter {
+  private server: any = null;
+
+  async listen(
+    config: ServerConfig,
+    handler: (request: Request) => Response | Promise<Response>
+  ): Promise<void> {
+    const http = await import("node:http");
+
+    this.server = http.createServer(
+      async (req: IncomingMessage, res: ServerResponse) => {
+        try {
+          const protocol = req.headers["x-forwarded-proto"] || "http";
+          const host = req.headers.host || `localhost:${config.port}`;
+          const url = new URL(req.url || "/", `${protocol}://${host}`);
+
+          let body: any = null;
+          if (req.method !== "GET" && req.method !== "HEAD") {
+            const chunks: Uint8Array[] = [];
+            for await (const chunk of req) {
+              chunks.push(chunk);
+            }
+            // @ts-ignore
+            body = Buffer.concat(chunks);
+          }
+
+          const request = new Request(url.toString(), {
+            method: req.method,
+            headers: req.headers as any,
+            body: body,
+          });
+
+          const response = await handler(request);
+
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => {
+            res.setHeader(key, value);
+          });
+
+          if (response.body) {
+            const reader = response.body.getReader();
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(value);
+            }
+          }
+          res.end();
+        } catch (error) {
+          console.error("Error handling request:", error);
+          res.statusCode = 500;
+          res.end("Internal Server Error");
+        }
+      }
+    );
+
+    this.server.listen(config.port, config.hostname || "0.0.0.0");
+  }
+
+  stop(): void {
+    if (this.server) {
+      this.server.close();
+      this.server = null;
+    }
+  }
+}
+
+// =============================================================================
+// SECTION: Core Framework
+// =============================================================================
+
+export const RavenContext = createRequestState<Context>({
+  name: "raven:context",
+});
+
 export class Context {
   public readonly url: URL;
 
@@ -55,28 +471,16 @@ export class Context {
   }
 }
 
-/**
- * Base handler function type
- */
 export type HandlerFn = () => Response | Promise<Response>;
 
-/**
- * Handler with optional slots metadata
- */
 export type Handler = HandlerFn & {
   slots?: ScopedState<any>[];
 };
 
-/**
- * Options for createHandler
- */
 export interface CreateHandlerOptions {
   slots?: ScopedState<any>[];
 }
 
-/**
- * Create a handler with state slots for automatic validation and injection
- */
 export function createHandler(
   options: CreateHandlerOptions,
   handler: HandlerFn
@@ -86,55 +490,31 @@ export function createHandler(
   return wrappedHandler;
 }
 
-/**
- * Lifecycle hook for when a request is received
- */
 export type OnRequestHook = (
   request: Request
 ) => void | Response | Promise<void | Response>;
 
-/**
- * Lifecycle hook before the request handler is called
- */
 export type BeforeHandleHook = () => void | Response | Promise<void | Response>;
 
-/**
- * Lifecycle hook after the handler is called, before the response is sent
- */
 export type BeforeResponseHook = (
   response: Response
 ) => void | Response | Promise<void | Response>;
 
-/**
- * Hook for global error handling
- */
 export type OnErrorHook = (error: unknown) => Response | Promise<Response>;
 
-/**
- * Pipeline of hooks for a route
- */
 export interface RoutePipeline {
   onRequest: OnRequestHook[];
   beforeHandle: BeforeHandleHook[];
   beforeResponse: BeforeResponseHook[];
 }
 
-/**
- * Internal route data
- */
 interface RouteData {
   handler: Handler;
   pipeline: RoutePipeline;
 }
 
-/**
- * Plugin definition
- */
 export type Plugin = (instance: Raven) => void | Promise<void>;
 
-/**
- * Helper to create a type-safe plugin
- */
 export function createPlugin(plugin: Plugin): Plugin {
   return plugin;
 }
@@ -163,18 +543,12 @@ export class Raven implements RavenInstance {
     this.router = options?.router ?? new RadixRouter<RouteData>();
   }
 
-  /**
-   * Register a plugin
-   */
   async register(plugin: Plugin): Promise<this> {
     this.plugins.push(plugin);
     await currentAppStorage.run(this, () => plugin(this));
     return this;
   }
 
-  /**
-   * Create a route group
-   */
   async group(
     prefix: string,
     callback: (instance: Raven) => void | Promise<void>
@@ -188,9 +562,6 @@ export class Raven implements RavenInstance {
     return this;
   }
 
-  /**
-   * Get all hooks of a certain type, including those from parent instances
-   */
   private getAllHooks<K extends keyof typeof this.hooks>(
     type: K
   ): (typeof this.hooks)[K] {
@@ -203,9 +574,6 @@ export class Raven implements RavenInstance {
     return allHooks as (typeof this.hooks)[K];
   }
 
-  /**
-   * Internal method to add a route
-   */
   private addRoute(method: string, path: string, handler: Handler) {
     const fullPath = this.prefix + path;
     const pipeline: RoutePipeline = {
@@ -241,15 +609,11 @@ export class Raven implements RavenInstance {
     return this;
   }
 
-  /**
-   * Start the HTTP server with the given configuration
-   */
   async listen(config: ServerConfig): Promise<void> {
-    if (this.adapter || (this.parent?.adapter)) {
+    if (this.adapter || this.parent?.adapter) {
       throw RavenError.ERR_SERVER_ALREADY_RUNNING();
     }
 
-    // Environment detection
     // @ts-ignore
     const isBun = typeof Bun !== "undefined";
     this.adapter = isBun ? new BunAdapter() : new NodeAdapter();
@@ -259,9 +623,6 @@ export class Raven implements RavenInstance {
     });
   }
 
-  /**
-   * Stop the running server
-   */
   async stop(): Promise<void> {
     if (this.adapter) {
       await this.adapter.stop();
@@ -269,46 +630,30 @@ export class Raven implements RavenInstance {
     }
   }
 
-  /**
-   * Register an onRequest hook
-   */
   onRequest(hook: OnRequestHook): this {
     this.hooks.onRequest.push(hook);
     return this;
   }
 
-  /**
-   * Register a beforeHandle hook
-   */
   beforeHandle(hook: BeforeHandleHook): this {
     this.hooks.beforeHandle.push(hook);
     return this;
   }
 
-  /**
-   * Register a beforeResponse hook
-   */
   beforeResponse(hook: BeforeResponseHook): this {
     this.hooks.beforeResponse.push(hook);
     return this;
   }
 
-  /**
-   * Register an onError hook
-   */
   onError(hook: OnErrorHook): this {
     this.hooks.onError.push(hook);
     return this;
   }
 
-  /**
-   * Handle incoming HTTP request
-   */
   public async handleRequest(request: Request): Promise<Response> {
     return currentAppStorage.run(this, () => {
       return requestStorage.run(new Map(), async () => {
         try {
-          // 1. Global onRequest hooks - Context not yet available
           const globalOnRequest = this.getAllHooks("onRequest");
           for (const hook of globalOnRequest) {
             const result = await hook(request);
@@ -317,11 +662,9 @@ export class Raven implements RavenInstance {
             }
           }
 
-          // 2. Route matching
           const url = new URL(request.url);
           const match = this.router.find(request.method, url.pathname);
           if (!match) {
-            // Initialize minimal context for error handling
             const ctx = new Context(request);
             RavenContext.set(ctx);
             return this.handleError(new Error("Not Found"), 404);
@@ -329,7 +672,6 @@ export class Raven implements RavenInstance {
 
           const { data: routeData, params } = match;
 
-          // 3. Assemble full context
           const query: Record<string, string> = {};
           url.searchParams.forEach((value, key) => {
             query[key] = value;
@@ -338,10 +680,8 @@ export class Raven implements RavenInstance {
           const ctx = new Context(request, params, query);
           RavenContext.set(ctx);
 
-          // 4. Process state slots (validation and injection)
           await this.processSlots(routeData.handler, request, params, query);
 
-          // 5. Execute route-specific pipeline (beforeHandle and onwards)
           for (const hook of routeData.pipeline.beforeHandle) {
             const result = await hook();
             if (result instanceof Response) {
@@ -349,13 +689,10 @@ export class Raven implements RavenInstance {
             }
           }
 
-          // 6. Main handler
           const response = await routeData.handler();
 
-          // 7. beforeResponse hooks
           return this.handleResponseHooks(response, routeData.pipeline);
         } catch (error) {
-          // Ensure context is available for error handlers if it wasn't set yet
           if (!RavenContext.get()) {
             RavenContext.set(new Context(request));
           }
@@ -365,9 +702,6 @@ export class Raven implements RavenInstance {
     });
   }
 
-  /**
-   * Process state slots: extract data, validate, and inject into states
-   */
   private async processSlots(
     handler: Handler,
     request: Request,
@@ -433,9 +767,6 @@ export class Raven implements RavenInstance {
     }
   }
 
-  /**
-   * Run beforeResponse hooks
-   */
   private async handleResponseHooks(
     response: Response,
     pipeline?: RoutePipeline
@@ -452,9 +783,6 @@ export class Raven implements RavenInstance {
     return currentResponse;
   }
 
-  /**
-   * Run error hooks
-   */
   private async handleError(
     error: unknown,
     status: number = 500
@@ -469,12 +797,10 @@ export class Raven implements RavenInstance {
       }
     }
 
-    // Handle RavenError
     if (isRavenError(error)) {
       return error.toResponse();
     }
 
-    // Default error fallback
     if (status === 404) {
       return new Response("Not Found", { status: 404 });
     }

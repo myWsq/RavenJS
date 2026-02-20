@@ -6,12 +6,13 @@ schema: spec-driven
 context: |
   Tech stack: Bun, TypeScript
   Coding Guidelines:
-    - Core logic should primarily reside in packages/main/index.ts
-    - Reusable utility functions should be placed in a separate utils/ directory
-    - Unit tests should be implemented in the tests/ directory within each package (e.g., packages/main/tests/)
-    - Do not use root-level test scripts like test-server.ts for automated testing
+    - Single-file organization: Each package's core logic resides in a single `main.ts` file
+    - Code sections: Use `// === SECTION: Name ===` comments to organize code by dependency order
+    - Explicit exports: `index.ts` explicitly manages Public API and Internal API exports
+    - No utils directory: All code in `main.ts`, organized by sections instead of separate files
+    - Unit tests: Implement in `tests/` directory within each package
     - Focus on high performance, leveraging Bun's native APIs
-    - Use Pascal naming convention strictly (as per user rule)
+    - Use Pascal naming convention strictly
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
