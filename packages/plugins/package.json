@@ -3,10 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "peerDependencies": {
-    "@ravenjs/core": "workspace:*"
+    "@ravenjs/core": "workspace:*",
+    "@sinclair/typebox": ">=0.32.0"
+  },
+  "peerDependenciesMeta": {
+    "@sinclair/typebox": {
+      "optional": true
+    }
   },
   "main": "index.js",
-  "devDependencies": {},
+  "devDependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -28,4 +28,9 @@
 
 #### Scenario: RavenError 类型识别
 - **WHEN** 捕获到的错误是 RavenError 实例
-- **THEN** 错误对象 SHALL 包含标准化的 `code`、`message`、`context` 属性
+- **THEN** 错误对象 SHALL 包含标准化的 `code`、`message`、`context`、`statusCode` 属性
+
+#### Scenario: RavenError 响应构建
+- **WHEN** 调用 `RavenError.toResponse()` 方法
+- **THEN** 返回的 Response 对象 SHALL 使用 `statusCode` 属性作为 HTTP 状态码
+- **AND** 若 `statusCode` 未设置则默认使用 500

@@ -8,14 +8,17 @@ import {
   currentAppStorage,
   requestStorage,
   type RavenInstance,
+  type ScopedState,
 } from "./utils/state.ts";
-import { RavenError } from "./utils/error.ts";
+import { RavenError, isRavenError } from "./utils/error.ts";
+
 import { RadixRouter } from "./utils/router.ts";
+import { validate } from "./utils/validator.ts";
 
 /**
  * Scope state for the framework's core Context.
  */
-export const RavenContext = createRequestState<Context>("raven:context");
+export const RavenContext = createRequestState<Context>({ name: "raven:context" });
 
 /**
  * Server configuration options
@@ -53,9 +56,35 @@ export class Context {
 }
 
 /**
- * Request handler function type
+ * Base handler function type
  */
-export type Handler = () => Response | Promise<Response>;
+export type HandlerFn = () => Response | Promise<Response>;
+
+/**
+ * Handler with optional slots metadata
+ */
+export type Handler = HandlerFn & {
+  slots?: ScopedState<any>[];
+};
+
+/**
+ * Options for createHandler
+ */
+export interface CreateHandlerOptions {
+  slots?: ScopedState<any>[];
+}
+
+/**
+ * Create a handler with state slots for automatic validation and injection
+ */
+export function createHandler(
+  options: CreateHandlerOptions,
+  handler: HandlerFn
+): Handler {
+  const wrappedHandler = handler as Handler;
+  wrappedHandler.slots = options.slots;
+  return wrappedHandler;
+}
 
 /**
  * Lifecycle hook for when a request is received
@@ -309,7 +338,10 @@ export class Raven implements RavenInstance {
           const ctx = new Context(request, params, query);
           RavenContext.set(ctx);
 
-          // 4. Execute route-specific pipeline (beforeHandle and onwards)
+          // 4. Process state slots (validation and injection)
+          await this.processSlots(routeData.handler, request, params, query);
+
+          // 5. Execute route-specific pipeline (beforeHandle and onwards)
           for (const hook of routeData.pipeline.beforeHandle) {
             const result = await hook();
             if (result instanceof Response) {
@@ -317,10 +349,10 @@ export class Raven implements RavenInstance {
             }
           }
 
-          // 5. Main handler
+          // 6. Main handler
           const response = await routeData.handler();
 
-          // 6. beforeResponse hooks
+          // 7. beforeResponse hooks
           return this.handleResponseHooks(response, routeData.pipeline);
         } catch (error) {
           // Ensure context is available for error handlers if it wasn't set yet
@@ -331,6 +363,74 @@ export class Raven implements RavenInstance {
         }
       });
     });
+  }
+
+  /**
+   * Process state slots: extract data, validate, and inject into states
+   */
+  private async processSlots(
+    handler: Handler,
+    request: Request,
+    params: Record<string, string>,
+    query: Record<string, string>
+  ): Promise<void> {
+    const slots = handler.slots;
+    if (!slots || slots.length === 0) {
+      return;
+    }
+
+    let parsedBody: unknown = undefined;
+    let bodyParsed = false;
+
+    for (const slot of slots) {
+      if (!slot.schema || !slot.source) {
+        continue;
+      }
+
+      let rawData: unknown;
+
+      switch (slot.source) {
+        case "body":
+          if (!bodyParsed) {
+            try {
+              const contentType = request.headers.get("content-type") || "";
+              if (contentType.includes("application/json")) {
+                parsedBody = await request.json();
+              } else {
+                parsedBody = {};
+              }
+            } catch {
+              parsedBody = {};
+            }
+            bodyParsed = true;
+          }
+          rawData = parsedBody;
+          break;
+
+        case "query":
+          rawData = query;
+          break;
+
+        case "params":
+          rawData = params;
+          break;
+
+        case "header": {
+          const headers: Record<string, string> = {};
+          request.headers.forEach((value, key) => {
+            headers[key.toLowerCase()] = value;
+          });
+          rawData = headers;
+          break;
+        }
+
+        default:
+          continue;
+      }
+
+      const validData = validate(slot.schema, rawData);
+      slot.set(validData);
+    }
   }
 
   /**
@@ -367,6 +467,11 @@ export class Raven implements RavenInstance {
           return result;
         }
       }
+    }
+
+    // Handle RavenError
+    if (isRavenError(error)) {
+      return error.toResponse();
     }
 
     // Default error fallback

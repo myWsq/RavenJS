@@ -8,5 +8,8 @@
   },
   "devDependencies": {
     "@ravenjs/testing": "workspace:*"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0"
   }
 }

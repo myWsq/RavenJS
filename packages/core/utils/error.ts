@@ -5,12 +5,14 @@ export interface ErrorContext {
 export class RavenError extends Error {
 	public readonly code: string;
 	public readonly context: ErrorContext;
+	public readonly statusCode?: number;
 	public override readonly cause?: unknown;
 
-	private constructor(code: string, message: string, context: ErrorContext) {
+	private constructor(code: string, message: string, context: ErrorContext, statusCode?: number) {
 		super(message);
 		this.code = code;
 		this.context = context;
+		this.statusCode = statusCode;
 	}
 
 	public setContext(context: ErrorContext): this {
@@ -23,13 +25,23 @@ export class RavenError extends Error {
 	}
 
 	public static ERR_STATE_NOT_INITIALIZED(name: string): RavenError {
-		const message = `State is not initialized. Cannot access state: ${name}`;
-		return new RavenError("ERR_STATE_NOT_INITIALIZED", message, {});
+		return new RavenError(
+			"ERR_STATE_NOT_INITIALIZED",
+			`State is not initialized. Cannot access state: ${name}`,
+			{}
+		);
 	}
 
 	public static ERR_STATE_CANNOT_SET(name: string): RavenError {
-		const message = `Cannot set value for state "${name}": Scope is not initialized.`;
-		return new RavenError("ERR_STATE_CANNOT_SET", message, {});
+		return new RavenError(
+			"ERR_STATE_CANNOT_SET",
+			`Cannot set value for state "${name}": Scope is not initialized.`,
+			{}
+		);
+	}
+
+	public static ERR_VALIDATION(message: string): RavenError {
+		return new RavenError("ERR_VALIDATION", message, {}, 400);
 	}
 
 	public toJSON(): Record<string, unknown> {
@@ -38,9 +50,21 @@ export class RavenError extends Error {
 			code: this.code,
 			message: this.message,
 			context: this.context,
+			statusCode: this.statusCode,
 			cause: this.cause,
 			stack: this.stack,
 		};
+	}
+
+	public toResponse(): Response {
+		const status = this.statusCode ?? 500;
+		return new Response(
+			JSON.stringify({ message: this.message }),
+			{
+				status,
+				headers: { "Content-Type": "application/json" },
+			}
+		);
 	}
 }
 

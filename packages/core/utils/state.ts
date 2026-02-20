@@ -1,10 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { RavenError } from "./error.ts";
 
-/**
- * Interface representing a Raven instance as a state container.
- * This avoids circular dependency with Raven class.
- */
 export interface RavenInstance {
 	parent: RavenInstance | null;
 	internalStateMap: Map<symbol, any>;
@@ -13,11 +9,27 @@ export interface RavenInstance {
 export const currentAppStorage = new AsyncLocalStorage<RavenInstance>();
 export const requestStorage = new AsyncLocalStorage<Map<symbol, any>>();
 
+export type StateSource = "body" | "query" | "params" | "header";
+
+export interface StateOptions {
+	name?: string;
+	schema?: object;
+	source?: StateSource;
+}
+
+let stateCounter = 0;
+
 export abstract class ScopedState<T> {
 	public readonly symbol: symbol;
+	public readonly name: string;
+	public readonly schema?: object;
+	public readonly source?: StateSource;
 
-	constructor(public readonly name: string) {
-		this.symbol = Symbol(name);
+	constructor(options?: StateOptions) {
+		this.name = options?.name ?? `state:${++stateCounter}`;
+		this.symbol = Symbol(this.name);
+		this.schema = options?.schema;
+		this.source = options?.source;
 	}
 
 	public abstract get(): T | undefined;
@@ -33,6 +45,10 @@ export abstract class ScopedState<T> {
 }
 
 export class AppState<T> extends ScopedState<T> {
+	constructor(options?: StateOptions) {
+		super(options);
+	}
+
 	public get(): T | undefined {
 		let current: RavenInstance | null | undefined = currentAppStorage.getStore();
 		while (current) {
@@ -54,6 +70,10 @@ export class AppState<T> extends ScopedState<T> {
 }
 
 export class RequestState<T> extends ScopedState<T> {
+	constructor(options?: StateOptions) {
+		super(options);
+	}
+
 	public get(): T | undefined {
 		const store = requestStorage.getStore();
 		return store?.get(this.symbol);
@@ -68,10 +88,10 @@ export class RequestState<T> extends ScopedState<T> {
 	}
 }
 
-export function createAppState<T>(name: string): AppState<T> {
-	return new AppState<T>(name);
+export function createAppState<T>(options?: StateOptions): AppState<T> {
+	return new AppState<T>(options);
 }
 
-export function createRequestState<T>(name: string): RequestState<T> {
-	return new RequestState<T>(name);
+export function createRequestState<T>(options?: StateOptions): RequestState<T> {
+	return new RequestState<T>(options);
 }

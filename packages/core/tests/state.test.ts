@@ -5,7 +5,7 @@ import { createAppState, createRequestState, currentAppStorage, requestStorage }
 describe("Unified State Mount (AppState & RequestState)", () => {
   describe("RequestState", () => {
     it("should maintain isolation between concurrent requests", async () => {
-      const RequestId = createRequestState<string>("requestId");
+      const RequestId = createRequestState<string>({ name: "requestId" });
 
       const handleRequest = async (id: string) => {
         return requestStorage.run(new Map(), async () => {
@@ -38,7 +38,7 @@ describe("Unified State Mount (AppState & RequestState)", () => {
 
   describe("AppState", () => {
     it("should isolate state between Raven instances", async () => {
-      const Config = createAppState<{ db: string }>("config");
+      const Config = createAppState<{ db: string }>({ name: "config" });
       const app1 = new Raven();
       const app2 = new Raven();
 
@@ -60,28 +60,24 @@ describe("Unified State Mount (AppState & RequestState)", () => {
     });
 
     it("should inherit state from parent Raven instances", async () => {
-      const GlobalConfig = createAppState<string>("global");
+      const GlobalConfig = createAppState<string>({ name: "global" });
       const root = new Raven();
 
       await currentAppStorage.run(root, async () => {
         GlobalConfig.set("root-value");
 
         await root.group("/v1", async (v1) => {
-          // Inside group, it should see root's state
           expect(GlobalConfig.get()).toBe("root-value");
-
-          // Override in child
           GlobalConfig.set("v1-value");
           expect(GlobalConfig.get()).toBe("v1-value");
         });
 
-        // Root remains unchanged
         expect(GlobalConfig.get()).toBe("root-value");
       });
     });
 
     it("should support穿透 (AppState accessible in Request context)", async () => {
-      const DB = createAppState<string>("db");
+      const DB = createAppState<string>({ name: "db" });
       const app = new Raven();
 
       await currentAppStorage.run(app, () => {
@@ -99,21 +95,53 @@ describe("Unified State Mount (AppState & RequestState)", () => {
 
   describe("Error Handling", () => {
     it("should throw when setting state without context", () => {
-      const SomeState = createAppState<string>("test");
+      const SomeState = createAppState<string>({ name: "test" });
       expect(() => SomeState.set("fail")).toThrow("Cannot set value for state \"test\": Scope is not initialized");
     });
 
     it("should return undefined when getting state without context", () => {
-      const SomeState = createAppState<string>("test");
+      const SomeState = createAppState<string>({ name: "test" });
       expect(SomeState.get()).toBeUndefined();
     });
 
     it("should throw in getOrFailed when state is missing", async () => {
-      const Required = createAppState<string>("required");
+      const Required = createAppState<string>({ name: "required" });
       const app = new Raven();
       await currentAppStorage.run(app, () => {
         expect(() => Required.getOrFailed()).toThrow("State is not initialized. Cannot access state: required");
       });
+    });
+  });
+
+  describe("Object Parameter API", () => {
+    it("should create state with object parameter", () => {
+      const state = createRequestState<string>({ name: "test-state" });
+      expect(state.name).toBe("test-state");
+    });
+
+    it("should auto-generate name when not provided", () => {
+      const state1 = createRequestState<string>();
+      const state2 = createRequestState<string>();
+      expect(state1.name).toMatch(/^state:\d+$/);
+      expect(state2.name).toMatch(/^state:\d+$/);
+      expect(state1.name).not.toBe(state2.name);
+    });
+
+    it("should store schema and source metadata", () => {
+      const schema = { type: "object", properties: { name: { type: "string" } } };
+      const state = createRequestState<{ name: string }>({
+        name: "body-state",
+        schema,
+        source: "body",
+      });
+      expect(state.schema).toEqual(schema);
+      expect(state.source).toBe("body");
+    });
+
+    it("should work without schema and source", () => {
+      const state = createRequestState<string>({ name: "simple" });
+      expect(state.schema).toBeUndefined();
+      expect(state.source).toBeUndefined();
     });
   });
 });
