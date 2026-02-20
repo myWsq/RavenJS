@@ -4,7 +4,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import Ajv, { type ValidateFunction } from "ajv";
+import Ajv, { type JTDParser, type ValidateFunction } from "ajv/dist/jtd";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -14,17 +14,128 @@ export interface ErrorContext {
   [key: string]: unknown;
 }
 
+// =============================================================================
+// SECTION: JTD (JSON Type Definition)
+// =============================================================================
+
+export type JTDType =
+  | "boolean"
+  | "string"
+  | "timestamp"
+  | "float32"
+  | "float64"
+  | "int8"
+  | "int16"
+  | "int32"
+  | "uint8"
+  | "uint16"
+  | "uint32";
+
+export type JTDSchemaType = { type: JTDType };
+export type JTDSchemaEnum = { enum: readonly string[] };
+export type JTDSchemaElements = { elements: JTDSchema };
+export type JTDSchemaValues = { values: JTDSchema };
+export type JTDSchemaProperties = {
+  properties?: Record<string, JTDSchema>;
+  optionalProperties?: Record<string, JTDSchema>;
+};
+export type JTDSchemaDiscriminator = {
+  discriminator: string;
+  mapping: Record<string, JTDSchema>;
+};
+export type JTDSchemaRef = { ref: string };
+export type JTDSchemaEmpty = Record<string, never>;
+
+export type JTDSchema =
+  | JTDSchemaType
+  | JTDSchemaEnum
+  | JTDSchemaElements
+  | JTDSchemaValues
+  | JTDSchemaProperties
+  | JTDSchemaDiscriminator
+  | JTDSchemaRef
+  | JTDSchemaEmpty;
+
+type InferJTDType<T extends JTDType> = T extends "boolean"
+  ? boolean
+  : T extends "string" | "timestamp"
+    ? string
+    : T extends
+          | "float32"
+          | "float64"
+          | "int8"
+          | "int16"
+          | "int32"
+          | "uint8"
+          | "uint16"
+          | "uint32"
+      ? number
+      : never;
+
+type InferProperties<P> = {
+  [K in keyof P]: P[K] extends JTDSchema ? Infer<P[K]> : never;
+};
+
+export type Infer<T> = T extends { type: infer U extends JTDType }
+  ? InferJTDType<U>
+  : T extends { enum: readonly (infer E)[] }
+    ? E
+    : T extends { elements: infer E extends JTDSchema }
+      ? Infer<E>[]
+      : T extends { values: infer V extends JTDSchema }
+        ? Record<string, Infer<V>>
+        : T extends {
+              properties: infer P;
+              optionalProperties?: infer O;
+            }
+          ? InferProperties<P> & Partial<InferProperties<O>>
+          : T extends { properties: infer P }
+            ? InferProperties<P>
+            : T extends { optionalProperties: infer O }
+              ? Partial<InferProperties<O>>
+              : T extends JTDSchemaEmpty
+                ? unknown
+                : never;
+
+export const J = {
+  string: () => ({ type: "string" as const }),
+  boolean: () => ({ type: "boolean" as const }),
+  number: () => ({ type: "float64" as const }),
+  int: () => ({ type: "int32" as const }),
+  int8: () => ({ type: "int8" as const }),
+  int16: () => ({ type: "int16" as const }),
+  int32: () => ({ type: "int32" as const }),
+  uint8: () => ({ type: "uint8" as const }),
+  uint16: () => ({ type: "uint16" as const }),
+  uint32: () => ({ type: "uint32" as const }),
+  float32: () => ({ type: "float32" as const }),
+  float64: () => ({ type: "float64" as const }),
+  timestamp: () => ({ type: "timestamp" as const }),
+
+  enum: <const T extends readonly string[]>(values: T) => ({ enum: values }),
+
+  array: <T extends JTDSchema>(schema: T) => ({ elements: schema }),
+
+  record: <T extends JTDSchema>(schema: T) => ({ values: schema }),
+
+  object: <
+    P extends Record<string, JTDSchema> = Record<string, never>,
+    O extends Record<string, JTDSchema> = Record<string, never>,
+  >(def: {
+    properties?: P;
+    optionalProperties?: O;
+  }): { properties: P; optionalProperties: O } =>
+    def as { properties: P; optionalProperties: O },
+};
+
 export interface RavenInstance {
   parent: RavenInstance | null;
   internalStateMap: Map<symbol, any>;
 }
 
-export type StateSource = "body" | "query" | "params" | "header";
-
 export interface StateOptions {
   name?: string;
   schema?: object;
-  source?: StateSource;
 }
 
 export interface RouteMatch<T> {
@@ -100,6 +211,10 @@ export class RavenError extends Error {
     return new RavenError("ERR_VALIDATION", message, {}, 400);
   }
 
+  public static ERR_BAD_REQUEST(message: string): RavenError {
+    return new RavenError("ERR_BAD_REQUEST", message, {}, 400);
+  }
+
   public toJSON(): Record<string, unknown> {
     return {
       name: this.name,
@@ -144,13 +259,11 @@ export abstract class ScopedState<T> {
   public readonly symbol: symbol;
   public readonly name: string;
   public readonly schema?: object;
-  public readonly source?: StateSource;
 
   constructor(options?: StateOptions) {
     this.name = options?.name ?? `state:${++stateCounter}`;
     this.symbol = Symbol(this.name);
     this.schema = options?.schema;
-    this.source = options?.source;
   }
 
   public abstract get(): T | undefined;
@@ -220,39 +333,34 @@ export function createRequestState<T>(
   return new RequestState<T>(options);
 }
 
+export const BodyState = createRequestState<unknown>({ name: "raven:body" });
+export const QueryState = createRequestState<unknown>({ name: "raven:query" });
+export const ParamsState = createRequestState<unknown>({ name: "raven:params" });
+export const HeadersState = createRequestState<unknown>({
+  name: "raven:headers",
+});
+
+export function useBody<T extends JTDSchema>(_schema: T): Infer<T> {
+  return BodyState.getOrFailed() as Infer<T>;
+}
+
+export function useQuery<T extends JTDSchema>(_schema: T): Infer<T> {
+  return QueryState.getOrFailed() as Infer<T>;
+}
+
+export function useParams<T extends JTDSchema>(_schema: T): Infer<T> {
+  return ParamsState.getOrFailed() as Infer<T>;
+}
+
+export function useHeaders<T extends JTDSchema>(_schema: T): Infer<T> {
+  return HeadersState.getOrFailed() as Infer<T>;
+}
+
 // =============================================================================
 // SECTION: Validation
 // =============================================================================
 
-const ajv = new Ajv({
-  coerceTypes: true,
-  removeAdditional: true,
-  useDefaults: true,
-  allErrors: true,
-});
-
-const compiledSchemas = new WeakMap<object, ValidateFunction>();
-
-export function validate<T>(schema: object, data: unknown): T {
-  let validator = compiledSchemas.get(schema);
-  if (!validator) {
-    validator = ajv.compile(schema);
-    compiledSchemas.set(schema, validator);
-  }
-
-  const clonedData = structuredClone(data);
-  const valid = validator(clonedData);
-
-  if (!valid) {
-    const errors = validator.errors ?? [];
-    const message = errors
-      .map((err) => `${err.instancePath || "/"}: ${err.message || "invalid"}`)
-      .join("; ");
-    throw RavenError.ERR_VALIDATION(message || "Validation failed");
-  }
-
-  return clonedData as T;
-}
+const ajv = new Ajv();
 
 // =============================================================================
 // SECTION: Router
@@ -474,20 +582,66 @@ export class Context {
 export type HandlerFn = () => Response | Promise<Response>;
 
 export type Handler = HandlerFn & {
-  slots?: ScopedState<any>[];
+  bodySchema?: JTDSchema;
+  querySchema?: JTDSchema;
+  paramsSchema?: JTDSchema;
+  headersSchema?: JTDSchema;
+  bodyParser?: JTDParser<unknown>;
+  queryValidator?: ValidateFunction<unknown>;
+  paramsValidator?: ValidateFunction<unknown>;
+  headersValidator?: ValidateFunction<unknown>;
 };
 
-export interface CreateHandlerOptions {
-  slots?: ScopedState<any>[];
+export class HandlerBuilder {
+  private _bodySchema?: JTDSchema;
+  private _querySchema?: JTDSchema;
+  private _paramsSchema?: JTDSchema;
+  private _headersSchema?: JTDSchema;
+  private _bodyParser?: JTDParser<unknown>;
+  private _queryValidator?: ValidateFunction<unknown>;
+  private _paramsValidator?: ValidateFunction<unknown>;
+  private _headersValidator?: ValidateFunction<unknown>;
+
+  bodySchema<T extends JTDSchema>(schema: T): this {
+    this._bodySchema = schema;
+    this._bodyParser = ajv.compileParser(schema);
+    return this;
+  }
+
+  querySchema<T extends JTDSchema>(schema: T): this {
+    this._querySchema = schema;
+    this._queryValidator = ajv.compile(schema);
+    return this;
+  }
+
+  paramsSchema<T extends JTDSchema>(schema: T): this {
+    this._paramsSchema = schema;
+    this._paramsValidator = ajv.compile(schema);
+    return this;
+  }
+
+  headersSchema<T extends JTDSchema>(schema: T): this {
+    this._headersSchema = schema;
+    this._headersValidator = ajv.compile(schema);
+    return this;
+  }
+
+  handle(fn: HandlerFn): Handler {
+    const handler = fn as Handler;
+    handler.bodySchema = this._bodySchema;
+    handler.querySchema = this._querySchema;
+    handler.paramsSchema = this._paramsSchema;
+    handler.headersSchema = this._headersSchema;
+    handler.bodyParser = this._bodyParser;
+    handler.queryValidator = this._queryValidator;
+    handler.paramsValidator = this._paramsValidator;
+    handler.headersValidator = this._headersValidator;
+    return handler;
+  }
 }
 
-export function createHandler(
-  options: CreateHandlerOptions,
-  handler: HandlerFn
-): Handler {
-  const wrappedHandler = handler as Handler;
-  wrappedHandler.slots = options.slots;
-  return wrappedHandler;
+export function createHandler(): HandlerBuilder {
+  return new HandlerBuilder();
 }
 
 export type OnRequestHook = (
@@ -680,7 +834,7 @@ export class Raven implements RavenInstance {
           const ctx = new Context(request, params, query);
           RavenContext.set(ctx);
 
-          await this.processSlots(routeData.handler, request, params, query);
+          await this.processStates(routeData.handler, request, params, query);
 
           for (const hook of routeData.pipeline.beforeHandle) {
             const result = await hook();
@@ -702,69 +856,71 @@ export class Raven implements RavenInstance {
     });
   }
 
-  private async processSlots(
+  private async processStates(
     handler: Handler,
     request: Request,
     params: Record<string, string>,
     query: Record<string, string>
   ): Promise<void> {
-    const slots = handler.slots;
-    if (!slots || slots.length === 0) {
-      return;
-    }
+    const headersObj: Record<string, string> = {};
+    request.headers.forEach((value, key) => {
+      headersObj[key.toLowerCase()] = value;
+    });
 
-    let parsedBody: unknown = undefined;
-    let bodyParsed = false;
+    ParamsState.set(params);
+    QueryState.set(query);
+    HeadersState.set(headersObj);
 
-    for (const slot of slots) {
-      if (!slot.schema || !slot.source) {
-        continue;
-      }
-
-      let rawData: unknown;
-
-      switch (slot.source) {
-        case "body":
-          if (!bodyParsed) {
-            try {
-              const contentType = request.headers.get("content-type") || "";
-              if (contentType.includes("application/json")) {
-                parsedBody = await request.json();
-              } else {
-                parsedBody = {};
-              }
-            } catch {
-              parsedBody = {};
-            }
-            bodyParsed = true;
-          }
-          rawData = parsedBody;
-          break;
-
-        case "query":
-          rawData = query;
-          break;
-
-        case "params":
-          rawData = params;
-          break;
-
-        case "header": {
-          const headers: Record<string, string> = {};
-          request.headers.forEach((value, key) => {
-            headers[key.toLowerCase()] = value;
-          });
-          rawData = headers;
-          break;
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      if (handler.bodyParser) {
+        let text: string;
+        try {
+          text = await request.text();
+        } catch (err) {
+          throw RavenError.ERR_BAD_REQUEST(
+            `Failed to read request body: ${err instanceof Error ? err.message : "unknown error"}`
+          );
         }
-
-        default:
-          continue;
+        const data = handler.bodyParser(text);
+        if (data === undefined) {
+          const pos = handler.bodyParser.position;
+          throw RavenError.ERR_VALIDATION(
+            `Invalid body at position ${pos}: parse error`
+          );
+        }
+        BodyState.set(data);
+      } else {
+        let data: unknown;
+        try {
+          data = await request.json();
+        } catch (err) {
+          throw RavenError.ERR_BAD_REQUEST(
+            `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`
+          );
+        }
+        BodyState.set(data);
       }
-
-      const validData = validate(slot.schema, rawData);
-      slot.set(validData);
     }
+
+    this.runValidator(handler.queryValidator, query, "query");
+    this.runValidator(handler.paramsValidator, params, "params");
+    this.runValidator(handler.headersValidator, headersObj, "headers");
+  }
+
+  private runValidator(
+    validator: ValidateFunction<unknown> | undefined,
+    data: unknown,
+    name: string
+  ): void {
+    if (!validator) return;
+    if (validator(data)) return;
+
+    const errors = validator.errors ?? [];
+    const message = errors
+      .map((err) => `${err.instancePath || "/"}: ${err.message || "invalid"}`)
+      .join("; ");
+    throw RavenError.ERR_VALIDATION(message || `Invalid ${name}`);
   }
 
   private async handleResponseHooks(

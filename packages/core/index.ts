@@ -15,25 +15,33 @@ export {
   ScopedState,
   AppState,
   RequestState,
+  BodyState,
+  QueryState,
+  ParamsState,
+  HeadersState,
 } from "./main.ts";
 
 // Handler & Plugin
-export { createHandler, createPlugin } from "./main.ts";
+export { createHandler, createPlugin, HandlerBuilder } from "./main.ts";
+
+// JTD Schema Builder & Type Inference
+export { J, useBody, useQuery, useParams, useHeaders } from "./main.ts";
 
 // Types
 export type {
   ServerConfig,
   StateOptions,
-  StateSource,
   ErrorContext,
   Handler,
   HandlerFn,
-  CreateHandlerOptions,
   Plugin,
   OnRequestHook,
   BeforeHandleHook,
   BeforeResponseHook,
   OnErrorHook,
+  JTDSchema,
+  JTDType,
+  Infer,
 } from "./main.ts";
 
 // =============================================================================
@@ -46,7 +54,6 @@ export {
   RadixRouter,
   BunAdapter,
   NodeAdapter,
-  validate,
 } from "./main.ts";
 
 export type {

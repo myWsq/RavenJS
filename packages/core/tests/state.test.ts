@@ -134,21 +134,18 @@ describe("Unified State Mount (AppState & RequestState)", () => {
       expect(state1.name).not.toBe(state2.name);
     });
 
-    it("should store schema and source metadata", () => {
+    it("should store schema metadata", () => {
       const schema = { type: "object", properties: { name: { type: "string" } } };
       const state = createRequestState<{ name: string }>({
         name: "body-state",
         schema,
-        source: "body",
       });
       expect(state.schema).toEqual(schema);
-      expect(state.source).toBe("body");
     });
 
-    it("should work without schema and source", () => {
+    it("should work without schema", () => {
       const state = createRequestState<string>({ name: "simple" });
       expect(state.schema).toBeUndefined();
-      expect(state.source).toBeUndefined();
     });
   });
 });
