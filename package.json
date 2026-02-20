@@ -12,11 +12,19 @@
     "@biomejs/biome": "^2.3.14",
     "@types/bun": "latest",
     "@types/node": "^25.2.3",
+    "ajv": "^8.18.0",
+    "elysia": "^1.4.25",
+    "hono": "^4.12.0",
+    "mitata": "^1.0.34",
     "vitest": "^4.0.18"
   },
   "scripts": {
     "test": "bun test packages/*/tests/*.test.ts",
-    "test:node": "vitest run packages/*/tests/*.test.ts"
+    "test:node": "vitest run packages/*/tests/*.test.ts",
+    "benchmark": "bun run benchmark:micro && bun run benchmark:e2e",
+    "benchmark:micro": "bun run benchmark/micro/router.bench.ts && bun run benchmark/micro/validator.bench.ts && bun run benchmark/micro/state.bench.ts",
+    "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",
+    "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
