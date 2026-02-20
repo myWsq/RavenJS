@@ -5,10 +5,8 @@ describe("Handler State Validation", () => {
   describe("Body Validation", () => {
     it("should validate and inject body data", async () => {
       const BodySchema = J.object({
-        properties: {
-          name: J.string(),
-          age: J.int(),
-        },
+        name: J.string(),
+        age: J.int(),
       });
 
       const app = new Raven();
@@ -36,9 +34,7 @@ describe("Handler State Validation", () => {
 
     it("should return 400 for invalid body", async () => {
       const BodySchema = J.object({
-        properties: {
-          name: J.string(),
-        },
+        name: J.string(),
       });
 
       const app = new Raven();
@@ -64,9 +60,7 @@ describe("Handler State Validation", () => {
 
     it("should parse number from string in body", async () => {
       const BodySchema = J.object({
-        properties: {
-          count: J.int(),
-        },
+        count: J.int(),
       });
 
       const app = new Raven();
@@ -98,10 +92,8 @@ describe("Handler State Validation", () => {
   describe("Query Validation", () => {
     it("should validate and inject query parameters", async () => {
       const QuerySchema = J.object({
-        properties: {
-          page: J.string(),
-          limit: J.string(),
-        },
+        page: J.string(),
+        limit: J.string(),
       });
 
       const app = new Raven();
@@ -127,9 +119,7 @@ describe("Handler State Validation", () => {
   describe("Params Validation", () => {
     it("should validate and inject path parameters", async () => {
       const ParamsSchema = J.object({
-        properties: {
-          id: J.string(),
-        },
+        id: J.string(),
       });
 
       const app = new Raven();
@@ -155,9 +145,7 @@ describe("Handler State Validation", () => {
   describe("Headers Validation", () => {
     it("should validate and inject headers", async () => {
       const HeadersSchema = J.object({
-        properties: {
-          "x-api-key": J.string(),
-        },
+        "x-api-key": J.string(),
       });
 
       const app = new Raven();
@@ -185,15 +173,11 @@ describe("Handler State Validation", () => {
   describe("Multiple Schemas", () => {
     it("should handle multiple schemas in one handler", async () => {
       const BodySchema = J.object({
-        properties: {
-          name: J.string(),
-        },
+        name: J.string(),
       });
 
       const QuerySchema = J.object({
-        properties: {
-          format: J.string(),
-        },
+        format: J.string(),
       });
 
       const app = new Raven();
@@ -236,6 +220,176 @@ describe("Handler State Validation", () => {
 
       expect(res.status).toBe(200);
       expect(await res.text()).toBe("OK");
+    });
+  });
+
+  describe("Optional Fields", () => {
+    it("should validate optional fields when present", async () => {
+      const BodySchema = J.object({
+        name: J.string(),
+        bio: J.string().optional(),
+      });
+
+      const app = new Raven();
+      app.post(
+        "/users",
+        createHandler()
+          .bodySchema(BodySchema)
+          .handle(() => {
+            const body = useBody(BodySchema);
+            return new Response(`Name: ${body.name}, Bio: ${body.bio ?? "N/A"}`);
+          })
+      );
+
+      const res = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Alice", bio: "Developer" }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("Name: Alice, Bio: Developer");
+    });
+
+    it("should accept missing optional fields", async () => {
+      const BodySchema = J.object({
+        name: J.string(),
+        bio: J.string().optional(),
+      });
+
+      const app = new Raven();
+      app.post(
+        "/users",
+        createHandler()
+          .bodySchema(BodySchema)
+          .handle(() => {
+            const body = useBody(BodySchema);
+            return new Response(`Name: ${body.name}, Bio: ${body.bio ?? "N/A"}`);
+          })
+      );
+
+      const res = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Bob" }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("Name: Bob, Bio: N/A");
+    });
+  });
+
+  describe("Nullable Fields", () => {
+    it("should accept null for nullable fields", async () => {
+      const BodySchema = J.object({
+        name: J.string(),
+        nickname: J.string().nullable(),
+      });
+
+      const app = new Raven();
+      app.post(
+        "/users",
+        createHandler()
+          .bodySchema(BodySchema)
+          .handle(() => {
+            const body = useBody(BodySchema);
+            return new Response(`Name: ${body.name}, Nickname: ${body.nickname ?? "none"}`);
+          })
+      );
+
+      const res = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Alice", nickname: null }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("Name: Alice, Nickname: none");
+    });
+
+    it("should accept non-null value for nullable fields", async () => {
+      const BodySchema = J.object({
+        name: J.string(),
+        nickname: J.string().nullable(),
+      });
+
+      const app = new Raven();
+      app.post(
+        "/users",
+        createHandler()
+          .bodySchema(BodySchema)
+          .handle(() => {
+            const body = useBody(BodySchema);
+            return new Response(`Name: ${body.name}, Nickname: ${body.nickname ?? "none"}`);
+          })
+      );
+
+      const res = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Alice", nickname: "Ali" }),
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("Name: Alice, Nickname: Ali");
+    });
+  });
+
+  describe("Optional + Nullable Combination", () => {
+    it("should handle optional nullable fields", async () => {
+      const BodySchema = J.object({
+        name: J.string(),
+        avatar: J.string().optional().nullable(),
+      });
+
+      const app = new Raven();
+      app.post(
+        "/users",
+        createHandler()
+          .bodySchema(BodySchema)
+          .handle(() => {
+            const body = useBody(BodySchema);
+            return new Response(`Name: ${body.name}, Avatar: ${body.avatar ?? "default"}`);
+          })
+      );
+
+      const resWithNull = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Alice", avatar: null }),
+        })
+      );
+      expect(resWithNull.status).toBe(200);
+      expect(await resWithNull.text()).toBe("Name: Alice, Avatar: default");
+
+      const resWithoutField = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Bob" }),
+        })
+      );
+      expect(resWithoutField.status).toBe(200);
+      expect(await resWithoutField.text()).toBe("Name: Bob, Avatar: default");
+
+      const resWithValue = await app.handleRequest(
+        new Request("http://localhost/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Charlie", avatar: "avatar.png" }),
+        })
+      );
+      expect(resWithValue.status).toBe(200);
+      expect(await resWithValue.text()).toBe("Name: Charlie, Avatar: avatar.png");
     });
   });
 });

@@ -5,51 +5,37 @@ import { J } from "../../packages/core/main";
 const ajv = new Ajv();
 
 const simpleSchema = J.object({
-  properties: {
-    name: J.string(),
-    age: J.int(),
-    email: J.string(),
-  },
+  name: J.string(),
+  age: J.int(),
+  email: J.string(),
 });
 
 const complexSchema = J.object({
-  properties: {
-    user: J.object({
-      properties: {
-        id: J.int(),
-        name: J.string(),
-        email: J.string(),
-      },
-      optionalProperties: {
-        avatar: J.string(),
-      },
-    }),
-    posts: J.array(
-      J.object({
-        properties: {
-          id: J.int(),
-          title: J.string(),
-          content: J.string(),
-          tags: J.array(J.string()),
-        },
-        optionalProperties: {
-          publishedAt: J.timestamp(),
-        },
-      })
-    ),
-    metadata: J.object({
-      properties: {
-        createdAt: J.timestamp(),
-        updatedAt: J.timestamp(),
-      },
-    }),
-  },
+  user: J.object({
+    id: J.int(),
+    name: J.string(),
+    email: J.string(),
+    avatar: J.string().optional(),
+  }),
+  posts: J.array(
+    J.object({
+      id: J.int(),
+      title: J.string(),
+      content: J.string(),
+      tags: J.array(J.string()),
+      publishedAt: J.timestamp().optional(),
+    })
+  ),
+  metadata: J.object({
+    createdAt: J.timestamp(),
+    updatedAt: J.timestamp(),
+  }),
 });
 
-const simpleValidator = ajv.compile(simpleSchema);
-const complexValidator = ajv.compile(complexSchema);
-const simpleParser = ajv.compileParser(simpleSchema);
-const complexParser = ajv.compileParser(complexSchema);
+const simpleValidator = ajv.compile(simpleSchema.schema);
+const complexValidator = ajv.compile(complexSchema.schema);
+const simpleParser = ajv.compileParser(simpleSchema.schema);
+const complexParser = ajv.compileParser(complexSchema.schema);
 
 const simpleData = {
   name: "John Doe",
@@ -142,19 +128,19 @@ group("JTD Parser vs JSON.parse - Complex", () => {
 
 group("Schema Compilation (one-time cost)", () => {
   bench("compile simple validator", () => {
-    ajv.compile(simpleSchema);
+    ajv.compile(simpleSchema.schema);
   });
 
   bench("compile complex validator", () => {
-    ajv.compile(complexSchema);
+    ajv.compile(complexSchema.schema);
   });
 
   bench("compile simple parser", () => {
-    ajv.compileParser(simpleSchema);
+    ajv.compileParser(simpleSchema.schema);
   });
 
   bench("compile complex parser", () => {
-    ajv.compileParser(complexSchema);
+    ajv.compileParser(complexSchema.schema);
   });
 });
 
