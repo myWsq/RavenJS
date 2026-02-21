@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { mkdir, rm, readdir } from "node:fs/promises";
-import { join, dirname } from "path";
+import { mkdir, rm, readdir, stat } from "node:fs/promises";
+import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
 import { parse, stringify } from "yaml";
+
 // @ts-ignore -- registry.json should generated dynamically
 import registryPath from "./registry.json" with { type: "file" };
-
 const GITHUB_REPO = "myWsq/RavenJS";
 const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}`;
 const DEFAULT_ROOT = "raven";
@@ -15,6 +15,7 @@ const DEFAULT_ROOT = "raven";
 interface CLIOptions {
   verbose?: boolean;
   root?: string;
+  source?: string;
 }
 
 interface RegistryModule {
@@ -27,10 +28,19 @@ interface Registry {
   modules: Record<string, RegistryModule>;
 }
 
-const registry = (await Bun.file(registryPath).json()) as Registry;
+const registry = (await Bun.file(registryPath as unknown as string).json()) as Registry;
 
 function getRoot(options: CLIOptions): string {
   return options.root || process.env.RAVEN_ROOT || DEFAULT_ROOT;
+}
+
+function getSource(options: CLIOptions): string | undefined {
+  return options.source || process.env.RAVEN_SOURCE;
+}
+
+function resolveSourcePath(source?: string): string | undefined {
+  if (!source || source === "github") return undefined;
+  return isAbsolute(source) ? source : resolve(cwd(), source);
 }
 
 async function log(message: string, options?: CLIOptions) {
@@ -70,6 +80,16 @@ async function isDirEmpty(path: string): Promise<boolean> {
   }
 }
 
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (e: any) {
+    if (e.code === "ENOENT") return false;
+    throw e;
+  }
+}
+
 function getModuleNames(): string[] {
   return Object.keys(registry.modules);
 }
@@ -84,6 +104,15 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   await Bun.write(destPath, content);
 }
 
+async function copyLocalFile(srcPath: string, destPath: string): Promise<void> {
+  const exists = await Bun.file(srcPath).exists();
+  if (!exists) {
+    throw new Error(`Missing local file: ${srcPath}`);
+  }
+  await ensureDir(dirname(destPath));
+  await Bun.write(destPath, Bun.file(srcPath));
+}
+
 async function downloadModule(
   moduleName: string,
   version: string,
@@ -95,14 +124,27 @@ async function downloadModule(
     throw new Error(`Module ${moduleName} not found in registry`);
   }
 
+  const sourcePath = resolveSourcePath(getSource(options || {}));
+  if (sourcePath) {
+    log(`Using local source: ${sourcePath}`, options);
+  }
   log(`Downloading ${moduleName} files...`, options);
 
   const modifiedFiles: string[] = [];
   const downloads = module.files.map(async (file: string) => {
-    const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
     const destPath = join(destDir, moduleName, file);
     log(`  Downloading ${file}...`, options);
-    await downloadFile(url, destPath);
+    if (sourcePath) {
+      const primaryPath = join(sourcePath, "modules", moduleName, file);
+      const fallbackPath = join(sourcePath, moduleName, file);
+      const sourceFile = (await Bun.file(primaryPath).exists())
+        ? primaryPath
+        : fallbackPath;
+      await copyLocalFile(sourceFile, destPath);
+    } else {
+      const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
+      await downloadFile(url, destPath);
+    }
     modifiedFiles.push(join(destDir, moduleName, file));
   });
 
@@ -141,7 +183,7 @@ async function cmdInit(options: CLIOptions) {
 
   const ravenDir = join(targetDir, root);
 
-  if (await Bun.file(ravenDir).exists()) {
+  if (await pathExists(ravenDir)) {
     const empty = await isDirEmpty(ravenDir);
     if (!empty) {
       await error(
@@ -206,7 +248,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
 
-  if (!(await Bun.file(ravenDir).exists())) {
+  if (!(await pathExists(ravenDir))) {
     await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
     return;
   }
@@ -254,7 +296,7 @@ async function cmdUpdate(options: CLIOptions) {
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
 
-  if (!(await Bun.file(ravenDir).exists())) {
+  if (!(await pathExists(ravenDir))) {
     await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
     return;
   }
@@ -324,6 +366,7 @@ cli.version(registry.version).help();
 
 cli
   .option("--root <dir>", "RavenJS root directory (default: raven)")
+  .option("--source <path>", "Local module source path (default: github)")
   .option("--verbose, -v", "Verbose output");
 
 cli
