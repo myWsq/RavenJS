@@ -18,6 +18,13 @@
         "typescript": "^5",
       },
     },
+    "packages/cli": {
+      "name": "@ravenjs/cli",
+      "version": "0.0.1",
+      "bin": {
+        "raven": "./index.ts",
+      },
+    },
     "packages/core": {
       "name": "@ravenjs/core",
       "version": "0.0.1",
@@ -34,20 +41,6 @@
       "peerDependencies": {
         "@ravenjs/core": "workspace:*",
       },
-    },
-    "packages/plugins": {
-      "name": "@ravenjs/plugins",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@sinclair/typebox": "^0.34.0",
-      },
-      "peerDependencies": {
-        "@ravenjs/core": "workspace:*",
-        "@sinclair/typebox": ">=0.32.0",
-      },
-      "optionalPeers": [
-        "@sinclair/typebox",
-      ],
     },
     "packages/testing": {
       "name": "@ravenjs/testing",
@@ -132,11 +125,11 @@
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
+    "@ravenjs/cli": ["@ravenjs/cli@workspace:packages/cli"],
+
     "@ravenjs/core": ["@ravenjs/core@workspace:packages/core"],
 
     "@ravenjs/jtd-validator": ["@ravenjs/jtd-validator@workspace:packages/jtd-validator"],
-
-    "@ravenjs/plugins": ["@ravenjs/plugins@workspace:packages/plugins"],
 
     "@ravenjs/testing": ["@ravenjs/testing@workspace:packages/testing"],
 
