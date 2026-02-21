@@ -5,7 +5,12 @@
   "bin": {
     "raven": "./index.ts"
   },
-  "dependencies": {},
+  "scripts": {
+    "build": "bun build ./index.ts --compile --minify --outfile raven"
+  },
+  "dependencies": {
+    "cac": "^6.7.14"
+  },
   "devDependencies": {},
   "peerDependencies": {}
 }

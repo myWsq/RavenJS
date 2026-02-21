@@ -1,0 +1,99 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - '@ravenjs/cli@v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+            arch: x64
+          - os: ubuntu-latest
+            target: linux-arm64
+            arch: aarch64
+          - os: macos-latest
+            target: darwin-x64
+            arch: x64
+          - os: macos-latest
+            target: darwin-arm64
+            arch: aarch64
+          - os: windows-latest
+            target: windows-x64
+            arch: x64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.2'
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION=$(echo "$TAG" | sed -E 's/@ravenjs\/cli@v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Build binary
+        working-directory: packages/cli
+        run: |
+          bun build ./index.ts --compile --minify --outfile raven-${{ steps.version.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raven-${{ steps.version.outputs.version }}-${{ matrix.target }}
+          path: packages/cli/raven-${{ steps.version.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION=$(echo "$TAG" | sed -E 's/@ravenjs\/cli@v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: raven-${{ steps.version.outputs.version }}-*
+          merge-multiple: false
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f -exec cp {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: '@ravenjs/cli@v${{ steps.version.outputs.version }}'
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release-assets/*
+          draft: false
+          prerelease: false

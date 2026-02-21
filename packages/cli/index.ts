@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { cac } from "cac";
 import { cp, mkdir, readdir, writeFile, rm, exists } from "fs/promises";
 import { join, dirname } from "path";
 import { cwd } from "process";
@@ -200,8 +201,8 @@ console.log("Server running at http://localhost:3000");
   await writeFile(join(destDir, "app.ts"), appContent);
 }
 
-async function cmdInit(args: string[], options: CLIOptions) {
-  const targetDir = args[0] ? join(cwd(), args[0]) : cwd();
+async function cmdInit(dir: string | undefined, options: CLIOptions) {
+  const targetDir = dir ? join(cwd(), dir) : cwd();
   
   log(`Initializing RavenJS in ${targetDir}`, options);
   
@@ -230,9 +231,7 @@ Next steps:
 `);
 }
 
-async function cmdAdd(args: string[], options: CLIOptions) {
-  const feature = args[0];
-  
+async function cmdAdd(feature: string, options: CLIOptions) {
   if (!feature) {
     await error("Please specify a feature to add. Available: jtd-validator");
     return;
@@ -273,8 +272,8 @@ See src/raven/${feature}/README.md for usage.
 `);
 }
 
-async function cmdUpdate(args: string[], options: CLIOptions) {
-  const targetDir = args[0] ? join(cwd(), args[0]) : cwd();
+async function cmdUpdate(dir: string | undefined, options: CLIOptions) {
+  const targetDir = dir ? join(cwd(), dir) : cwd();
   
   info("Checking for local modifications...");
   
@@ -309,66 +308,25 @@ async function cmdUpdate(args: string[], options: CLIOptions) {
   success("RavenJS updated successfully!");
 }
 
-function printHelp() {
-  console.log(`
-RavenJS CLI - AI-First Web Framework
+const cli = cac("raven");
 
-Usage:
-  raven <command> [options]
+cli
+  .version("0.0.1")
+  .help();
 
-Commands:
-  init              Initialize a new RavenJS project
-  add <feature>     Add a feature (e.g., jtd-validator)
-  update            Update RavenJS to latest version
-  help              Show this help message
+cli
+  .command("init [dir]", "Initialize a new RavenJS project")
+  .option("--verbose, -v", "Verbose output")
+  .action((dir, options) => cmdInit(dir, options));
 
-Examples:
-  raven init
-  raven add jtd-validator
-  raven update
+cli
+  .command("add <feature>", "Add a feature (e.g., jtd-validator)")
+  .option("--verbose, -v", "Verbose output")
+  .action((feature, options) => cmdAdd(feature, options));
 
-For more information, see: https://github.com/your-username/ravenjs
-`);
-}
+cli
+  .command("update [dir]", "Update RavenJS to latest version")
+  .option("--verbose, -v", "Verbose output")
+  .action((dir, options) => cmdUpdate(dir, options));
 
-async function main() {
-  const args = Bun.argv.slice(2);
-  const command = args[0];
-  
-  const verboseIndex = args.indexOf("--verbose");
-  const options: CLIOptions = {
-    verbose: verboseIndex !== -1,
-  };
-  
-  if (verboseIndex !== -1) {
-    args.splice(verboseIndex, 1);
-  }
-  
-  switch (command) {
-    case "init":
-      await cmdInit(args.slice(1), options);
-      break;
-    case "add":
-      await cmdAdd(args.slice(1), options);
-      break;
-    case "update":
-      await cmdUpdate(args.slice(1), options);
-      break;
-    case "help":
-    case "--help":
-    case "-h":
-      printHelp();
-      break;
-    default:
-      if (!command) {
-        printHelp();
-        break;
-      }
-      await error(`Unknown command: ${command}`);
-  }
-}
-
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+cli.parse();
