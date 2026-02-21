@@ -5,6 +5,8 @@ import { mkdir, rm, readdir } from "node:fs/promises";
 import { join, dirname } from "path";
 import { cwd } from "process";
 import { parse, stringify } from "yaml";
+// @ts-ignore -- registry.json should generated dynamically
+import registryPath from "./registry.json" with { type: "file" };
 
 const GITHUB_REPO = "myWsq/RavenJS";
 const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}`;
@@ -25,7 +27,7 @@ interface Registry {
   modules: Record<string, RegistryModule>;
 }
 
-const registry = (await Bun.file("./registry.json").json()) as Registry;
+const registry = (await Bun.file(registryPath).json()) as Registry;
 
 function getRoot(options: CLIOptions): string {
   return options.root || process.env.RAVEN_ROOT || DEFAULT_ROOT;

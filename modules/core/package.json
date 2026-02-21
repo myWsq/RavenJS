@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "files": ["index.ts", "main.ts", "README.md"],
-  "exports": {
-    ".": "./index.ts"
-  },
   "devDependencies": {
     "@ravenjs/testing": "workspace:*"
   }
