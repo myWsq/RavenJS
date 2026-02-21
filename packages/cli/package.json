@@ -1,0 +1,11 @@
+{
+  "name": "@ravenjs/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "raven": "./index.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "peerDependencies": {}
+}
