@@ -105,25 +105,19 @@ main() {
         fi
     fi
 
-    case "$VERSION" in
-        v*.*.*) ;;
-        *)
-            log_error "version must be in vX.Y.Z format"
-            exit 1
-            ;;
-    esac
-    local VERSION_NO_V="${VERSION#v}"
+    # Remove 'v' prefix if present
+    VERSION=$(echo "$VERSION" | sed 's/^v//')
 
     local EXTENSION=""
     if [ "$OS" = "windows" ]; then
         EXTENSION=".exe"
     fi
 
-    local FILE_NAME="${BINARY_NAME}-${VERSION_NO_V}-${OS}-${ARCH}${EXTENSION}"
-    local DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/${VERSION}/${FILE_NAME}"
+    local FILE_NAME="${BINARY_NAME}-${VERSION}-${OS}-${ARCH}${EXTENSION}"
+    local DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v${VERSION}/${FILE_NAME}"
 
     log_info "detected system: ${OS}-${ARCH}"
-    log_info "installing version: ${VERSION}"
+    log_info "installing version: v${VERSION}"
     log_info "downloading from: ${DOWNLOAD_URL}"
 
     # Create temp file
@@ -134,7 +128,7 @@ main() {
 
     if [ ! -s "$TEMP_FILE" ]; then
         log_error "download failed - file is empty"
-        log_error "please check if version ${VERSION} exists and supports ${OS}-${ARCH}"
+        log_error "please check if version v${VERSION} exists and supports ${OS}-${ARCH}"
         exit 1
     fi
 
