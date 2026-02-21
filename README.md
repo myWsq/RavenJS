@@ -7,19 +7,19 @@
 **Linux/macOS:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ravenjs/ravenjs/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/myWsq/RavenJS/refs/heads/main/install.sh | sh
 ```
 
 Or install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ravenjs/ravenjs/main/install.sh | sh -s -- v1.0.0
+curl -fsSL https://raw.githubusercontent.com/myWsq/RavenJS/refs/heads/main/install.sh | sh -s -- v1.0.0
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/ravenjs/ravenjs/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/myWsq/RavenJS/refs/heads/main/install.ps1 | iex
 ```
 
 Or install a specific version:

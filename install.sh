@@ -4,7 +4,7 @@ set -e
 # RavenJS Install Script
 # Installs the RavenJS CLI binary
 
-GITHUB_REPO="ravenjs/ravenjs"
+GITHUB_REPO="myWsq/RavenJS"
 BINARY_NAME="raven"
 INSTALL_DIR="$HOME/.local/bin"
 
