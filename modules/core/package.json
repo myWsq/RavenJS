@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "files": ["index.ts", "main.ts", "README.md"],
   "exports": {
     ".": "./index.ts"
   },

@@ -1,22 +1,42 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { cp, mkdir, readdir, writeFile, rm, exists } from "fs/promises";
+import { mkdir, writeFile, rm, exists, readFile, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { cwd } from "process";
+import { parse, stringify } from "yaml";
 
-const getSourceDir = (): string => {
-  if (process.env.RAVEN_SOURCE_DIR) {
-    return process.env.RAVEN_SOURCE_DIR;
-  }
-  return "/Users/bytedance/w/ravenjs";
-};
+const REGISTRY_PATH = join(dirname(import.meta.file), "registry.json");
+const GITHUB_REPO = "myWsq/RavenJS";
+const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}`;
 
-const SOURCE_DIR: string = getSourceDir();
+const DEFAULT_ROOT = "raven";
 
 interface CLIOptions {
   verbose?: boolean;
+  root?: string;
 }
+
+interface RegistryModule {
+  files: string[];
+  dependencies?: Record<string, string>;
+}
+
+interface Registry {
+  version: string;
+  modules: Record<string, RegistryModule>;
+}
+
+function getRoot(options: CLIOptions): string {
+  return options.root || process.env.RAVEN_ROOT || DEFAULT_ROOT;
+}
+
+async function loadRegistry(): Promise<Registry> {
+  const content = await readFile(REGISTRY_PATH, "utf-8");
+  return JSON.parse(content) as Registry;
+}
+
+const registry: Registry = await loadRegistry();
 
 async function log(message: string, options?: CLIOptions) {
   if (options?.verbose) {
@@ -37,10 +57,6 @@ async function success(message: string) {
   console.log(`\x1b[32m✓\x1b[0m ${message}`);
 }
 
-function getAvailableFeatures(): string[] {
-  return ["jtd-validator"];
-}
-
 async function ensureDir(path: string) {
   try {
     await mkdir(path, { recursive: true });
@@ -59,274 +75,265 @@ async function isDirEmpty(path: string): Promise<boolean> {
   }
 }
 
-async function copyPackage(src: string, dest: string, packageName: string) {
-  await ensureDir(dest);
-  
-  const files = await readdir(src);
-  
-  for (const file of files) {
-    if (file === "node_modules" || file === ".git") continue;
-    if (file.endsWith(".test.ts") || file.endsWith(".bench.ts")) continue;
-    
-    const srcPath = join(src, file);
-    const destPath = join(dest, file);
-    
-    const stat = await import("fs/promises").then(fs => fs.stat(srcPath));
-    
-    if (stat.isDirectory()) {
-      await copyPackage(srcPath, destPath, packageName);
-    } else {
-      await cp(srcPath, destPath);
+function getModuleNames(): string[] {
+  return Object.keys(registry.modules);
+}
+
+async function downloadFile(url: string, destPath: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download ${url}: ${response.status}`);
+  }
+  const content = await response.text();
+  await ensureDir(join(destPath, ".."));
+  await writeFile(destPath, content);
+}
+
+async function downloadModule(
+  moduleName: string,
+  version: string,
+  destDir: string,
+  options?: CLIOptions
+): Promise<string[]> {
+  const module = registry.modules[moduleName];
+  if (!module) {
+    throw new Error(`Module ${moduleName} not found in registry`);
+  }
+
+  log(`Downloading ${moduleName} files...`, options);
+
+  const modifiedFiles: string[] = [];
+  const downloads = module.files.map(async (file: string) => {
+    const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
+    const destPath = join(destDir, moduleName, file);
+    log(`  Downloading ${file}...`, options);
+    await downloadFile(url, destPath);
+    modifiedFiles.push(join(destDir, moduleName, file));
+  });
+
+  await Promise.all(downloads);
+  return modifiedFiles;
+}
+
+interface RavenYamlConfig {
+  version: string;
+}
+
+async function loadRavenYaml(ravenDir: string): Promise<string> {
+  const yamlPath = join(ravenDir, "raven.yaml");
+  try {
+    const content = await readFile(yamlPath, "utf-8");
+    const config = parse(content) as RavenYamlConfig;
+    if (!config?.version) {
+      throw new Error("Invalid raven.yaml: version field is missing");
     }
+    return config.version;
+  } catch (e: any) {
+    throw new Error(`Failed to load raven.yaml: ${e.message}`);
   }
 }
 
-async function copyCoreToDest(destDir: string) {
-  const coreSrc = join(SOURCE_DIR, "packages", "core");
-  const coreDest = join(destDir, "src", "raven");
-  
-  info(`Copying core package from ${coreSrc} to ${coreDest}`);
-  await copyPackage(coreSrc, coreDest, "core");
-  
-  await cp(
-    join(SOURCE_DIR, "packages", "core", "README.md"),
-    join(coreDest, "README.md")
-  );
+async function createRavenYaml(destDir: string, version: string) {
+  const content = stringify({ version });
+  await writeFile(join(destDir, "raven.yaml"), content);
 }
 
-async function createSkillFile(destDir: string) {
-  const skillDir = join(destDir, ".trae", "skills", "ravenjs");
-  await ensureDir(skillDir);
-  
-  const skillContent = `# RavenJS Framework Skill
 
-## Overview
 
-This skill provides AI agents with the knowledge to use RavenJS framework effectively.
 
-## Available Commands
 
-### raven init
-Initialize a new RavenJS project in the current directory.
+async function cmdInit(options: CLIOptions) {
+  const targetDir = cwd();
+  const root = getRoot(options);
 
-\`\`\`bash
-raven init
-\`\`\`
-
-Creates:
-- \`src/raven/\` - Core framework code
-- \`.trae/skills/ravenjs/SKILL.md\` - This skill file
-- \`app.ts\` - Your application entry point
-
-### raven add <feature>
-Add additional features to your project.
-
-\`\`\`bash
-raven add jtd-validator
-\`\`\`
-
-Available features:
-- \`jtd-validator\` - JTD schema validation
-
-### raven update
-Update RavenJS to the latest version.
-
-\`\`\`bash
-raven update
-\`\`\`
-
-**Note**: If you have local modifications, commit or stash them before updating.
-
-## Framework Capabilities
-
-### HTTP Server
-- Start server with \`app.listen({ port: 3000 })\`
-- Automatic runtime adaptation (Bun/Node.js)
-
-### Routing
-- HTTP methods: GET, POST, PUT, DELETE, PATCH
-- Path parameters: \`/user/:id\`
-- Route groups: \`app.group("/api", callback)\`
-
-### State Management
-- \`AppState<T>\` - Application-level state
-- \`RequestState<T>\` - Request-level state
-- Built-in states: BodyState, QueryState, ParamsState, HeadersState
-
-### Lifecycle Hooks
-- \`onRequest\` - Before request processing
-- \`beforeHandle\` - Before handler execution
-- \`beforeResponse\` - Before response is sent
-- \`onError\` - On error occurrence
-
-### Plugin System
-- \`createPlugin(fn)\` - Create plugins
-- \`app.register(plugin)\` - Register plugins
-
-## Quick Start
-
-\`\`\`typescript
-import { Raven } from "./src/raven/index.ts";
-
-const app = new Raven();
-
-app.get("/", () => {
-  return new Response("Hello, World!");
-});
-
-app.listen({ port: 3000 });
-\`\`\`
-
-## API Reference
-
-See \`src/raven/README.md\` for complete API documentation.
-`;
-
-  await writeFile(join(skillDir, "SKILL.md"), skillContent);
-}
-
-async function createAppEntry(destDir: string) {
-  const appContent = `import { Raven } from "./src/raven/index.ts";
-
-const app = new Raven();
-
-app.get("/", () => {
-  return new Response("Hello, World!");
-});
-
-app.listen({ port: 3000 });
-console.log("Server running at http://localhost:3000");
-`;
-
-  await writeFile(join(destDir, "app.ts"), appContent);
-}
-
-async function cmdInit(dir: string | undefined, options: CLIOptions) {
-  const targetDir = dir ? join(cwd(), dir) : cwd();
-  
   log(`Initializing RavenJS in ${targetDir}`, options);
-  
-  const srcRavenDir = join(targetDir, "src", "raven");
-  
-  if (await exists(srcRavenDir)) {
-    const empty = await isDirEmpty(srcRavenDir);
+
+  const ravenDir = join(targetDir, root);
+
+  if (await exists(ravenDir)) {
+    const empty = await isDirEmpty(ravenDir);
     if (!empty) {
-      await error("RavenJS is already initialized in this directory. Use 'raven update' to update.");
+      await error(`RavenJS is already initialized at ${root}/. Use 'raven update' to update.`);
       return;
     }
   }
+
+  const version = registry.version;
+
+  await ensureDir(join(targetDir, root));
+
+  const modifiedFiles: string[] = [];
+  const coreFiles = await downloadModule("core", version, join(targetDir, root), options);
+  modifiedFiles.push(...coreFiles);
   
-  await ensureDir(join(targetDir, "src"));
-  
-  await copyCoreToDest(targetDir);
-  await createSkillFile(targetDir);
-  await createAppEntry(targetDir);
-  
+  await createRavenYaml(join(targetDir, root), version);
+  modifiedFiles.push(join(targetDir, root, "raven.yaml"));
+
   success("RavenJS initialized successfully!");
-  console.log(`
-Next steps:
-  1. cd ${targetDir}
-  2. bun run app.ts
-  3. Open http://localhost:3000
-`);
+  
+  console.log("\n### Modified Files:");
+  for (const file of modifiedFiles) {
+    console.log(`  - ${file}`);
+  }
+  
+  const coreModule = registry.modules["core"];
+  if (coreModule?.dependencies && Object.keys(coreModule.dependencies).length > 0) {
+    console.log("\n### Required Dependencies:");
+    for (const [pkg, ver] of Object.entries(coreModule.dependencies)) {
+      console.log(`  - ${pkg}@${ver}`);
+    }
+  }
 }
 
-async function cmdAdd(feature: string, options: CLIOptions) {
-  if (!feature) {
-    await error("Please specify a feature to add. Available: jtd-validator");
+async function cmdAdd(moduleName: string, options: CLIOptions) {
+  if (!moduleName) {
+    await error(`Please specify a module to add. Available: ${getModuleNames().join(", ")}`);
     return;
   }
-  
-  const available = getAvailableFeatures();
-  
-  if (!available.includes(feature)) {
-    console.log(`Available features: ${available.join(", ")}`);
-    await error(`Unknown feature: ${feature}`);
+
+  const available = getModuleNames();
+
+  if (!available.includes(moduleName)) {
+    console.log(`Available modules: ${available.join(", ")}`);
+    await error(`Unknown module: ${moduleName}`);
     return;
   }
-  
+
   const targetDir = cwd();
-  const srcRavenDir = join(targetDir, "src", "raven");
-  
-  if (!await exists(srcRavenDir)) {
-    await error("RavenJS not initialized. Run 'raven init' first.");
-    return;
-  }
-  
-  log(`Adding ${feature}...`, options);
-  
-  const featureSrc = join(SOURCE_DIR, "packages", feature);
-  const featureDest = join(srcRavenDir, feature);
-  
-  await copyPackage(featureSrc, featureDest, feature);
-  
-  const specSrc = join(SOURCE_DIR, "packages", feature, "README.md");
-  if (await exists(specSrc)) {
-    await cp(specSrc, join(featureDest, "README.md"));
-  }
-  
-  success(`${feature} added successfully!`);
-  console.log(`
-The feature has been added to src/raven/${feature}/
-See src/raven/${feature}/README.md for usage.
-`);
-}
+  const root = getRoot(options);
+  const ravenDir = join(targetDir, root);
 
-async function cmdUpdate(dir: string | undefined, options: CLIOptions) {
-  const targetDir = dir ? join(cwd(), dir) : cwd();
-  
-  info("Checking for local modifications...");
-  
-  const srcRavenDir = join(targetDir, "src", "raven");
-  
-  if (!await exists(srcRavenDir)) {
-    await error("RavenJS not initialized. Run 'raven init' first.");
+  if (!await exists(ravenDir)) {
+    await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
     return;
   }
+
+  log(`Adding ${moduleName}...`, options);
+
+  let version: string;
+  try {
+    version = await loadRavenYaml(ravenDir);
+  } catch (e: any) {
+    await error(e.message);
+    return;
+  }
+
+  const modifiedFiles = await downloadModule(moduleName, version, ravenDir, options);
+
+  success(`${moduleName} added successfully!`);
   
-  info(`Updating RavenJS in ${targetDir}...`);
+  console.log("\n### Modified Files:");
+  for (const file of modifiedFiles) {
+    console.log(`  - ${file}`);
+  }
   
-  await rm(srcRavenDir, { recursive: true, force: true });
-  
-  await copyCoreToDest(targetDir);
-  
-  const features = getAvailableFeatures();
-  for (const feature of features) {
-    const featureDest = join(srcRavenDir, feature);
-    if (await exists(featureDest)) {
-      const featureSrc = join(SOURCE_DIR, "packages", feature);
-      await rm(featureDest, { recursive: true, force: true });
-      await copyPackage(featureSrc, featureDest, feature);
-      
-      const specSrc = join(SOURCE_DIR, "packages", feature, "README.md");
-      if (await exists(specSrc)) {
-        await cp(specSrc, join(featureDest, "README.md"));
-      }
+  const module = registry.modules[moduleName];
+  if (module?.dependencies && Object.keys(module.dependencies).length > 0) {
+    console.log("\n### Required Dependencies:");
+    for (const [pkg, ver] of Object.entries(module.dependencies)) {
+      console.log(`  - ${pkg}@${ver}`);
     }
   }
   
+  console.log(`
+The module has been added to ${root}/${moduleName}/
+See ${root}/${moduleName}/README.md for usage.
+`);
+}
+
+async function cmdUpdate(options: CLIOptions) {
+  const targetDir = cwd();
+  const root = getRoot(options);
+  const ravenDir = join(targetDir, root);
+
+  if (!await exists(ravenDir)) {
+    await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
+    return;
+  }
+
+  info(`Updating RavenJS in ${targetDir}...`);
+
+  let version: string;
+  try {
+    version = await loadRavenYaml(ravenDir);
+  } catch (e: any) {
+    await error(e.message);
+    return;
+  }
+
+  const modifiedFiles: string[] = [];
+  const allDependencies: Record<string, string> = {};
+
+  const availableModules = getModuleNames();
+  for (const moduleName of availableModules) {
+    const moduleDir = join(ravenDir, moduleName);
+    if (await exists(moduleDir)) {
+      await rm(moduleDir, { recursive: true, force: true });
+    }
+    const files = await downloadModule(moduleName, version, ravenDir, options);
+    modifiedFiles.push(...files);
+    
+    const module = registry.modules[moduleName];
+    if (module?.dependencies) {
+      for (const [pkg, ver] of Object.entries(module.dependencies)) {
+        allDependencies[pkg] = ver;
+      }
+    }
+  }
+
+  await createRavenYaml(ravenDir, version);
+  modifiedFiles.push(join(ravenDir, "raven.yaml"));
+
   success("RavenJS updated successfully!");
+  
+  console.log("\n### Modified Files:");
+  for (const file of modifiedFiles) {
+    console.log(`  - ${file}`);
+  }
+  
+  if (Object.keys(allDependencies).length > 0) {
+    console.log("\n### Required Dependencies:");
+    for (const [pkg, ver] of Object.entries(allDependencies)) {
+      console.log(`  - ${pkg}@${ver}`);
+    }
+  }
+}
+
+async function cmdSelfUpdate(options: CLIOptions) {
+  info("Checking for updates...");
+
+  info("Run the following command to update:");
+  console.log(`
+  npm install -g @ravenjs/cli
+  # or
+  bunx @ravenjs/cli@latest
+  `);
 }
 
 const cli = cac("raven");
 
 cli
-  .version("0.0.1")
+  .version(registry.version)
   .help();
 
 cli
-  .command("init [dir]", "Initialize a new RavenJS project")
-  .option("--verbose, -v", "Verbose output")
-  .action((dir, options) => cmdInit(dir, options));
+  .option("--root <dir>", "RavenJS root directory (default: raven)")
+  .option("--verbose, -v", "Verbose output");
 
 cli
-  .command("add <feature>", "Add a feature (e.g., jtd-validator)")
-  .option("--verbose, -v", "Verbose output")
-  .action((feature, options) => cmdAdd(feature, options));
+  .command("init", "Initialize a new RavenJS project")
+  .action((options) => cmdInit(options as CLIOptions));
 
 cli
-  .command("update [dir]", "Update RavenJS to latest version")
-  .option("--verbose, -v", "Verbose output")
-  .action((dir, options) => cmdUpdate(dir, options));
+  .command("add <module>", "Add a module (e.g., jtd-validator)")
+  .action((module, options) => cmdAdd(module, options as CLIOptions));
+
+cli
+  .command("update", "Update RavenJS to latest version")
+  .action((options) => cmdUpdate(options as CLIOptions));
+
+cli
+  .command("self-update", "Update RavenJS CLI to latest version")
+  .action((options) => cmdSelfUpdate(options as CLIOptions));
 
 cli.parse();

@@ -6,10 +6,12 @@
     "raven": "./index.ts"
   },
   "scripts": {
+    "prebuild": "bun run scripts/generate-registry.ts",
     "build": "bun build ./index.ts --compile --minify --outfile raven"
   },
   "dependencies": {
-    "cac": "^6.7.14"
+    "cac": "^6.7.14",
+    "yaml": "^2.6.0"
   },
   "devDependencies": {},
   "peerDependencies": {}
