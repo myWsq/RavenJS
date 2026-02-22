@@ -55,6 +55,7 @@ async function main() {
 const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 const knownWindowsPackages = {
   'win32 x64': '@raven.js/cli-windows-x64'
@@ -91,6 +92,16 @@ function generateBinPath() {
 }
 
 const binaryPath = generateBinPath();
+
+// 双重保险：确保二进制文件有执行权限
+if (process.platform !== 'win32') {
+  try {
+    fs.chmodSync(binaryPath, 0o755);
+  } catch (e) {
+    // 权限设置失败也不阻止执行
+  }
+}
+
 const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code || 0));
 `;
