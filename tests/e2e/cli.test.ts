@@ -31,11 +31,11 @@ async function runCommand(cmd: string[], cwd: string) {
 	return { exitCode, stdout, stderr };
 }
 
-async function ensureRegistry() {
+async function ensureRegistry(version = "0.0.0") {
 	const exists = await Bun.file(registryPath).exists();
 	if (exists) return;
 	const result = await runCommand(
-		["bun", "run", scriptPath, "0.0.0"],
+		["bun", "run", scriptPath, version],
 		repoRoot,
 	);
 	if (result.exitCode !== 0) {
@@ -221,14 +221,21 @@ describe("CLI E2E", () => {
 	});
 
 	describe("Self-update Command", () => {
+		beforeAll(async () => {
+			// Regenerate registry with high version so self-update hits "Already up to date"
+			// path (avoids download/write to ~/.local/bin).
+			const exists = await Bun.file(registryPath).exists();
+			if (exists) await Bun.file(registryPath).delete();
+			await ensureRegistry("99.0.0");
+		});
+
 		it("should show self-update instructions", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["self-update"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("Checking for updates");
-			expect(result.stdout).toContain("npm install");
-			expect(result.stdout).toContain("bunx");
+			expect(result.stdout).toContain("Already up to date");
 		});
 	});
 

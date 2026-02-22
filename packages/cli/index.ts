@@ -53,7 +53,9 @@ async function verboseLog(message: string, options?: CLIOptions) {
 }
 
 function error(message: string): never {
-  log.error(message);
+  // Use stderr for programmatic consumption (e.g. tests, piping). @clack/prompts
+  // log.error writes to stdout which breaks stderr-based assertions.
+  console.error(message);
   process.exit(1);
 }
 
