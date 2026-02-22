@@ -54,60 +54,43 @@ async function main() {
   const wrapperScript = `#!/usr/bin/env node
 const { spawn } = require('child_process');
 const path = require('path');
-const fs = require('fs');
+const os = require('os');
 
-const targets = [
-  'linux-x64',
-  'linux-arm64',
-  'darwin-x64',
-  'darwin-arm64',
-  'windows-x64'
-];
+const knownWindowsPackages = {
+  'win32 x64': '@raven.js/cli-windows-x64'
+};
 
-let binaryPath = null;
+const knownUnixlikePackages = {
+  'linux x64': '@raven.js/cli-linux-x64',
+  'linux arm64': '@raven.js/cli-linux-arm64',
+  'darwin x64': '@raven.js/cli-darwin-x64',
+  'darwin arm64': '@raven.js/cli-darwin-arm64'
+};
 
-// 方法 1: 使用 require.resolve
-for (const target of targets) {
-  try {
-    const pkgPath = require.resolve(\`@raven.js/cli-\${target}\`);
-    const pkgDir = path.dirname(pkgPath);
-    const candidate = path.join(pkgDir, process.platform === 'win32' ? 'raven.exe' : 'raven');
-    if (fs.existsSync(candidate)) {
-      binaryPath = candidate;
-      break;
-    }
-  } catch (e) {
-    continue;
+function pkgAndSubpathForCurrentPlatform() {
+  let pkg;
+  let subpath;
+  const platformKey = \`\${process.platform} \${os.arch()}\`;
+  
+  if (platformKey in knownWindowsPackages) {
+    pkg = knownWindowsPackages[platformKey];
+    subpath = 'bin/raven.exe';
+  } else if (platformKey in knownUnixlikePackages) {
+    pkg = knownUnixlikePackages[platformKey];
+    subpath = 'bin/raven';
+  } else {
+    throw new Error(\`Unsupported platform: \${platformKey}\`);
   }
+  
+  return { pkg, subpath };
 }
 
-// 方法 2: 如果 require.resolve 失败，尝试手动在 node_modules 中查找
-if (!binaryPath) {
-  let currentDir = __dirname;
-  while (currentDir && currentDir !== path.dirname(currentDir)) {
-    const nodeModulesDir = path.join(currentDir, 'node_modules');
-    if (fs.existsSync(nodeModulesDir)) {
-      for (const target of targets) {
-        const pkgDir = path.join(nodeModulesDir, '@raven.js', \`cli-\${target}\`);
-        if (fs.existsSync(pkgDir)) {
-          const candidate = path.join(pkgDir, process.platform === 'win32' ? 'raven.exe' : 'raven');
-          if (fs.existsSync(candidate)) {
-            binaryPath = candidate;
-            break;
-          }
-        }
-      }
-      if (binaryPath) break;
-    }
-    currentDir = path.dirname(currentDir);
-  }
+function generateBinPath() {
+  const { pkg, subpath } = pkgAndSubpathForCurrentPlatform();
+  return require.resolve(\`\${pkg}/\${subpath}\`);
 }
 
-if (!binaryPath) {
-  console.error('No compatible binary found for your platform');
-  process.exit(1);
-}
-
+const binaryPath = generateBinPath();
 const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code || 0));
 `;

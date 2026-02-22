@@ -41,7 +41,8 @@ const packageName = `@raven.js/cli-${targetArg}`;
 
 async function main() {
   const packageDir = join(outDirArg, packageName.replace("/", "-"));
-  await mkdir(packageDir, { recursive: true });
+  const binDir = join(packageDir, "bin");
+  await mkdir(binDir, { recursive: true });
 
   const pkg = {
     name: packageName,
@@ -54,15 +55,13 @@ async function main() {
       type: "git",
       url: "https://github.com/myWsq/RavenJS.git",
     },
-    bin: {
-      raven: `./${binaryName}`,
-    },
-    files: [binaryName, "README.md"],
+    preferUnplugged: true,
+    files: ["bin", "README.md"],
   };
 
   await writeFile(join(packageDir, "package.json"), JSON.stringify(pkg, null, 2));
 
-  await copyFile(binaryPathArg, join(packageDir, binaryName));
+  await copyFile(binaryPathArg, join(binDir, binaryName));
 
   const readme = `# ${packageName}
 
