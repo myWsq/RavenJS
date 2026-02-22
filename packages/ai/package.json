@@ -1,0 +1,18 @@
+{
+  "name": "@ravenjs/ai",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "files": [
+    "add/skill.md",
+    "add/command.md",
+    "install/skill.md",
+    "install/command.md"
+  ],
+  "fileMapping": {
+    "add/skill.md": ".claude/skills/raven-add/SKILL.md",
+    "add/command.md": ".claude/commands/raven/add.md",
+    "install/skill.md": ".claude/skills/raven-install/SKILL.md",
+    "install/command.md": ".claude/commands/raven/install.md"
+  }
+}

@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Verify packages/ai exists
+        run: test -d packages/ai && test -f packages/ai/package.json || (echo "packages/ai is required for AI resources" && exit 1)
+
       - name: Extract version from tag
         id: version
         shell: bash
