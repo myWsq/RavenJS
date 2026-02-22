@@ -75,10 +75,10 @@ function pkgAndSubpathForCurrentPlatform() {
   
   if (platformKey in knownWindowsPackages) {
     pkg = knownWindowsPackages[platformKey];
-    subpath = 'bin/raven.exe';
+    subpath = 'raven.exe';
   } else if (platformKey in knownUnixlikePackages) {
     pkg = knownUnixlikePackages[platformKey];
-    subpath = 'bin/raven';
+    subpath = 'raven';
   } else {
     throw new Error(\`Unsupported platform: \${platformKey}\`);
   }
@@ -92,15 +92,6 @@ function generateBinPath() {
 }
 
 const binaryPath = generateBinPath();
-
-// 双重保险：确保二进制文件有执行权限
-if (process.platform !== 'win32') {
-  try {
-    fs.chmodSync(binaryPath, 0o755);
-  } catch (e) {
-    // 权限设置失败也不阻止执行
-  }
-}
 
 const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code || 0));

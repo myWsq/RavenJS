@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile, copyFile, chmod } from "node:fs/promises";
+import { mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join } from "node:path";
 
 interface Target {
@@ -41,8 +41,7 @@ const packageName = `@raven.js/cli-${targetArg}`;
 
 async function main() {
   const packageDir = join(outDirArg, packageName.replace("/", "-"));
-  const binDir = join(packageDir, "bin");
-  await mkdir(binDir, { recursive: true });
+  await mkdir(packageDir, { recursive: true });
 
   const pkg = {
     name: packageName,
@@ -56,14 +55,16 @@ async function main() {
       url: "https://github.com/myWsq/RavenJS.git",
     },
     preferUnplugged: true,
-    files: ["bin", "README.md"],
+    bin: {
+      "raven-binary": `./${binaryName}`,
+    },
+    files: [binaryName, "README.md"],
   };
 
   await writeFile(join(packageDir, "package.json"), JSON.stringify(pkg, null, 2));
 
-  const destBinaryPath = join(binDir, binaryName);
+  const destBinaryPath = join(packageDir, binaryName);
   await copyFile(binaryPathArg, destBinaryPath);
-  await chmod(destBinaryPath, 0o755);
 
   const readme = `# ${packageName}
 
