@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { mkdir, rm, readdir, stat, chmod } from "node:fs/promises";
+import { mkdir, rm, readdir, stat, chmod, rename } from "node:fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
 import pc from "picocolors";
@@ -532,7 +532,7 @@ async function cmdSelfUpdate(_options: CLIOptions) {
   try {
     await Bun.write(tempPath, buffer);
     await chmod(tempPath, 0o755);
-    await Bun.rename(tempPath, INSTALL_PATH);
+    await rename(tempPath, INSTALL_PATH);
   } finally {
     try {
       await rm(tempPath, { force: true });
