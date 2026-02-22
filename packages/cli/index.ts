@@ -5,7 +5,7 @@ import { mkdir, rm, readdir, stat, chmod, rename } from "node:fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
 import pc from "picocolors";
-import ora from "ora";
+import { spinner as makeSpinner, log } from "@clack/prompts";
 import { parse, stringify } from "yaml";
 
 // @ts-ignore -- registry.json should generated dynamically
@@ -46,31 +46,31 @@ function resolveSourcePath(source?: string): string | undefined {
   return isAbsolute(source) ? source : resolve(cwd(), source);
 }
 
-async function log(message: string, options?: CLIOptions) {
+async function verboseLog(message: string, options?: CLIOptions) {
   if (options?.verbose) {
     console.log(message);
   }
 }
 
 function error(message: string): never {
-  console.error(pc.red("Error:") + " " + message);
+  log.error(message);
   process.exit(1);
 }
 
 function info(message: string) {
-  console.log(pc.cyan("info") + " " + pc.dim(message));
+  log.info(message);
 }
 
 function success(message: string) {
-  console.log(pc.green("✓") + " " + message);
+  log.success(message);
 }
 
 function printSectionHeader(title: string) {
-  console.log("\n" + pc.bold(pc.dim(title)));
+  log.step(title);
 }
 
 function printListItem(item: string) {
-  console.log("  " + pc.dim("-") + " " + item);
+  log.message(item, { symbol: pc.dim("-") });
 }
 
 async function ensureDir(path: string) {
@@ -202,14 +202,14 @@ async function downloadModule(
 
   const sourcePath = resolveSourcePath(getSource(options || {}));
   if (sourcePath) {
-    log(`Using local source: ${sourcePath}`, options);
+    verboseLog(`Using local source: ${sourcePath}`, options);
   }
-  log(`Downloading ${moduleName} files...`, options);
+  verboseLog(`Downloading ${moduleName} files...`, options);
 
   const modifiedFiles: string[] = [];
   const downloads = module.files.map(async (file: string) => {
     const destPath = join(destDir, moduleName, file);
-    log(`  Downloading ${file}...`, options);
+    verboseLog(`  Downloading ${file}...`, options);
     if (sourcePath) {
       const primaryPath = join(sourcePath, "modules", moduleName, file);
       const fallbackPath = join(sourcePath, moduleName, file);
@@ -255,17 +255,16 @@ async function cmdInit(options: CLIOptions) {
   const targetDir = cwd();
   const root = getRoot(options);
 
-  log(`Initializing RavenJS in ${targetDir}`, options);
+  verboseLog(`Initializing RavenJS in ${targetDir}`, options);
 
   const ravenDir = join(targetDir, root);
 
   if (await pathExists(ravenDir)) {
     const empty = await isDirEmpty(ravenDir);
     if (!empty) {
-      await error(
+      error(
         `RavenJS is already initialized at ${root}/. Use 'raven update' to update.`,
       );
-      return;
     }
   }
 
@@ -273,7 +272,7 @@ async function cmdInit(options: CLIOptions) {
   const modifiedFiles: string[] = [];
 
   if (options?.verbose) {
-    log(`Initializing RavenJS in ${targetDir}`, options);
+    verboseLog(`Initializing RavenJS in ${targetDir}`, options);
     await ensureDir(join(targetDir, root));
     const coreFiles = await downloadModule(
       "core",
@@ -283,7 +282,8 @@ async function cmdInit(options: CLIOptions) {
     );
     modifiedFiles.push(...coreFiles);
   } else {
-    const spinner = ora("Initializing RavenJS...").start();
+    const s = makeSpinner();
+    s.start("Initializing RavenJS...");
     try {
       await ensureDir(join(targetDir, root));
       const coreFiles = await downloadModule(
@@ -293,9 +293,9 @@ async function cmdInit(options: CLIOptions) {
         options,
       );
       modifiedFiles.push(...coreFiles);
-      spinner.succeed();
+      s.stop("Initializing RavenJS...");
     } catch (e: any) {
-      spinner.fail();
+      s.stop("Initialization failed");
       error(e.message);
     }
   }
@@ -324,10 +324,9 @@ async function cmdInit(options: CLIOptions) {
 
 async function cmdAdd(moduleName: string, options: CLIOptions) {
   if (!moduleName) {
-    await error(
+    error(
       `Please specify a module to add. Available: ${getModuleNames().join(", ")}`,
     );
-    return;
   }
 
   const available = getModuleNames();
@@ -343,8 +342,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
   const ravenDir = join(targetDir, root);
 
   if (!(await pathExists(ravenDir))) {
-    await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
-    return;
+    error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
   }
 
   let version: string;
@@ -357,10 +355,11 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
 
   let modifiedFiles: string[];
   if (options?.verbose) {
-    log(`Adding ${moduleName}...`, options);
+    verboseLog(`Adding ${moduleName}...`, options);
     modifiedFiles = await downloadModule(moduleName, version, ravenDir, options);
   } else {
-    const spinner = ora(`Adding ${moduleName}...`).start();
+    const s = makeSpinner();
+    s.start(`Adding ${moduleName}...`);
     try {
       modifiedFiles = await downloadModule(
         moduleName,
@@ -368,9 +367,9 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
         ravenDir,
         options,
       );
-      spinner.succeed();
+      s.stop(`Adding ${moduleName}...`);
     } catch (e: any) {
-      spinner.fail();
+      s.stop("Add failed");
       error(e.message);
     }
   }
@@ -390,11 +389,9 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     }
   }
 
-  console.log(
-    "\n" +
-      pc.dim(
-        `The module has been added to ${root}/${moduleName}/\nSee ${root}/${moduleName}/README.md for usage.`,
-      ),
+  log.message(
+    `The module has been added to ${root}/${moduleName}\nSee ${root}/${moduleName}/README.md for usage.`,
+    { symbol: pc.dim("~") },
   );
 }
 
@@ -404,8 +401,7 @@ async function cmdUpdate(options: CLIOptions) {
   const ravenDir = join(targetDir, root);
 
   if (!(await pathExists(ravenDir))) {
-    await error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
-    return;
+    error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
   }
 
   let version: string;
@@ -447,7 +443,8 @@ async function cmdUpdate(options: CLIOptions) {
       error(e instanceof Error ? e.message : String(e));
     }
   } else {
-    const spinner = ora("Updating RavenJS...").start();
+    const s = makeSpinner();
+    s.start("Updating RavenJS...");
     try {
       const availableModules = getModuleNames();
       for (const moduleName of availableModules) {
@@ -465,9 +462,9 @@ async function cmdUpdate(options: CLIOptions) {
           }
         }
       }
-      spinner.succeed();
+      s.stop("Updating RavenJS...");
     } catch (e: any) {
-      spinner.fail();
+      s.stop("Update failed");
       error(e.message);
     }
   }
@@ -554,20 +551,12 @@ async function cmdSelfUpdate(options: CLIOptions) {
   success(`installed successfully to: ${INSTALL_PATH}`);
 
   if (!isLocalBinInPath()) {
-    console.log(pc.yellow("warn") + ": " + pc.dim(`${INSTALL_DIR} is not in your PATH`));
-    console.log(
-      pc.yellow("warn") +
-        ": " +
-        pc.dim("add it to your shell config (e.g., ~/.bashrc, ~/.zshrc):"),
-    );
-    console.log(
-      pc.yellow("warn") +
-        ": " +
-        pc.dim(`  export PATH="$HOME/.local/bin:$PATH"`),
-    );
+    log.warn(`${INSTALL_DIR} is not in your PATH`);
+    log.warn("add it to your shell config (e.g., ~/.bashrc, ~/.zshrc):");
+    log.message(`export PATH="$HOME/.local/bin:$PATH"`, { symbol: pc.dim("~") });
   }
 
-  console.log(pc.dim(`\ndone! run 'raven --help' to get started`));
+  log.message("done! run 'raven --help' to get started", { symbol: pc.dim("~") });
 }
 
 const cli = cac("raven");

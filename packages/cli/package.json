@@ -7,10 +7,10 @@
     "build": "bun build ./index.ts --compile --minify --outfile raven"
   },
   "dependencies": {
+    "@clack/prompts": "^1.0.1",
     "cac": "^6.7.14",
-    "ora": "^8.1.1",
     "picocolors": "^1.1.1",
-    "yaml": "^2.6.0",
-    "semver": "^7.7.4"
+    "semver": "^7.7.4",
+    "yaml": "^2.6.0"
   }
 }
