@@ -70,52 +70,21 @@ get_latest_version() {
         sed 's/^v//'
 }
 
-# Spinner for download progress
-spinner_pid=""
-spinner_stop() {
-    if [ -n "$spinner_pid" ]; then
-        kill "$spinner_pid" 2>/dev/null
-        wait "$spinner_pid" 2>/dev/null
-        spinner_pid=""
-        printf '\r\033[K'  # clear spinner line
-    fi
-}
-spinner_start() {
-    local msg="$1"
-    (
-        i=0
-        chars="|/-\\"
-        while true; do
-            c=$(echo "$chars" | cut -c$(((i % 4) + 1)))
-            printf '\r\033[K%b%s%b %s  ' "$CYAN" "$msg" "$NC" "$c"
-            i=$((i + 1))
-            sleep 0.12
-        done
-    ) &
-    spinner_pid=$!
-}
-
-# Download file with progress (requires -f to fail on 404)
+# Download file with progress bar (-f to fail on 404)
 download_file() {
     local url="$1"
     local output="$2"
 
     if command -v curl >/dev/null 2>&1; then
-        spinner_start "downloading"
-        if curl -fsL -o "$output" "$url"; then
-            spinner_stop
+        if curl -#fL -o "$output" "$url"; then
             printf '\r\033[K%b✓ downloaded%b\n' "$GREEN" "$NC"
         else
-            spinner_stop
             return 1
         fi
     elif command -v wget >/dev/null 2>&1; then
-        spinner_start "downloading"
-        if wget -qO "$output" "$url"; then
-            spinner_stop
-            printf '\r\033[K%b✓ downloaded%b\n' "$GREEN" "$NC"
+        if wget --show-progress -O "$output" "$url"; then
+            printf '\n%b✓ downloaded%b\n' "$GREEN" "$NC"
         else
-            spinner_stop
             return 1
         fi
     else
