@@ -23,6 +23,7 @@ interface CLIOptions {
 
 interface RegistryModule {
   files: string[];
+  fileMapping?: Record<string, string>;
   dependencies?: Record<string, string>;
 }
 
@@ -196,6 +197,7 @@ async function downloadModule(
   version: string,
   destDir: string,
   options?: CLIOptions,
+  targetSubdir?: string,
 ): Promise<string[]> {
   const module = registry.modules[moduleName];
   if (!module) {
@@ -210,24 +212,108 @@ async function downloadModule(
 
   const modifiedFiles: string[] = [];
   const downloads = module.files.map(async (file: string) => {
-    const destPath = join(destDir, moduleName, file);
+    let destPath: string;
+
+    // Check if we have a file mapping
+    if (module.fileMapping && module.fileMapping[file]) {
+      destPath = join(destDir, module.fileMapping[file]);
+    } else if (targetSubdir) {
+      destPath = join(destDir, targetSubdir, file);
+    } else {
+      destPath = join(destDir, moduleName, file);
+    }
+
     verboseLog(`  Downloading ${file}...`, options);
+
     if (sourcePath) {
       const primaryPath = join(sourcePath, "modules", moduleName, file);
       const fallbackPath = join(sourcePath, moduleName, file);
-      const sourceFile = (await Bun.file(primaryPath).exists())
-        ? primaryPath
-        : fallbackPath;
+      const templatePath = join(sourcePath, "packages", "cli", "templates", file);
+      let sourceFile: string;
+      if (await Bun.file(primaryPath).exists()) {
+        sourceFile = primaryPath;
+      } else if (await Bun.file(templatePath).exists()) {
+        sourceFile = templatePath;
+      } else {
+        sourceFile = fallbackPath;
+      }
       await copyLocalFile(sourceFile, destPath);
     } else {
-      const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
+      // Try templates path first for AI resources, then modules path
+      let url: string;
+      const templateUrl = `${GITHUB_RAW_URL}/v${version}/packages/cli/templates/${file}`;
+      const moduleUrl = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
+
+      // For ai-skills module, try templates path first
+      if (moduleName === "ai-skills") {
+        url = templateUrl;
+      } else {
+        url = moduleUrl;
+      }
       await downloadFile(url, destPath);
     }
-    modifiedFiles.push(join(destDir, moduleName, file));
+    modifiedFiles.push(destPath);
   });
 
   await Promise.all(downloads);
   return modifiedFiles;
+}
+
+async function cmdInit(options: CLIOptions) {
+  const targetDir = cwd();
+
+  verboseLog(`Initializing RavenJS AI resources in ${targetDir}`, options);
+
+  const dotClaudeDir = join(targetDir, ".claude");
+
+  // Check if .claude already exists with content
+  if (await pathExists(dotClaudeDir)) {
+    const empty = await isDirEmpty(dotClaudeDir);
+    if (!empty) {
+      error(
+        `AI resources already initialized at .claude/. Use 'raven update' to update.`,
+      );
+    }
+  }
+
+  const version = registry.version;
+  const modifiedFiles: string[] = [];
+
+  if (options?.verbose) {
+    verboseLog(`Initializing RavenJS AI resources in ${targetDir}`, options);
+    await ensureDir(dotClaudeDir);
+    const aiFiles = await downloadModule(
+      "ai-skills",
+      version,
+      targetDir,
+      options,
+    );
+    modifiedFiles.push(...aiFiles);
+  } else {
+    const s = makeSpinner();
+    s.start("Initializing RavenJS AI resources...");
+    try {
+      await ensureDir(dotClaudeDir);
+      const aiFiles = await downloadModule(
+        "ai-skills",
+        version,
+        targetDir,
+        options,
+      );
+      modifiedFiles.push(...aiFiles);
+      s.stop("Initializing RavenJS AI resources...");
+    } catch (e: any) {
+      s.stop("Initialization failed");
+      error(e.message);
+    }
+  }
+
+  success("RavenJS AI resources initialized successfully!");
+
+  printSectionHeader("Modified Files");
+  for (const file of modifiedFiles) {
+    printListItem(file);
+  }
 }
 
 interface RavenYamlConfig {
@@ -401,17 +487,24 @@ async function cmdUpdate(options: CLIOptions) {
   const targetDir = cwd();
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
+  const dotClaudeDir = join(targetDir, ".claude");
 
-  if (!(await pathExists(ravenDir))) {
-    error(`RavenJS not installed at ${root}/. Run 'raven install' first.`);
+  // Check if at least one of raven/ or .claude/ exists
+  const ravenExists = await pathExists(ravenDir);
+  const dotClaudeExists = await pathExists(dotClaudeDir);
+
+  if (!ravenExists && !dotClaudeExists) {
+    error(`RavenJS not installed. Run 'raven install' or 'raven init' first.`);
   }
 
-  let version: string;
-  try {
-    version = await loadRavenYaml(ravenDir);
-  } catch (e: any) {
-    error(e.message);
-    return;
+  let version: string = registry.version;
+  if (ravenExists) {
+    try {
+      version = await loadRavenYaml(ravenDir);
+    } catch (e: any) {
+      error(e.message);
+      return;
+    }
   }
 
   const modifiedFiles: string[] = [];
@@ -420,26 +513,42 @@ async function cmdUpdate(options: CLIOptions) {
   if (options?.verbose) {
     try {
       info(`Updating RavenJS in ${targetDir}...`);
-      const availableModules = getModuleNames();
-      for (const moduleName of availableModules) {
-        const moduleDir = join(ravenDir, moduleName);
-        if (await Bun.file(moduleDir).exists()) {
-          await rm(moduleDir, { recursive: true, force: true });
-        }
-        const files = await downloadModule(
-          moduleName,
-          version,
-          ravenDir,
-          options,
-        );
-        modifiedFiles.push(...files);
 
-        const module = registry.modules[moduleName];
-        if (module?.dependencies) {
-          for (const [pkg, ver] of Object.entries(module.dependencies)) {
-            allDependencies[pkg] = ver;
+      // Update framework modules if raven/ exists
+      if (ravenExists) {
+        const availableModules = getModuleNames().filter((m) => m !== "ai-skills");
+        for (const moduleName of availableModules) {
+          const moduleDir = join(ravenDir, moduleName);
+          if (await Bun.file(moduleDir).exists()) {
+            await rm(moduleDir, { recursive: true, force: true });
+          }
+          const files = await downloadModule(
+            moduleName,
+            version,
+            ravenDir,
+            options,
+          );
+          modifiedFiles.push(...files);
+
+          const module = registry.modules[moduleName];
+          if (module?.dependencies) {
+            for (const [pkg, ver] of Object.entries(module.dependencies)) {
+              allDependencies[pkg] = ver;
+            }
           }
         }
+      }
+
+      // Update AI resources if .claude/ exists
+      if (dotClaudeExists) {
+        verboseLog("Updating AI resources...", options);
+        const aiFiles = await downloadModule(
+          "ai-skills",
+          version,
+          targetDir,
+          options,
+        );
+        modifiedFiles.push(...aiFiles);
       }
     } catch (e: unknown) {
       error(e instanceof Error ? e.message : String(e));
@@ -448,22 +557,37 @@ async function cmdUpdate(options: CLIOptions) {
     const s = makeSpinner();
     s.start("Updating RavenJS...");
     try {
-      const availableModules = getModuleNames();
-      for (const moduleName of availableModules) {
-        const moduleDir = join(ravenDir, moduleName);
-        if (await Bun.file(moduleDir).exists()) {
-          await rm(moduleDir, { recursive: true, force: true });
-        }
-        const files = await downloadModule(moduleName, version, ravenDir, options);
-        modifiedFiles.push(...files);
+      // Update framework modules if raven/ exists
+      if (ravenExists) {
+        const availableModules = getModuleNames().filter((m) => m !== "ai-skills");
+        for (const moduleName of availableModules) {
+          const moduleDir = join(ravenDir, moduleName);
+          if (await Bun.file(moduleDir).exists()) {
+            await rm(moduleDir, { recursive: true, force: true });
+          }
+          const files = await downloadModule(moduleName, version, ravenDir, options);
+          modifiedFiles.push(...files);
 
-        const module = registry.modules[moduleName];
-        if (module?.dependencies) {
-          for (const [pkg, ver] of Object.entries(module.dependencies)) {
-            allDependencies[pkg] = ver;
+          const module = registry.modules[moduleName];
+          if (module?.dependencies) {
+            for (const [pkg, ver] of Object.entries(module.dependencies)) {
+              allDependencies[pkg] = ver;
+            }
           }
         }
       }
+
+      // Update AI resources if .claude/ exists
+      if (dotClaudeExists) {
+        const aiFiles = await downloadModule(
+          "ai-skills",
+          version,
+          targetDir,
+          options,
+        );
+        modifiedFiles.push(...aiFiles);
+      }
+
       s.stop("Updating RavenJS...");
     } catch (e: any) {
       s.stop("Update failed");
@@ -471,8 +595,10 @@ async function cmdUpdate(options: CLIOptions) {
     }
   }
 
-  await createRavenYaml(ravenDir, version);
-  modifiedFiles.push(join(ravenDir, "raven.yaml"));
+  if (ravenExists) {
+    await createRavenYaml(ravenDir, version);
+    modifiedFiles.push(join(ravenDir, "raven.yaml"));
+  }
 
   success("RavenJS updated successfully!");
 
@@ -569,6 +695,10 @@ cli
   .option("--root <dir>", "RavenJS root directory (default: raven)")
   .option("--source <path>", "Local module source path (default: github)")
   .option("--verbose, -v", "Verbose output");
+
+cli
+  .command("init", "Initialize RavenJS AI resources")
+  .action((options) => cmdInit(options as CLIOptions));
 
 cli
   .command("install", "Install RavenJS into the current project")
