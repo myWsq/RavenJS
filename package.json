@@ -1,5 +1,6 @@
 {
   "name": "ravenjs",
+  "version": "1.0.0-alpha",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -28,7 +29,8 @@
     "benchmark": "bun run benchmark:micro && bun run benchmark:e2e",
     "benchmark:micro": "bun run benchmark/micro/router.bench.ts && bun run benchmark/micro/validator.bench.ts && bun run benchmark/micro/state.bench.ts",
     "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",
-    "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts"
+    "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts",
+    "release": "bun run scripts/release.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
