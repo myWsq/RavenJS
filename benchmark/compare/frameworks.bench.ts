@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { Raven } from "../../packages/core/main";
+import { Raven } from "../../modules/core/main";
 
 let Hono: any = null;
 let Elysia: any = null;

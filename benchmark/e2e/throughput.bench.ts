@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { Raven, createHandler, J, type Handler } from "../../packages/core/main";
+import { Raven, type Handler } from "../../modules/core/main";
 
 const simpleHandler: Handler = () => {
   return new Response("Hello, World!");
@@ -9,25 +9,11 @@ const jsonHandler: Handler = () => {
   return Response.json({ message: "Hello, World!", timestamp: Date.now() });
 };
 
-const bodySchema = J.object({
-  properties: {
-    name: J.string(),
-    email: J.string(),
-  },
-});
-
-const handlerWithBodyValidation = createHandler()
-  .bodySchema(bodySchema)
-  .handle(() => {
-    return Response.json({ success: true });
-  });
-
 function createTestApp(): Raven {
   const app = new Raven();
 
   app.get("/simple", simpleHandler);
   app.get("/json", jsonHandler);
-  app.post("/validated", handlerWithBodyValidation);
 
   return app;
 }
@@ -48,7 +34,6 @@ function createAppWithHooks(): Raven {
   });
 
   app.get("/with-hooks", simpleHandler);
-  app.post("/with-hooks-body", handlerWithBodyValidation);
 
   return app;
 }
@@ -64,21 +49,8 @@ const jsonGetRequest = new Request("http://localhost/json", {
   method: "GET",
 });
 
-const validPostBody = JSON.stringify({ name: "John", email: "john@example.com" });
-const postRequest = new Request("http://localhost/validated", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: validPostBody,
-});
-
 const hookGetRequest = new Request("http://localhost/with-hooks", {
   method: "GET",
-});
-
-const hookPostRequest = new Request("http://localhost/with-hooks-body", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: validPostBody,
 });
 
 group("Simple GET Request", () => {
@@ -91,19 +63,9 @@ group("Simple GET Request", () => {
   });
 });
 
-group("POST Request with Body Validation", () => {
-  bench("with JTD body validation", async () => {
-    await app.handleRequest(postRequest.clone());
-  });
-});
-
 group("Request with Hooks", () => {
   bench("GET with onRequest + beforeHandle + beforeResponse", async () => {
     await appWithHooks.handleRequest(hookGetRequest.clone());
-  });
-
-  bench("POST with hooks + body validation", async () => {
-    await appWithHooks.handleRequest(hookPostRequest.clone());
   });
 });
 
@@ -142,29 +104,6 @@ group("Request with Dynamic Params", () => {
 
   bench("with 2 dynamic params", async () => {
     await paramApp.handleRequest(paramReq.clone());
-  });
-});
-
-group("Request with Query Validation", () => {
-  const queryApp = new Raven();
-  
-  const querySchema = J.object({
-    properties: {
-      page: J.string(),
-      limit: J.string(),
-    },
-  });
-  
-  const queryHandler = createHandler()
-    .querySchema(querySchema)
-    .handle(() => Response.json({ page: 1, limit: 10 }));
-  
-  queryApp.get("/search", queryHandler);
-  
-  const queryReq = new Request("http://localhost/search?page=1&limit=10", { method: "GET" });
-
-  bench("with query validation", async () => {
-    await queryApp.handleRequest(queryReq.clone());
   });
 });
 

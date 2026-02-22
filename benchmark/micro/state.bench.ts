@@ -5,7 +5,7 @@ import {
   currentAppStorage,
   requestStorage,
   type RavenInstance,
-} from "../../packages/core/main";
+} from "../../modules/core/main";
 
 function createAppInstance(parent: RavenInstance | null = null): RavenInstance {
   return {
