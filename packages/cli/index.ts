@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { mkdir, rm, readdir, stat } from "node:fs/promises";
+import { mkdir, rm, readdir, stat, chmod } from "node:fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
 import pc from "picocolors";
@@ -102,6 +102,69 @@ async function pathExists(path: string): Promise<boolean> {
 
 function getModuleNames(): string[] {
   return Object.keys(registry.modules);
+}
+
+// === SECTION: Self-Update ===
+
+const GITHUB_API_RELEASES = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
+const INSTALL_DIR = `${process.env.HOME || process.env.USERPROFILE || ""}/.local/bin`;
+const INSTALL_PATH = `${INSTALL_DIR}/raven`;
+
+function detectOs(): "linux" | "darwin" {
+  switch (process.platform) {
+    case "linux":
+      return "linux";
+    case "darwin":
+      return "darwin";
+    default:
+      error(`unsupported OS: ${process.platform}`);
+  }
+}
+
+function detectArch(): "x64" | "arm64" {
+  switch (process.arch) {
+    case "x64":
+      return "x64";
+    case "arm64":
+      return "arm64";
+    default:
+      error(`unsupported architecture: ${process.arch}`);
+  }
+}
+
+async function getLatestVersion(): Promise<string> {
+  const response = await fetch(GITHUB_API_RELEASES);
+  if (!response.ok) {
+    error("failed to get latest version");
+  }
+  const releases = (await response.json()) as { tag_name: string }[];
+  const tag = releases
+    .map((r) => r.tag_name)
+    .find((t) => !t.includes("-"));
+  if (!tag) {
+    error("failed to get latest version");
+  }
+  return tag.replace(/^v/, "");
+}
+
+async function downloadBinary(
+  version: string,
+  os: string,
+  arch: string,
+): Promise<ArrayBuffer> {
+  const url = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/raven-${version}-${os}-${arch}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `download failed (${response.status}). Please check if version v${version} exists and supports ${os}-${arch}`,
+    );
+  }
+  return response.arrayBuffer();
+}
+
+function isLocalBinInPath(): boolean {
+  const pathEnv = process.env.PATH || "";
+  return pathEnv.split(":").includes(INSTALL_DIR);
 }
 
 async function downloadFile(url: string, destPath: string): Promise<void> {
@@ -424,19 +487,77 @@ async function cmdUpdate(options: CLIOptions) {
   }
 }
 
-function cmdSelfUpdate(_options: CLIOptions) {
+async function cmdSelfUpdate(_options: CLIOptions) {
   info("Checking for updates...");
-  console.log(
-    "\n" +
-      pc.dim("Run the following command to update:") +
-      "\n\n" +
-      pc.cyan("  npm install -g @ravenjs/cli") +
-      "\n" +
-      pc.dim("  # or") +
-      "\n" +
-      pc.cyan("  bunx @ravenjs/cli@latest") +
-      "\n",
-  );
+
+  const os = detectOs();
+  const arch = detectArch();
+
+  let latestVersion: string;
+  try {
+    latestVersion = (await getLatestVersion()).replace(/^v/, "");
+  } catch (e: unknown) {
+    error(e instanceof Error ? e.message : "failed to get latest version");
+  }
+
+  const currentVersion = (registry.version || "").replace(/^v/, "");
+
+  if (currentVersion === latestVersion) {
+    success("Already up to date");
+    return;
+  }
+
+  info(`detected system: ${os}-${arch}`);
+  info(`installing version: v${latestVersion}`);
+
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await downloadBinary(latestVersion, os, arch);
+  } catch (e: unknown) {
+    error(
+      e instanceof Error
+        ? e.message
+        : `download failed. Please check if version v${latestVersion} exists and supports ${os}-${arch}`,
+    );
+  }
+
+  if (!buffer || buffer.byteLength === 0) {
+    error(
+      `download failed - file is empty. Please check if version v${latestVersion} exists and supports ${os}-${arch}`,
+    );
+  }
+
+  await ensureDir(INSTALL_DIR);
+  const tempPath = `${INSTALL_PATH}.${process.pid}.tmp`;
+  try {
+    await Bun.write(tempPath, buffer);
+    await chmod(tempPath, 0o755);
+    await Bun.rename(tempPath, INSTALL_PATH);
+  } finally {
+    try {
+      await rm(tempPath, { force: true });
+    } catch {
+      /* ignore cleanup (file may already be renamed away) */
+    }
+  }
+
+  success(`installed successfully to: ${INSTALL_PATH}`);
+
+  if (!isLocalBinInPath()) {
+    console.log(pc.yellow("warn") + ": " + pc.dim(`${INSTALL_DIR} is not in your PATH`));
+    console.log(
+      pc.yellow("warn") +
+        ": " +
+        pc.dim("add it to your shell config (e.g., ~/.bashrc, ~/.zshrc):"),
+    );
+    console.log(
+      pc.yellow("warn") +
+        ": " +
+        pc.dim(`  export PATH="$HOME/.local/bin:$PATH"`),
+    );
+  }
+
+  console.log(pc.dim(`\ndone! run 'raven --help' to get started`));
 }
 
 const cli = cac("raven");

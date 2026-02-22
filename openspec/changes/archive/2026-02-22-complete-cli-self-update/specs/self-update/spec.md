@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: CLI Self-Update
 The system SHALL allow users to update the CLI itself to the latest version by downloading the prebuilt binary from GitHub Releases and installing it to `~/.local/bin/raven`.
