@@ -3,7 +3,7 @@ name: Release CLI
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
 
 permissions:
   contents: write
@@ -61,51 +61,89 @@ jobs:
           RAVEN_VERSION: ${{ steps.version.outputs.version }}
         run: bun run prebuild
 
-      - name: Build binary
+      - name: Build binary (Unix)
+        if: matrix.os != 'windows-latest'
         working-directory: packages/cli
         run: |
-          bun build ./index.ts --compile --minify --outfile raven-${{ steps.version.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          bun build ./index.ts --compile --minify --outfile raven-${{ steps.version.outputs.version }}-${{ matrix.target }}
 
-      - name: Upload artifact
+      - name: Build binary (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: packages/cli
+        run: |
+          bun build ./index.ts --compile --minify --outfile raven-${{ steps.version.outputs.version }}-${{ matrix.target }}.exe
+
+      - name: Create platform package (Unix)
+        if: matrix.os != 'windows-latest'
+        working-directory: packages/cli
+        run: |
+          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }} ../../dist
+
+      - name: Create platform package (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: packages/cli
+        run: |
+          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }}.exe ../../dist
+
+      - name: Upload platform package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: raven-${{ steps.version.outputs.version }}-${{ matrix.target }}
-          path: packages/cli/raven-${{ steps.version.outputs.version }}-${{ matrix.target }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          name: package-${{ matrix.target }}
+          path: dist/@raven.js-cli-${{ matrix.target }}
           if-no-files-found: error
 
-  release:
+  publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.2.2'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Extract version from tag
         id: version
+        shell: bash
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download all artifacts
+      - name: Download all platform packages
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          pattern: raven-${{ steps.version.outputs.version }}-*
+          path: dist
+          pattern: package-*
           merge-multiple: false
 
-      - name: Prepare release assets
+      - name: Create main package
+        working-directory: packages/cli
         run: |
-          mkdir -p release-assets
-          find artifacts -type f -exec cp {} release-assets/ \;
-          ls -la release-assets/
+          bun run scripts/create-main-package.ts ${{ steps.version.outputs.version }} ../../dist
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: '${{ steps.version.outputs.version }}'
-          tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
-          files: release-assets/*
-          draft: false
-          prerelease: false
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish platform packages
+        working-directory: dist
+        run: |
+          for dir in @raven.js-cli-*; do
+            echo "Publishing $dir"
+            cd $dir
+            npm publish --access public
+            cd ..
+          done
+
+      - name: Publish main package
+        working-directory: dist/@raven.js-cli
+        run: npm publish --access public
+

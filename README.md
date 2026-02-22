@@ -2,35 +2,32 @@
 
 ## Installation
 
-### Using Install Script (Recommended)
-
-**Linux/macOS:**
+### Using npm (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/myWsq/RavenJS/main/install.sh | sh
+npm install -g @raven.js/cli
 ```
 
-Or install a specific version:
+## Usage
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/myWsq/RavenJS/main/install.sh | sh -s -- v1.0.0
+raven --help
 ```
 
-**Windows (PowerShell):**
+## Updating
 
-```powershell
-irm https://raw.githubusercontent.com/myWsq/RavenJS/main/install.ps1 | iex
+```bash
+npm update -g @raven.js/cli
 ```
 
-Or install a specific version:
+## Release
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ravenjs/ravenjs/main/install.ps1))) -Version v1.0.0
+To release a new version:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
-
-### Manual Download from GitHub Releases
-
-Visit [GitHub Releases](https://github.com/ravenjs/ravenjs/releases) to download the binary for your system.
 
 ## Development
 
@@ -43,7 +40,7 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun run packages/cli/index.ts
 ```
 
 This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.

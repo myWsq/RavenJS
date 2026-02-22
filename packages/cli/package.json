@@ -1,6 +1,8 @@
 {
-  "name": "@ravenjs/cli",
+  "name": "cli",
+  "private": true,
   "version": "0.0.1",
+  "description": "CLI tool for RavenJS framework",
   "type": "module",
   "scripts": {
     "prebuild": "bun run scripts/generate-registry.ts",
@@ -12,5 +14,15 @@
     "picocolors": "^1.1.1",
     "semver": "^7.7.4",
     "yaml": "^2.6.0"
+  },
+  "keywords": [
+    "ravenjs",
+    "cli",
+    "framework",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myWsq/RavenJS.git"
   }
 }
