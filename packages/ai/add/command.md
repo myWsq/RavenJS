@@ -13,7 +13,7 @@ tags: [ravenjs, modules, extension]
 
 1. **检查项目状态**
 
-   确认项目已初始化 RavenJS（检查 `raven/` 目录）。如果没有，先建议使用 `/raven:install`。
+   运行 `raven status` 或 `raven status --json` 获取安装状态。若 core 未安装，先建议使用 `/raven:install`。
 
 2. **确定要添加的模块**
 

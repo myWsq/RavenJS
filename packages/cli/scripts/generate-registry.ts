@@ -12,15 +12,10 @@ interface ModuleInfo {
   dependencies: Record<string, string>;
 }
 
-interface AiInfo {
-  files: string[];
-  fileMapping: Record<string, string>;
-}
-
 interface Registry {
   version: string;
   modules: Record<string, ModuleInfo>;
-  ai: AiInfo;
+  ai: { claude: Record<string, string> };
 }
 
 async function scanModules(): Promise<Record<string, ModuleInfo>> {
@@ -55,30 +50,17 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
   return modules;
 }
 
-async function scanAi(): Promise<AiInfo> {
+async function scanAi(): Promise<{ claude: Record<string, string> }> {
   const packageJsonPath = join(AI_PACKAGE_DIR, "package.json");
   const content = await readFile(packageJsonPath, "utf-8");
   const pkg = JSON.parse(content);
 
-  if (!pkg.files || !Array.isArray(pkg.files)) {
-    throw new Error("packages/ai/package.json must have a 'files' array");
+  const claude = pkg.claude;
+  if (!claude || typeof claude !== "object") {
+    throw new Error("packages/ai/package.json must have a 'claude' mapping");
   }
 
-  const files = pkg.files as string[];
-  const fileMapping: Record<string, string> =
-    pkg.fileMapping || (() => {
-      const mapping: Record<string, string> = {};
-      for (const file of files) {
-        if (file.startsWith("skills/")) {
-          mapping[file] = `.claude/${file}`;
-        } else if (file.startsWith("commands/")) {
-          mapping[file] = `.claude/${file}`;
-        }
-      }
-      return mapping;
-    })();
-
-  return { files, fileMapping };
+  return { claude };
 }
 
 async function generateRegistry(): Promise<void> {
@@ -108,7 +90,7 @@ async function generateRegistry(): Promise<void> {
   console.log(`Registry generated at ${OUTPUT_FILE}`);
   console.log(`Version: ${version}`);
   console.log(`Modules: ${Object.keys(modules).join(", ")}`);
-  console.log(`AI: ${ai.files.length} files`);
+  console.log(`AI: ${Object.keys(ai.claude).length} files (claude)`);
 }
 
 generateRegistry().catch(console.error);

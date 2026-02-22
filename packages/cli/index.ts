@@ -28,8 +28,7 @@ interface RegistryModule {
 }
 
 interface RegistryAi {
-  files: string[];
-  fileMapping: Record<string, string>;
+  claude: Record<string, string>;
 }
 
 interface Registry {
@@ -259,9 +258,12 @@ async function downloadAiResources(
   options?: CLIOptions,
 ): Promise<string[]> {
   const ai = registry.ai;
-  if (!ai) {
+  if (!ai?.claude) {
     throw new Error("AI resources not found in registry");
   }
+
+  const mapping = ai.claude;
+  const entries = Object.entries(mapping);
 
   const sourcePath = resolveSourcePath(getSource(options || {}));
   if (sourcePath) {
@@ -270,8 +272,8 @@ async function downloadAiResources(
   verboseLog("Downloading AI resources...", options);
 
   const modifiedFiles: string[] = [];
-  const downloads = ai.files.map(async (file: string) => {
-    const destPath = join(destDir, ai.fileMapping[file] || file);
+  const downloads = entries.map(async ([file, destRel]) => {
+    const destPath = join(destDir, destRel);
     verboseLog(`  Downloading ${file}...`, options);
 
     if (sourcePath) {
@@ -624,6 +626,65 @@ async function cmdUpdate(options: CLIOptions) {
   }
 }
 
+// === SECTION: Status ===
+
+interface StatusResult {
+  core: { installed: boolean };
+  modules: string[];
+}
+
+async function getStatus(options: CLIOptions): Promise<StatusResult> {
+  const targetDir = cwd();
+  const root = getRoot(options);
+  const ravenDir = join(targetDir, root);
+
+  let coreInstalled = false;
+  const installedModules: string[] = [];
+  if (await pathExists(ravenDir)) {
+    const coreDir = join(ravenDir, "core");
+    coreInstalled =
+      (await pathExists(coreDir)) && !(await isDirEmpty(coreDir));
+
+    const knownModules = getModuleNames();
+    const entries = await readdir(ravenDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (
+        entry.isDirectory() &&
+        entry.name !== "core" &&
+        knownModules.includes(entry.name)
+      ) {
+        const modDir = join(ravenDir, entry.name);
+        if (!(await isDirEmpty(modDir))) {
+          installedModules.push(entry.name);
+        }
+      }
+    }
+    installedModules.sort();
+  }
+
+  return {
+    core: { installed: coreInstalled },
+    modules: installedModules,
+  };
+}
+
+interface StatusCLIOptions extends CLIOptions {
+  json?: boolean;
+}
+
+async function cmdStatus(options: StatusCLIOptions) {
+  const status = await getStatus(options);
+  if (options.json) {
+    console.log(JSON.stringify(status));
+    return;
+  }
+  printSectionHeader("RavenJS Status");
+  printListItem(`core: ${status.core.installed ? "installed" : "not installed"}`);
+  printListItem(
+    `modules: ${status.modules.length > 0 ? status.modules.join(", ") : "none"}`,
+  );
+}
+
 async function cmdSelfUpdate(options: CLIOptions) {
   info("Checking for updates...");
 
@@ -720,6 +781,11 @@ cli
 cli
   .command("update", "Update RavenJS to latest version")
   .action((options) => cmdUpdate(options as CLIOptions));
+
+cli
+  .command("status", "Show RavenJS installation status (core, modules)")
+  .option("--json", "Output as JSON for programmatic use")
+  .action((options) => cmdStatus(options as StatusCLIOptions));
 
 cli
   .command("self-update", "Update RavenJS CLI to latest version")

@@ -22,5 +22,5 @@ metadata:
 - `jtd-validator` - JTD 数据验证
 
 **不使用时**：
-- 项目还未初始化 RavenJS
+- 项目还未初始化 RavenJS：先运行 `raven status` 或 `raven status --json`，若 core 未安装则先建议 `raven install`
 - 用户不知道要添加什么模块（先询问）

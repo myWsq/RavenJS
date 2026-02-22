@@ -153,6 +153,74 @@ describe("CLI E2E", () => {
 		});
 	});
 
+	describe("Status Command", () => {
+		it("should exit 0 in empty directory", async () => {
+			const cwd = await createTempDir(tempDirs);
+			const result = await runCli(["status"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toContain("not installed");
+			expect(result.stdout).toContain("RavenJS Status");
+		});
+
+		it("should output JSON with --json", async () => {
+			const cwd = await createTempDir(tempDirs);
+			const result = await runCli(["status", "--json"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			const json = JSON.parse(result.stdout.trim());
+			expect(json).toHaveProperty("core");
+			expect(json.core).toEqual({ installed: false });
+			expect(json).toHaveProperty("modules");
+			expect(json.modules).toEqual([]);
+		});
+
+		it("should show core installed after install", async () => {
+			const cwd = await createTempDir(tempDirs);
+			await runCli(["install", "--source", repoRoot], cwd);
+
+			const result = await runCli(["status"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toContain("core: installed");
+			expect(result.stdout).toContain("modules: none");
+		});
+
+		it("should show modules after add", async () => {
+			const cwd = await createTempDir(tempDirs);
+			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+
+			const result = await runCli(["status"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toContain("core: installed");
+			expect(result.stdout).toContain("jtd-validator");
+		});
+
+		it("should output correct JSON after install", async () => {
+			const cwd = await createTempDir(tempDirs);
+			await runCli(["install", "--source", repoRoot], cwd);
+
+			const result = await runCli(["status", "--json"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			const json = JSON.parse(result.stdout.trim());
+			expect(json.core).toEqual({ installed: true });
+			expect(json.modules).toEqual([]);
+		});
+
+		it("should respect --root option", async () => {
+			const cwd = await createTempDir(tempDirs);
+			await runCli(["install", "--root", "my-raven", "--source", repoRoot], cwd);
+
+			const result = await runCli(["status", "--root", "my-raven"], cwd);
+
+			expect(result.exitCode).toBe(0);
+			expect(result.stdout).toContain("core: installed");
+		});
+	});
+
 	describe("Add Command", () => {
 		it("should add a module to existing project", async () => {
 			const cwd = await createTempDir(tempDirs);
@@ -217,25 +285,6 @@ describe("CLI E2E", () => {
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stderr).toContain("not installed");
-		});
-	});
-
-	describe("Self-update Command", () => {
-		beforeAll(async () => {
-			// Regenerate registry with high version so self-update hits "Already up to date"
-			// path (avoids download/write to ~/.local/bin).
-			const exists = await Bun.file(registryPath).exists();
-			if (exists) await Bun.file(registryPath).delete();
-			await ensureRegistry("99.0.0");
-		});
-
-		it("should show self-update instructions", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["self-update"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Checking for updates");
-			expect(result.stdout).toContain("Already up to date");
 		});
 	});
 

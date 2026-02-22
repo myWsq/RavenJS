@@ -13,10 +13,7 @@ tags: [ravenjs, installation, setup]
 
 1. **检查项目状态**
 
-   检查当前目录是否已经初始化过 RavenJS：
-   - 检查是否存在 `raven/` 目录
-
-   如果已存在，提示用户并询问是否要重新安装或继续。
+   运行 `raven status` 或 `raven status --json` 获取安装状态（core、modules）。若 core 已安装，提示用户并询问是否要重新安装或继续。
 
 2. **确认安装**
 

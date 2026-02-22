@@ -19,5 +19,5 @@ metadata:
 - 用户想要创建一个新的 Web 服务
 
 **不使用时**：
-- 项目已经初始化过 RavenJS（检查是否存在 raven/ 目录）
+- 项目已经初始化过 RavenJS：先运行 `raven status` 或 `raven status --json` 检查 core/modules 安装状态，若 core 已安装则跳过
 - 用户只是想问问题，不想实际安装
