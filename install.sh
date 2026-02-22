@@ -95,14 +95,14 @@ spinner_start() {
     spinner_pid=$!
 }
 
-# Download file with progress
+# Download file with progress (requires -f to fail on 404)
 download_file() {
     local url="$1"
     local output="$2"
 
     if command -v curl >/dev/null 2>&1; then
         spinner_start "downloading"
-        if curl -sL -o "$output" "$url"; then
+        if curl -fsL -o "$output" "$url"; then
             spinner_stop
             printf '\r\033[K%b✓ downloaded%b\n' "$GREEN" "$NC"
         else
@@ -122,6 +122,15 @@ download_file() {
         log_error "neither curl nor wget is installed"
         exit 1
     fi
+}
+
+# Verify downloaded file is a binary, not HTML error page (e.g. GitHub 404)
+verify_binary() {
+    local file="$1"
+    if head -c 512 "$file" | grep -q -E '<!DOCTYPE|<html|Not Found'; then
+        return 1
+    fi
+    return 0
 }
 
 # Cleanup on error
@@ -175,6 +184,12 @@ main() {
     if [ ! -s "$TEMP_FILE" ]; then
         log_error "download failed - file is empty"
         log_error "please check if version v${VERSION} exists and supports ${OS}-${ARCH}"
+        exit 1
+    fi
+
+    if ! verify_binary "$TEMP_FILE"; then
+        log_error "download failed - received HTML instead of binary (version v${VERSION} may not exist)"
+        log_error "please check: https://github.com/$GITHUB_REPO/releases"
         exit 1
     fi
 
