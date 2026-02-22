@@ -101,13 +101,13 @@ describe("CLI E2E", () => {
 		});
 	});
 
-	describe("Init Command", () => {
-		it("should initialize a new project with default root", async () => {
+	describe("Install Command", () => {
+		it("should install a new project with default root", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot], cwd);
+			const result = await runCli(["install", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("RavenJS initialized successfully");
+			expect(result.stdout).toContain("RavenJS installed successfully");
 
 			const ravenDir = join(cwd, "raven");
 			expect(await fileExists(ravenDir)).toBe(true);
@@ -116,9 +116,9 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(ravenDir, "core", "index.ts"))).toBe(true);
 		});
 
-		it("should initialize with custom root directory", async () => {
+		it("should install with custom root directory", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--root", "my-raven", "--source", repoRoot], cwd);
+			const result = await runCli(["install", "--root", "my-raven", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 
@@ -127,18 +127,18 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(ravenDir, "raven.yaml"))).toBe(true);
 		});
 
-		it("should fail when already initialized", async () => {
+		it("should fail when already installed", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 
-			const result = await runCli(["init", "--source", repoRoot], cwd);
+			const result = await runCli(["install", "--source", repoRoot], cwd);
 			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("already initialized");
+			expect(result.stderr).toContain("already installed");
 		});
 
 		it("should create valid raven.yaml", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 
 			const yamlContent = await readFile(join(cwd, "raven", "raven.yaml"), "utf-8");
 			expect(yamlContent).toContain("version:");
@@ -146,17 +146,17 @@ describe("CLI E2E", () => {
 
 		it("should show verbose output with --verbose", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot, "--verbose"], cwd);
+			const result = await runCli(["install", "--source", repoRoot, "--verbose"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Initializing RavenJS");
+			expect(result.stdout).toContain("Installing RavenJS");
 		});
 	});
 
 	describe("Add Command", () => {
 		it("should add a module to existing project", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 
 			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
@@ -169,17 +169,17 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
 		});
 
-		it("should fail when project not initialized", async () => {
+		it("should fail when project not installed", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not initialized");
+			expect(result.stderr).toContain("not installed");
 		});
 
 		it("should fail for unknown module", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 
 			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
 
@@ -189,7 +189,7 @@ describe("CLI E2E", () => {
 
 		it("should show available modules on error", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 
 			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
 
@@ -202,7 +202,7 @@ describe("CLI E2E", () => {
 	describe("Update Command", () => {
 		it("should update existing project", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["install", "--source", repoRoot], cwd);
 			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			const result = await runCli(["update", "--source", repoRoot], cwd);
@@ -211,12 +211,12 @@ describe("CLI E2E", () => {
 			expect(result.stdout).toContain("updated successfully");
 		});
 
-		it("should fail when project not initialized", async () => {
+		it("should fail when project not installed", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["update", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not initialized");
+			expect(result.stderr).toContain("not installed");
 		});
 	});
 
@@ -242,34 +242,34 @@ describe("CLI E2E", () => {
 	describe("Error Handling", () => {
 		it("should show error for unknown option", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--unknown-option"], cwd);
+			const result = await runCli(["install", "--unknown-option"], cwd);
 
 			expect(result.exitCode).not.toBe(0);
 		});
 	});
 
 	describe("Global Options", () => {
-		it("should accept --root option with init", async () => {
+		it("should accept --root option with install", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["--root", "custom-root", "init", "--source", repoRoot], cwd);
+			const result = await runCli(["--root", "custom-root", "install", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(await fileExists(join(cwd, "custom-root"))).toBe(true);
 		});
 
-		it("should accept --source option with init", async () => {
+		it("should accept --source option with install", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot], cwd);
+			const result = await runCli(["install", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 		});
 
 		it("should accept -v as verbose shortcut", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot, "-v"], cwd);
+			const result = await runCli(["install", "--source", repoRoot, "-v"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Initializing RavenJS");
+			expect(result.stdout).toContain("Installing RavenJS");
 		});
 	});
 });

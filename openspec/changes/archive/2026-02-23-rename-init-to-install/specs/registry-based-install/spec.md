@@ -1,6 +1,7 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Registry-Based Module Installation
+
 The system SHALL provide a mechanism to install RavenJS modules from a registry that describes module files and external dependencies.
 
 #### Scenario: Initialize new project
@@ -17,19 +18,8 @@ The system SHALL provide a mechanism to install RavenJS modules from a registry 
 - **WHEN** user runs `raven add <invalid-module>`
 - **THEN** system displays error with available modules list
 
-### Requirement: Parallel File Download
-The system SHALL download multiple files concurrently when installing modules.
-
-#### Scenario: Download multiple files
-- **WHEN** system needs to download 10 files for a module
-- **THEN** system SHALL download files in parallel (not sequentially)
-
-#### Scenario: Download failure
-- **WHEN** any file download fails
-- **THEN** system displays error with failed file URL
-- **AND** system does not leave partial files
-
 ### Requirement: Configurable Raven Root
+
 The system SHALL allow users to configure the RavenJS root directory.
 
 #### Scenario: Default raven directory

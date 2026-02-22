@@ -253,11 +253,11 @@ async function createRavenYaml(destDir: string, version: string) {
   await Bun.write(join(destDir, "raven.yaml"), content);
 }
 
-async function cmdInit(options: CLIOptions) {
+async function cmdInstall(options: CLIOptions) {
   const targetDir = cwd();
   const root = getRoot(options);
 
-  verboseLog(`Initializing RavenJS in ${targetDir}`, options);
+  verboseLog(`Installing RavenJS in ${targetDir}`, options);
 
   const ravenDir = join(targetDir, root);
 
@@ -265,7 +265,7 @@ async function cmdInit(options: CLIOptions) {
     const empty = await isDirEmpty(ravenDir);
     if (!empty) {
       error(
-        `RavenJS is already initialized at ${root}/. Use 'raven update' to update.`,
+        `RavenJS is already installed at ${root}/. Use 'raven update' to update.`,
       );
     }
   }
@@ -274,7 +274,7 @@ async function cmdInit(options: CLIOptions) {
   const modifiedFiles: string[] = [];
 
   if (options?.verbose) {
-    verboseLog(`Initializing RavenJS in ${targetDir}`, options);
+    verboseLog(`Installing RavenJS in ${targetDir}`, options);
     await ensureDir(join(targetDir, root));
     const coreFiles = await downloadModule(
       "core",
@@ -285,7 +285,7 @@ async function cmdInit(options: CLIOptions) {
     modifiedFiles.push(...coreFiles);
   } else {
     const s = makeSpinner();
-    s.start("Initializing RavenJS...");
+    s.start("Installing RavenJS...");
     try {
       await ensureDir(join(targetDir, root));
       const coreFiles = await downloadModule(
@@ -295,9 +295,9 @@ async function cmdInit(options: CLIOptions) {
         options,
       );
       modifiedFiles.push(...coreFiles);
-      s.stop("Initializing RavenJS...");
+      s.stop("Installing RavenJS...");
     } catch (e: any) {
-      s.stop("Initialization failed");
+      s.stop("Installation failed");
       error(e.message);
     }
   }
@@ -305,7 +305,7 @@ async function cmdInit(options: CLIOptions) {
   await createRavenYaml(join(targetDir, root), version);
   modifiedFiles.push(join(targetDir, root, "raven.yaml"));
 
-  success("RavenJS initialized successfully!");
+  success("RavenJS installed successfully!");
 
   printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
@@ -344,7 +344,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
   const ravenDir = join(targetDir, root);
 
   if (!(await pathExists(ravenDir))) {
-    error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
+    error(`RavenJS not installed at ${root}/. Run 'raven install' first.`);
   }
 
   let version: string;
@@ -403,7 +403,7 @@ async function cmdUpdate(options: CLIOptions) {
   const ravenDir = join(targetDir, root);
 
   if (!(await pathExists(ravenDir))) {
-    error(`RavenJS not initialized at ${root}/. Run 'raven init' first.`);
+    error(`RavenJS not installed at ${root}/. Run 'raven install' first.`);
   }
 
   let version: string;
@@ -571,8 +571,8 @@ cli
   .option("--verbose, -v", "Verbose output");
 
 cli
-  .command("init", "Initialize a new RavenJS project")
-  .action((options) => cmdInit(options as CLIOptions));
+  .command("install", "Install RavenJS into the current project")
+  .action((options) => cmdInstall(options as CLIOptions));
 
 cli
   .command("add <module>", "Add a module (e.g., jtd-validator)")

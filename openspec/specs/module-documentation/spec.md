@@ -47,7 +47,7 @@ Each module's `README.md` MUST include the following sections:
 
 ### Requirement: README.md for CLI Tools
 
-CLI tools that copy packages (such as `raven init`) MUST also copy the `README.md` file to the destination.
+CLI tools that copy packages (such as `raven install`) MUST also copy the `README.md` file to the destination.
 
 #### Scenario: CLI copies package
 - **WHEN** CLI command copies a package to user directory
