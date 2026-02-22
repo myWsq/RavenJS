@@ -65,6 +65,8 @@ const targets = [
 ];
 
 let binaryPath = null;
+
+// 方法 1: 使用 require.resolve
 for (const target of targets) {
   try {
     const pkgPath = require.resolve(\`@raven.js/cli-\${target}\`);
@@ -76,6 +78,28 @@ for (const target of targets) {
     }
   } catch (e) {
     continue;
+  }
+}
+
+// 方法 2: 如果 require.resolve 失败，尝试手动在 node_modules 中查找
+if (!binaryPath) {
+  let currentDir = __dirname;
+  while (currentDir && currentDir !== path.dirname(currentDir)) {
+    const nodeModulesDir = path.join(currentDir, 'node_modules');
+    if (fs.existsSync(nodeModulesDir)) {
+      for (const target of targets) {
+        const pkgDir = path.join(nodeModulesDir, '@raven.js', \`cli-\${target}\`);
+        if (fs.existsSync(pkgDir)) {
+          const candidate = path.join(pkgDir, process.platform === 'win32' ? 'raven.exe' : 'raven');
+          if (fs.existsSync(candidate)) {
+            binaryPath = candidate;
+            break;
+          }
+        }
+      }
+      if (binaryPath) break;
+    }
+    currentDir = path.dirname(currentDir);
   }
 }
 

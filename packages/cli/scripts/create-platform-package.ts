@@ -47,7 +47,6 @@ async function main() {
     name: packageName,
     version: versionArg,
     description: "CLI tool for RavenJS framework",
-    type: "module",
     os: [target.os],
     cpu: [target.cpu],
     keywords: ["ravenjs", "cli", "framework", "typescript"],
