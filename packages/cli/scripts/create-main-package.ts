@@ -38,7 +38,7 @@ async function main() {
     version: versionArg,
     description: "CLI tool for RavenJS framework",
     bin: {
-      raven: "./bin/raven.js",
+      raven: "./bin/raven",
     },
     optionalDependencies,
     keywords: ["ravenjs", "cli", "framework", "typescript"],
@@ -88,7 +88,7 @@ const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code || 0));
 `;
 
-  const binPath = join(packageDir, "bin", "raven.js");
+  const binPath = join(packageDir, "bin", "raven");
   await writeFile(binPath, wrapperScript);
   await chmod(binPath, 0o755);
 
