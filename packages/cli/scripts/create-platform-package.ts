@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile, copyFile } from "node:fs/promises";
+import { mkdir, writeFile, copyFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 
 interface Target {
@@ -61,7 +61,9 @@ async function main() {
 
   await writeFile(join(packageDir, "package.json"), JSON.stringify(pkg, null, 2));
 
-  await copyFile(binaryPathArg, join(binDir, binaryName));
+  const destBinaryPath = join(binDir, binaryName);
+  await copyFile(binaryPathArg, destBinaryPath);
+  await chmod(destBinaryPath, 0o755);
 
   const readme = `# ${packageName}
 
