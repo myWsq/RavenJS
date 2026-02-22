@@ -8,22 +8,23 @@ GITHUB_REPO="myWsq/RavenJS"
 BINARY_NAME="raven"
 INSTALL_DIR="$HOME/.local/bin"
 
-# Colors for output
+# Colors for output (use printf for POSIX portability, echo -e doesn't work on macOS sh)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info() {
-    echo -e "${GREEN}info${NC}: $1"
+    printf '%binfo%b: %s\n' "$GREEN" "$NC" "$1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}warn${NC}: $1"
+    printf '%bwarn%b: %s\n' "$YELLOW" "$NC" "$1"
 }
 
 log_error() {
-    echo -e "${RED}error${NC}: $1" >&2
+    printf '%berror%b: %s\n' "$RED" "$NC" "$1" >&2
 }
 
 # Detect OS
@@ -69,15 +70,54 @@ get_latest_version() {
         sed 's/^v//'
 }
 
-# Download file
+# Spinner for download progress
+spinner_pid=""
+spinner_stop() {
+    if [ -n "$spinner_pid" ]; then
+        kill "$spinner_pid" 2>/dev/null
+        wait "$spinner_pid" 2>/dev/null
+        spinner_pid=""
+        printf '\r\033[K'  # clear spinner line
+    fi
+}
+spinner_start() {
+    local msg="$1"
+    (
+        i=0
+        chars="|/-\\"
+        while true; do
+            c=$(echo "$chars" | cut -c$(((i % 4) + 1)))
+            printf '\r\033[K%b%s%b %s  ' "$CYAN" "$msg" "$NC" "$c"
+            i=$((i + 1))
+            sleep 0.12
+        done
+    ) &
+    spinner_pid=$!
+}
+
+# Download file with progress
 download_file() {
     local url="$1"
     local output="$2"
 
     if command -v curl >/dev/null 2>&1; then
-        curl -sL -o "$output" "$url"
+        spinner_start "downloading"
+        if curl -sL -o "$output" "$url"; then
+            spinner_stop
+            printf '\r\033[K%b✓ downloaded%b\n' "$GREEN" "$NC"
+        else
+            spinner_stop
+            return 1
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        wget -qO "$output" "$url"
+        spinner_start "downloading"
+        if wget -qO "$output" "$url"; then
+            spinner_stop
+            printf '\r\033[K%b✓ downloaded%b\n' "$GREEN" "$NC"
+        else
+            spinner_stop
+            return 1
+        fi
     else
         log_error "neither curl nor wget is installed"
         exit 1
@@ -127,7 +167,10 @@ main() {
     TEMP_FILE=$(mktemp 2>/dev/null || mktemp -t raven)
 
     # Download
-    download_file "$DOWNLOAD_URL" "$TEMP_FILE"
+    if ! download_file "$DOWNLOAD_URL" "$TEMP_FILE"; then
+        log_error "download failed"
+        exit 1
+    fi
 
     if [ ! -s "$TEMP_FILE" ]; then
         log_error "download failed - file is empty"
