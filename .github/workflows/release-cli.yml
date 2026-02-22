@@ -6,7 +6,6 @@ on:
       - 'v*'
 
 permissions:
-  id-token: write  # Required for OIDC
   contents: write
 
 jobs:
@@ -118,6 +117,13 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "npm_tag=--tag next" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "npm_tag=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Download all platform packages
         uses: actions/download-artifact@v4
@@ -141,6 +147,9 @@ jobs:
         run: |
           bun run scripts/create-main-package.ts ${{ steps.version.outputs.version }} ../../dist
 
+      - name: Configure npm auth
+        run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+
       - name: Publish platform packages
         working-directory: dist
         run: |
@@ -149,12 +158,11 @@ jobs:
             if [ -d "$dir" ]; then
               echo "Publishing $dir"
               cd "$dir"
-              npm publish --access public
+              npm publish --access public ${{ steps.version.outputs.npm_tag }}
               cd ..
             fi
           done
 
       - name: Publish main package
         working-directory: dist/@raven.js-cli
-        run: npm publish --access public
-
+        run: npm publish --access public ${{ steps.version.outputs.npm_tag }}

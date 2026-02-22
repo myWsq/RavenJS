@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, chmod } from "node:fs/promises";
 import { join } from "node:path";
 
 const args = process.argv.slice(2);
@@ -54,6 +54,7 @@ async function main() {
   const wrapperScript = `#!/usr/bin/env node
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const targets = [
   'linux-x64',
@@ -69,7 +70,7 @@ for (const target of targets) {
     const pkgPath = require.resolve(\`@raven.js/cli-\${target}\`);
     const pkgDir = path.dirname(pkgPath);
     const candidate = path.join(pkgDir, process.platform === 'win32' ? 'raven.exe' : 'raven');
-    if (require('fs').existsSync(candidate)) {
+    if (fs.existsSync(candidate)) {
       binaryPath = candidate;
       break;
     }
@@ -87,7 +88,9 @@ const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
 child.on('exit', (code) => process.exit(code || 0));
 `;
 
-  await writeFile(join(packageDir, "bin", "raven.js"), wrapperScript);
+  const binPath = join(packageDir, "bin", "raven.js");
+  await writeFile(binPath, wrapperScript);
+  await chmod(binPath, 0o755);
 
   const readme = `# @raven.js/cli
 
