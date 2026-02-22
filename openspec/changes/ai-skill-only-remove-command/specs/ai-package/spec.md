@@ -1,8 +1,15 @@
-# AI Package
+## REMOVED Requirements
 
-**Purpose**: TBD
+### Requirement: Commands directory
+**Reason**: 只保留 skill，不再提供 command。
+**Migration**: 无；不再有 commands 目录。
 
-## Requirements
+#### Scenario: Commands directory
+- **WHEN** the ai package is inspected
+- **THEN** `packages/ai/commands/` contains command subdirectories (e.g. `raven/`)
+- **AND** each command is a `.md` file
+
+## MODIFIED Requirements
 
 ### Requirement: AI Package Structure
 The system SHALL provide a dedicated `packages/ai` package containing AI skills as static resources.

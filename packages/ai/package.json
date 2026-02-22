@@ -5,8 +5,6 @@
   "private": true,
   "claude": {
     "add/skill.md": ".claude/skills/raven-add/SKILL.md",
-    "add/command.md": ".claude/commands/raven/add.md",
-    "install/skill.md": ".claude/skills/raven-install/SKILL.md",
-    "install/command.md": ".claude/commands/raven/install.md"
+    "install/skill.md": ".claude/skills/raven-install/SKILL.md"
   }
 }

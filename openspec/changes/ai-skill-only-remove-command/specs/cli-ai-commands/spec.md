@@ -1,8 +1,4 @@
-# CLI AI Commands
-
-**Purpose**: TBD
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: raven init Command
 The system SHALL provide a `raven init` command that installs AI skills only.
@@ -33,26 +29,7 @@ The system SHALL provide a `raven init` command that installs AI skills only.
 - **THEN** `.claude/skills/` directory is created if missing
 - **AND** `.claude/commands/` directory is NOT created (commands are deprecated)
 
-### Requirement: raven init Command Options
-The system SHALL support standard CLI options for `raven init`.
-
-#### Scenario: raven init supports --source
-- **WHEN** user runs `raven init --source <path>`
-- **THEN** AI resources are loaded from local path instead of GitHub
-
-#### Scenario: raven init supports --verbose
-- **WHEN** user runs `raven init --verbose` or `-v`
-- **THEN** verbose output is enabled
-
-### Requirement: raven init Help Text
-The system SHALL provide help text for `raven init` command.
-
-#### Scenario: raven init --help shows usage
-- **WHEN** user runs `raven init --help`
-- **THEN** command description is displayed
-- **AND** available options are listed
-
-### Requirement: AI skills use raven status for installation check
+### Requirement: AI skills and commands use raven status for installation check
 The system SHALL document that AI skills (in packages/ai) use `raven status` to determine whether RavenJS is installed, instead of hardcoding directory checks.
 
 #### Scenario: install skill references raven status

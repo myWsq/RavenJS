@@ -45,8 +45,8 @@ The system SHALL update installed RavenJS modules AND AI resources when `raven u
 #### Scenario: raven update updates AI resources
 - **WHEN** user runs `raven update` AND `.claude/` exists with AI resources
 - **THEN** AI skills in `.claude/skills/` are updated
-- **AND** AI commands in `.claude/commands/` are updated
 - **AND** success message includes both framework and AI resources
+- **AND** NO files are written to `.claude/commands/` (commands are deprecated)
 
 #### Scenario: raven update when AI resources not installed
 - **WHEN** user runs `raven update` AND `.claude/` does NOT exist

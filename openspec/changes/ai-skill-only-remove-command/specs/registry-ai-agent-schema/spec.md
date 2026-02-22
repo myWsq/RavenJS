@@ -1,8 +1,4 @@
-# Registry AI Agent Schema
-
-**Purpose**: Define the registry structure for AI resources, organized by agent (Claude, Cursor, etc.).
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Registry AI Agent-Based Structure
 The registry SHALL structure the top-level `ai` property by agent, with each agent containing a source-to-destination mapping (no separate `files` array).
