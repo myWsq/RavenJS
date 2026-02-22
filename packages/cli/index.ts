@@ -18,6 +18,7 @@ interface CLIOptions {
   verbose?: boolean;
   root?: string;
   source?: string;
+  prerelease?: boolean;
 }
 
 interface RegistryModule {
@@ -106,6 +107,8 @@ function getModuleNames(): string[] {
 
 // === SECTION: Self-Update ===
 
+import { gt as semverGt } from "semver";
+
 const GITHUB_API_RELEASES = `https://api.github.com/repos/${GITHUB_REPO}/releases`;
 const INSTALL_DIR = `${process.env.HOME || process.env.USERPROFILE || ""}/.local/bin`;
 const INSTALL_PATH = `${INSTALL_DIR}/raven`;
@@ -132,15 +135,15 @@ function detectArch(): "x64" | "arm64" {
   }
 }
 
-async function getLatestVersion(): Promise<string> {
+async function getLatestVersion(includePrerelease = false): Promise<string> {
   const response = await fetch(GITHUB_API_RELEASES);
   if (!response.ok) {
     error("failed to get latest version");
   }
   const releases = (await response.json()) as { tag_name: string }[];
-  const tag = releases
-    .map((r) => r.tag_name)
-    .find((t) => !t.includes("-"));
+  const tag = includePrerelease
+    ? releases[0]?.tag_name
+    : releases.map((r) => r.tag_name).find((t) => !t.includes("-"));
   if (!tag) {
     error("failed to get latest version");
   }
@@ -487,7 +490,7 @@ async function cmdUpdate(options: CLIOptions) {
   }
 }
 
-async function cmdSelfUpdate(_options: CLIOptions) {
+async function cmdSelfUpdate(options: CLIOptions) {
   info("Checking for updates...");
 
   const os = detectOs();
@@ -495,14 +498,21 @@ async function cmdSelfUpdate(_options: CLIOptions) {
 
   let latestVersion: string;
   try {
-    latestVersion = (await getLatestVersion()).replace(/^v/, "");
+    latestVersion = (await getLatestVersion(options.prerelease)).replace(/^v/, "");
   } catch (e: unknown) {
     error(e instanceof Error ? e.message : "failed to get latest version");
   }
 
   const currentVersion = (registry.version || "").replace(/^v/, "");
 
-  if (currentVersion === latestVersion) {
+  let shouldUpdate: boolean;
+  try {
+    shouldUpdate = semverGt(latestVersion, currentVersion);
+  } catch {
+    shouldUpdate = false;
+  }
+
+  if (!shouldUpdate) {
     success("Already up to date");
     return;
   }
@@ -583,6 +593,7 @@ cli
 
 cli
   .command("self-update", "Update RavenJS CLI to latest version")
+  .option("--prerelease", "Include prerelease versions when checking for updates")
   .action((options) => cmdSelfUpdate(options as CLIOptions));
 
 cli.parse();
