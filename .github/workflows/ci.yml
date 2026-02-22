@@ -13,4 +13,4 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - run: bun test packages/*/tests/*.test.ts
+      - run: bun run test
