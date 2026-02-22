@@ -354,22 +354,31 @@ async function cmdUpdate(options: CLIOptions) {
   const allDependencies: Record<string, string> = {};
 
   if (options?.verbose) {
-    info(`Updating RavenJS in ${targetDir}...`);
-    const availableModules = getModuleNames();
-    for (const moduleName of availableModules) {
-      const moduleDir = join(ravenDir, moduleName);
-      if (await Bun.file(moduleDir).exists()) {
-        await rm(moduleDir, { recursive: true, force: true });
-      }
-      const files = await downloadModule(moduleName, version, ravenDir, options);
-      modifiedFiles.push(...files);
+    try {
+      info(`Updating RavenJS in ${targetDir}...`);
+      const availableModules = getModuleNames();
+      for (const moduleName of availableModules) {
+        const moduleDir = join(ravenDir, moduleName);
+        if (await Bun.file(moduleDir).exists()) {
+          await rm(moduleDir, { recursive: true, force: true });
+        }
+        const files = await downloadModule(
+          moduleName,
+          version,
+          ravenDir,
+          options,
+        );
+        modifiedFiles.push(...files);
 
-      const module = registry.modules[moduleName];
-      if (module?.dependencies) {
-        for (const [pkg, ver] of Object.entries(module.dependencies)) {
-          allDependencies[pkg] = ver;
+        const module = registry.modules[moduleName];
+        if (module?.dependencies) {
+          for (const [pkg, ver] of Object.entries(module.dependencies)) {
+            allDependencies[pkg] = ver;
+          }
         }
       }
+    } catch (e: unknown) {
+      error(e instanceof Error ? e.message : String(e));
     }
   } else {
     const spinner = ora("Updating RavenJS...").start();
