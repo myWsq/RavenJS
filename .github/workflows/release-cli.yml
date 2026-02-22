@@ -121,9 +121,19 @@ jobs:
       - name: Download all platform packages
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: dist-artifacts
           pattern: package-*
           merge-multiple: false
+
+      - name: Merge artifacts into dist
+        run: |
+          mkdir -p dist
+          for dir in dist-artifacts/package-*; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir"/* dist/
+            fi
+          done
+          ls -la dist/
 
       - name: Create main package
         working-directory: packages/cli
@@ -136,11 +146,14 @@ jobs:
       - name: Publish platform packages
         working-directory: dist
         run: |
+          ls -la
           for dir in @raven.js-cli-*; do
-            echo "Publishing $dir"
-            cd $dir
-            npm publish --access public
-            cd ..
+            if [ -d "$dir" ]; then
+              echo "Publishing $dir"
+              cd "$dir"
+              npm publish --access public
+              cd ..
+            fi
           done
 
       - name: Publish main package
