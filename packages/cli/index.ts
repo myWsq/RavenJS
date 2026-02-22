@@ -4,6 +4,8 @@ import { cac } from "cac";
 import { mkdir, rm, readdir, stat } from "node:fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
+import pc from "picocolors";
+import ora from "ora";
 import { parse, stringify } from "yaml";
 
 // @ts-ignore -- registry.json should generated dynamically
@@ -49,17 +51,25 @@ async function log(message: string, options?: CLIOptions) {
   }
 }
 
-async function error(message: string) {
-  console.error(`\x1b[31mError:\x1b[0m ${message}`);
+function error(message: string): never {
+  console.error(pc.red("Error:") + " " + message);
   process.exit(1);
 }
 
-async function info(message: string) {
-  console.log(`\x1b[36mINFO:\x1b[0m ${message}`);
+function info(message: string) {
+  console.log(pc.cyan("info") + " " + pc.dim(message));
 }
 
-async function success(message: string) {
-  console.log(`\x1b[32m✓\x1b[0m ${message}`);
+function success(message: string) {
+  console.log(pc.green("✓") + " " + message);
+}
+
+function printSectionHeader(title: string) {
+  console.log("\n" + pc.bold(pc.dim(title)));
+}
+
+function printListItem(item: string) {
+  console.log("  " + pc.dim("-") + " " + item);
 }
 
 async function ensureDir(path: string) {
@@ -194,26 +204,44 @@ async function cmdInit(options: CLIOptions) {
   }
 
   const version = registry.version;
-
-  await ensureDir(join(targetDir, root));
-
   const modifiedFiles: string[] = [];
-  const coreFiles = await downloadModule(
-    "core",
-    version,
-    join(targetDir, root),
-    options,
-  );
-  modifiedFiles.push(...coreFiles);
+
+  if (options?.verbose) {
+    log(`Initializing RavenJS in ${targetDir}`, options);
+    await ensureDir(join(targetDir, root));
+    const coreFiles = await downloadModule(
+      "core",
+      version,
+      join(targetDir, root),
+      options,
+    );
+    modifiedFiles.push(...coreFiles);
+  } else {
+    const spinner = ora("Initializing RavenJS...").start();
+    try {
+      await ensureDir(join(targetDir, root));
+      const coreFiles = await downloadModule(
+        "core",
+        version,
+        join(targetDir, root),
+        options,
+      );
+      modifiedFiles.push(...coreFiles);
+      spinner.succeed();
+    } catch (e: any) {
+      spinner.fail();
+      error(e.message);
+    }
+  }
 
   await createRavenYaml(join(targetDir, root), version);
   modifiedFiles.push(join(targetDir, root, "raven.yaml"));
 
   success("RavenJS initialized successfully!");
 
-  console.log("\n### Modified Files:");
+  printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
-    console.log(`  - ${file}`);
+    printListItem(file);
   }
 
   const coreModule = registry.modules["core"];
@@ -221,9 +249,9 @@ async function cmdInit(options: CLIOptions) {
     coreModule?.dependencies &&
     Object.keys(coreModule.dependencies).length > 0
   ) {
-    console.log("\n### Required Dependencies:");
+    printSectionHeader("Required Dependencies");
     for (const [pkg, ver] of Object.entries(coreModule.dependencies)) {
-      console.log(`  - ${pkg}@${ver}`);
+      printListItem(`${pkg}@${ver}`);
     }
   }
 }
@@ -239,8 +267,8 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
   const available = getModuleNames();
 
   if (!available.includes(moduleName)) {
-    console.log(`Available modules: ${available.join(", ")}`);
-    await error(`Unknown module: ${moduleName}`);
+    info(`Available modules: ${available.join(", ")}`);
+    error(`Unknown module: ${moduleName}`);
     return;
   }
 
@@ -253,42 +281,55 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     return;
   }
 
-  log(`Adding ${moduleName}...`, options);
-
   let version: string;
   try {
     version = await loadRavenYaml(ravenDir);
   } catch (e: any) {
-    await error(e.message);
+    error(e.message);
     return;
   }
 
-  const modifiedFiles = await downloadModule(
-    moduleName,
-    version,
-    ravenDir,
-    options,
-  );
+  let modifiedFiles: string[];
+  if (options?.verbose) {
+    log(`Adding ${moduleName}...`, options);
+    modifiedFiles = await downloadModule(moduleName, version, ravenDir, options);
+  } else {
+    const spinner = ora(`Adding ${moduleName}...`).start();
+    try {
+      modifiedFiles = await downloadModule(
+        moduleName,
+        version,
+        ravenDir,
+        options,
+      );
+      spinner.succeed();
+    } catch (e: any) {
+      spinner.fail();
+      error(e.message);
+    }
+  }
 
   success(`${moduleName} added successfully!`);
 
-  console.log("\n### Modified Files:");
+  printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
-    console.log(`  - ${file}`);
+    printListItem(file);
   }
 
   const module = registry.modules[moduleName];
   if (module?.dependencies && Object.keys(module.dependencies).length > 0) {
-    console.log("\n### Required Dependencies:");
+    printSectionHeader("Required Dependencies");
     for (const [pkg, ver] of Object.entries(module.dependencies)) {
-      console.log(`  - ${pkg}@${ver}`);
+      printListItem(`${pkg}@${ver}`);
     }
   }
 
-  console.log(`
-The module has been added to ${root}/${moduleName}/
-See ${root}/${moduleName}/README.md for usage.
-`);
+  console.log(
+    "\n" +
+      pc.dim(
+        `The module has been added to ${root}/${moduleName}/\nSee ${root}/${moduleName}/README.md for usage.`,
+      ),
+  );
 }
 
 async function cmdUpdate(options: CLIOptions) {
@@ -301,33 +342,58 @@ async function cmdUpdate(options: CLIOptions) {
     return;
   }
 
-  info(`Updating RavenJS in ${targetDir}...`);
-
   let version: string;
   try {
     version = await loadRavenYaml(ravenDir);
   } catch (e: any) {
-    await error(e.message);
+    error(e.message);
     return;
   }
 
   const modifiedFiles: string[] = [];
   const allDependencies: Record<string, string> = {};
 
-  const availableModules = getModuleNames();
-  for (const moduleName of availableModules) {
-    const moduleDir = join(ravenDir, moduleName);
-    if (await Bun.file(moduleDir).exists()) {
-      await rm(moduleDir, { recursive: true, force: true });
-    }
-    const files = await downloadModule(moduleName, version, ravenDir, options);
-    modifiedFiles.push(...files);
-
-    const module = registry.modules[moduleName];
-    if (module?.dependencies) {
-      for (const [pkg, ver] of Object.entries(module.dependencies)) {
-        allDependencies[pkg] = ver;
+  if (options?.verbose) {
+    info(`Updating RavenJS in ${targetDir}...`);
+    const availableModules = getModuleNames();
+    for (const moduleName of availableModules) {
+      const moduleDir = join(ravenDir, moduleName);
+      if (await Bun.file(moduleDir).exists()) {
+        await rm(moduleDir, { recursive: true, force: true });
       }
+      const files = await downloadModule(moduleName, version, ravenDir, options);
+      modifiedFiles.push(...files);
+
+      const module = registry.modules[moduleName];
+      if (module?.dependencies) {
+        for (const [pkg, ver] of Object.entries(module.dependencies)) {
+          allDependencies[pkg] = ver;
+        }
+      }
+    }
+  } else {
+    const spinner = ora("Updating RavenJS...").start();
+    try {
+      const availableModules = getModuleNames();
+      for (const moduleName of availableModules) {
+        const moduleDir = join(ravenDir, moduleName);
+        if (await Bun.file(moduleDir).exists()) {
+          await rm(moduleDir, { recursive: true, force: true });
+        }
+        const files = await downloadModule(moduleName, version, ravenDir, options);
+        modifiedFiles.push(...files);
+
+        const module = registry.modules[moduleName];
+        if (module?.dependencies) {
+          for (const [pkg, ver] of Object.entries(module.dependencies)) {
+            allDependencies[pkg] = ver;
+          }
+        }
+      }
+      spinner.succeed();
+    } catch (e: any) {
+      spinner.fail();
+      error(e.message);
     }
   }
 
@@ -336,28 +402,32 @@ async function cmdUpdate(options: CLIOptions) {
 
   success("RavenJS updated successfully!");
 
-  console.log("\n### Modified Files:");
+  printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
-    console.log(`  - ${file}`);
+    printListItem(file);
   }
 
   if (Object.keys(allDependencies).length > 0) {
-    console.log("\n### Required Dependencies:");
+    printSectionHeader("Required Dependencies");
     for (const [pkg, ver] of Object.entries(allDependencies)) {
-      console.log(`  - ${pkg}@${ver}`);
+      printListItem(`${pkg}@${ver}`);
     }
   }
 }
 
-async function cmdSelfUpdate(options: CLIOptions) {
+function cmdSelfUpdate(_options: CLIOptions) {
   info("Checking for updates...");
-
-  info("Run the following command to update:");
-  console.log(`
-  npm install -g @ravenjs/cli
-  # or
-  bunx @ravenjs/cli@latest
-  `);
+  console.log(
+    "\n" +
+      pc.dim("Run the following command to update:") +
+      "\n\n" +
+      pc.cyan("  npm install -g @ravenjs/cli") +
+      "\n" +
+      pc.dim("  # or") +
+      "\n" +
+      pc.cyan("  bunx @ravenjs/cli@latest") +
+      "\n",
+  );
 }
 
 const cli = cac("raven");
