@@ -78,19 +78,21 @@ jobs:
         if: matrix.os != 'windows-latest'
         working-directory: packages/cli
         run: |
-          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }} ../../dist
+          mkdir -p ../../artifact-dir
+          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }} ../../artifact-dir
 
       - name: Create platform package (Windows)
         if: matrix.os == 'windows-latest'
         working-directory: packages/cli
         run: |
-          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }}.exe ../../dist
+          mkdir -p ../../artifact-dir
+          bun run scripts/create-platform-package.ts ${{ matrix.target }} ${{ steps.version.outputs.version }} raven-${{ steps.version.outputs.version }}-${{ matrix.target }}.exe ../../artifact-dir
 
       - name: Upload platform package artifact
         uses: actions/upload-artifact@v4
         with:
           name: package-${{ matrix.target }}
-          path: dist/@raven.js-cli-${{ matrix.target }}
+          path: artifact-dir/
           if-no-files-found: error
 
   publish:
@@ -133,14 +135,28 @@ jobs:
           pattern: package-*
           merge-multiple: false
 
+      - name: Debug - list downloaded artifacts
+        run: |
+          echo "=== dist-artifacts directory ==="
+          ls -la dist-artifacts/
+          echo "=== Each artifact contents ==="
+          for dir in dist-artifacts/*; do
+            if [ -d "$dir" ]; then
+              echo "--- $dir ---"
+              ls -la "$dir"/
+            fi
+          done
+
       - name: Merge artifacts into dist
         run: |
           mkdir -p dist
           for dir in dist-artifacts/package-*; do
             if [ -d "$dir" ]; then
+              echo "Copying contents of $dir to dist/"
               cp -r "$dir"/* dist/
             fi
           done
+          echo "=== dist directory after merge ==="
           ls -la dist/
 
       - name: Create main package
