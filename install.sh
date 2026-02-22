@@ -50,20 +50,23 @@ detect_arch() {
     esac
 }
 
-# Get latest version from GitHub Releases
+# Get latest stable version from GitHub Releases
 get_latest_version() {
+    local releases_json
     if command -v curl >/dev/null 2>&1; then
-        curl -sL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" |
-            grep '"tag_name":' |
-            sed -E 's/.*"([^"]+)".*/\1/'
+        releases_json=$(curl -sL "https://api.github.com/repos/$GITHUB_REPO/releases")
     elif command -v wget >/dev/null 2>&1; then
-        wget -qO- "https://api.github.com/repos/$GITHUB_REPO/releases/latest" |
-            grep '"tag_name":' |
-            sed -E 's/.*"([^"]+)".*/\1/'
+        releases_json=$(wget -qO- "https://api.github.com/repos/$GITHUB_REPO/releases")
     else
         log_error "neither curl nor wget is installed"
         exit 1
     fi
+
+    echo "$releases_json" | grep '"tag_name":' |
+        sed -E 's/.*"([^"]+)".*/\1/' |
+        grep -v -E -- '-[a-zA-Z]' |
+        head -n1 |
+        sed 's/^v//'
 }
 
 # Download file
