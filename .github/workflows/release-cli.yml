@@ -6,6 +6,7 @@ on:
       - 'v*'
 
 permissions:
+  id-token: write  # Required for OIDC
   contents: write
 
 jobs:
@@ -107,7 +108,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Extract version from tag
@@ -139,9 +140,6 @@ jobs:
         working-directory: packages/cli
         run: |
           bun run scripts/create-main-package.ts ${{ steps.version.outputs.version }} ../../dist
-
-      - name: Configure npm auth
-        run: npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
 
       - name: Publish platform packages
         working-directory: dist
