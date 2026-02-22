@@ -1,6 +1,6 @@
 import { describe, it, expect } from "@ravenjs/testing";
-import { Raven, BodyState, QueryState, ParamsState } from "@ravenjs/core";
-import { J, useBody, useQuery, useParams, useHeaders } from "../main";
+import { Raven, BodyState, QueryState, ParamsState } from "../../modules/core/main";
+import { J, useBody, useQuery, useParams, useHeaders } from "../../modules/jtd-validator/main";
 
 describe("JTD Validator - Lazy Validation", () => {
   describe("useBody", () => {

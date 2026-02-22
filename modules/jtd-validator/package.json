@@ -6,5 +6,8 @@
   "files": ["index.ts", "main.ts", "README.md"],
   "dependencies": {
     "ajv": "^8.18.0"
+  },
+  "devDependencies": {
+    "@ravenjs/core": "workspace:*"
   }
 }

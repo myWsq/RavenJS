@@ -35,7 +35,7 @@ export interface ServerConfig {
 export interface ServerAdapter {
   listen(
     config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>
+    handler: (request: Request) => Response | Promise<Response>,
   ): void | Promise<void>;
   stop(): void | Promise<void>;
 }
@@ -54,7 +54,7 @@ export class RavenError extends Error {
     code: string,
     message: string,
     context: ErrorContext,
-    statusCode?: number
+    statusCode?: number,
   ) {
     super(message);
     this.code = code;
@@ -71,7 +71,7 @@ export class RavenError extends Error {
     return new RavenError(
       "ERR_SERVER_ALREADY_RUNNING",
       "Server is already running",
-      {}
+      {},
     );
   }
 
@@ -79,7 +79,7 @@ export class RavenError extends Error {
     return new RavenError(
       "ERR_STATE_NOT_INITIALIZED",
       `State is not initialized. Cannot access state: ${name}`,
-      {}
+      {},
     );
   }
 
@@ -87,7 +87,7 @@ export class RavenError extends Error {
     return new RavenError(
       "ERR_STATE_CANNOT_SET",
       `Cannot set value for state "${name}": Scope is not initialized.`,
-      {}
+      {},
     );
   }
 
@@ -97,6 +97,10 @@ export class RavenError extends Error {
 
   public static ERR_BAD_REQUEST(message: string): RavenError {
     return new RavenError("ERR_BAD_REQUEST", message, {}, 400);
+  }
+
+  public static ERR_UNKNOWN_ERROR(message: string): RavenError {
+    return new RavenError("ERR_UNKNOWN_ERROR", message, {}, 500);
   }
 
   public toJSON(): Record<string, unknown> {
@@ -209,15 +213,15 @@ export function createAppState<T>(options?: StateOptions): AppState<T> {
   return new AppState<T>(options);
 }
 
-export function createRequestState<T>(
-  options?: StateOptions
-): RequestState<T> {
+export function createRequestState<T>(options?: StateOptions): RequestState<T> {
   return new RequestState<T>(options);
 }
 
 export const BodyState = createRequestState<unknown>({ name: "raven:body" });
 export const QueryState = createRequestState<unknown>({ name: "raven:query" });
-export const ParamsState = createRequestState<unknown>({ name: "raven:params" });
+export const ParamsState = createRequestState<unknown>({
+  name: "raven:params",
+});
 export const HeadersState = createRequestState<unknown>({
   name: "raven:headers",
 });
@@ -263,7 +267,7 @@ class RouterNode<T> {
   search(
     segments: string[],
     method: string,
-    params: Record<string, string>
+    params: Record<string, string>,
   ): T | null {
     let current: RouterNode<T> = this;
 
@@ -322,7 +326,7 @@ export class BunAdapter implements ServerAdapter {
 
   listen(
     config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>
+    handler: (request: Request) => Response | Promise<Response>,
   ): void {
     // @ts-ignore - Bun is global in Bun runtime
     this.server = Bun.serve({
@@ -345,7 +349,7 @@ export class NodeAdapter implements ServerAdapter {
 
   async listen(
     config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>
+    handler: (request: Request) => Response | Promise<Response>,
   ): Promise<void> {
     const http = await import("node:http");
 
@@ -393,7 +397,7 @@ export class NodeAdapter implements ServerAdapter {
           res.statusCode = 500;
           res.end("Internal Server Error");
         }
-      }
+      },
     );
 
     this.server.listen(config.port, config.hostname || "0.0.0.0");
@@ -421,7 +425,7 @@ export class Context {
   constructor(
     public readonly request: Request,
     public params: Record<string, string> = {},
-    public query: Record<string, string> = {}
+    public query: Record<string, string> = {},
   ) {
     this.url = new URL(request.url);
   }
@@ -442,16 +446,16 @@ export class Context {
 export type Handler = () => Response | Promise<Response>;
 
 export type OnRequestHook = (
-  request: Request
+  request: Request,
 ) => void | Response | Promise<void | Response>;
 
 export type BeforeHandleHook = () => void | Response | Promise<void | Response>;
 
 export type BeforeResponseHook = (
-  response: Response
+  response: Response,
 ) => void | Response | Promise<void | Response>;
 
-export type OnErrorHook = (error: unknown) => Response | Promise<Response>;
+export type OnErrorHook = (error: Error) => Response | Promise<Response>;
 
 export interface RoutePipeline {
   onRequest: OnRequestHook[];
@@ -502,7 +506,7 @@ export class Raven implements RavenInstance {
 
   async group(
     prefix: string,
-    callback: (instance: Raven) => void | Promise<void>
+    callback: (instance: Raven) => void | Promise<void>,
   ): Promise<this> {
     const child = new Raven({
       prefix: this.prefix + prefix,
@@ -514,7 +518,7 @@ export class Raven implements RavenInstance {
   }
 
   private getAllHooks<K extends keyof typeof this.hooks>(
-    type: K
+    type: K,
   ): (typeof this.hooks)[K] {
     const allHooks = [] as any[];
     let current: Raven | null = this;
@@ -647,7 +651,11 @@ export class Raven implements RavenInstance {
           if (!RavenContext.get()) {
             RavenContext.set(new Context(request));
           }
-          return this.handleError(error);
+          return this.handleError(
+            error instanceof Error
+              ? error
+              : RavenError.ERR_UNKNOWN_ERROR(String(error)),
+          );
         }
       });
     });
@@ -656,7 +664,7 @@ export class Raven implements RavenInstance {
   private async processStates(
     request: Request,
     params: Record<string, string>,
-    query: Record<string, string>
+    query: Record<string, string>,
   ): Promise<void> {
     const headersObj: Record<string, string> = {};
     request.headers.forEach((value, key) => {
@@ -674,7 +682,7 @@ export class Raven implements RavenInstance {
         data = await request.json();
       } catch (err) {
         throw RavenError.ERR_BAD_REQUEST(
-          `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`
+          `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`,
         );
       }
       BodyState.set(data);
@@ -683,7 +691,7 @@ export class Raven implements RavenInstance {
 
   private async handleResponseHooks(
     response: Response,
-    pipeline?: RoutePipeline
+    pipeline?: RoutePipeline,
   ): Promise<Response> {
     let currentResponse = response;
     const hooks =
@@ -698,8 +706,8 @@ export class Raven implements RavenInstance {
   }
 
   private async handleError(
-    error: unknown,
-    status: number = 500
+    error: Error,
+    status: number = 500,
   ): Promise<Response> {
     const onErrorHooks = this.getAllHooks("onError");
     if (onErrorHooks.length > 0) {

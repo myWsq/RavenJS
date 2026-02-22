@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@ravenjs/testing";
-import { Raven, RavenContext } from "../main.ts";
+import { Raven, RavenContext } from "../../../modules/core/main";
 
 describe("Raven Context Assembly", () => {
 	test("onRequest should NOT have access to params and query, but beforeHandle SHOULD", async () => {

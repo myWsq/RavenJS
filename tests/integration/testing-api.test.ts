@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "../index";
+import { describe, it, expect, vi } from "../../packages/testing/index";
 
 describe("Unified Testing API", () => {
   it("should have basic test primitives", () => {

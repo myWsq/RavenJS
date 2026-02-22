@@ -21,15 +21,15 @@
     "modules/core": {
       "name": "@ravenjs/core",
       "version": "0.0.1",
-      "devDependencies": {
-        "@ravenjs/testing": "workspace:*",
-      },
     },
     "modules/jtd-validator": {
       "name": "@ravenjs/jtd-validator",
       "version": "0.0.1",
       "dependencies": {
         "ajv": "^8.18.0",
+      },
+      "devDependencies": {
+        "@ravenjs/core": "workspace:*",
       },
     },
     "packages/cli": {

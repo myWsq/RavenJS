@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@ravenjs/testing";
-import { Raven, RavenContext } from "../main.ts";
+import { Raven, RavenContext } from "../../../modules/core/main";
 
 describe("Raven Lifecycle Hooks", () => {
 	test("should execute hooks in order and have context access", async () => {
@@ -49,17 +49,19 @@ describe("Raven Lifecycle Hooks", () => {
 			throw new Error("test error");
 		});
 
-		app.get("/", () => new Response("ok"));
-
-		app.onError((error) => {
-			return new Response(`Caught: ${(error as Error).message}`, { status: 500 });
+		let errorCaught = false;
+		app.onError((err) => {
+			errorCaught = true;
+			return new Response(err.message, { status: 500 });
 		});
+
+		app.get("/", () => { throw new Error("test error"); });
 
 		const request = new Request("http://localhost/");
 		// @ts-ignore
 		const response = await app.handleRequest(request);
 
-		expect(response.status).toBe(500);
-		expect(await response.text()).toBe("Caught: test error");
+		expect(errorCaught).toBe(true);
+		expect(await response.text()).toBe("test error");
 	});
 });

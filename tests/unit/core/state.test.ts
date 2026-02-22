@@ -7,7 +7,7 @@ import {
   createRequestState,
   currentAppStorage,
   requestStorage,
-} from "../main";
+} from "../../../modules/core/main";
 
 describe("Unified State Mount (AppState & RequestState)", () => {
   describe("RequestState", () => {
@@ -73,7 +73,7 @@ describe("Unified State Mount (AppState & RequestState)", () => {
       await currentAppStorage.run(root, async () => {
         GlobalConfig.set("root-value");
 
-        await root.group("/v1", async (v1) => {
+        await root.group("/v1", async (v1: any) => {
           expect(GlobalConfig.get()).toBe("root-value");
           GlobalConfig.set("v1-value");
           expect(GlobalConfig.get()).toBe("v1-value");

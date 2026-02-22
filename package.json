@@ -20,8 +20,11 @@
     "vitest": "^4.0.18"
   },
   "scripts": {
-    "test": "bun test packages/*/tests/*.test.ts",
-    "test:node": "vitest run packages/*/tests/*.test.ts",
+    "test": "bun test tests/**/*.test.ts",
+    "test:unit": "bun test tests/unit/**/*.test.ts",
+    "test:integration": "bun test tests/integration/*.test.ts",
+    "test:e2e": "bun test tests/e2e/*.test.ts",
+    "test:node": "vitest run tests/**/*.test.ts",
     "benchmark": "bun run benchmark:micro && bun run benchmark:e2e",
     "benchmark:micro": "bun run benchmark/micro/router.bench.ts && bun run benchmark/micro/validator.bench.ts && bun run benchmark/micro/state.bench.ts",
     "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",

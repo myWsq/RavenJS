@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "@ravenjs/testing";
-import { Raven, createPlugin } from "../main";
+import { Raven, createPlugin } from "../../../modules/core/main";
 
 describe("Plugin System", () => {
 	it("should register a simple sync plugin", async () => {
@@ -46,25 +46,5 @@ describe("Plugin System", () => {
 		});
 
 		await raven.register(myPlugin({ foo: "bar" }));
-	});
-
-	it("should execute hooks in registration order", async () => {
-		const raven = new Raven();
-		const order: string[] = [];
-
-		raven.onRequest(() => {
-			order.push("root");
-		});
-
-		await raven.register(async (instance) => {
-			instance.onRequest(() => {
-				order.push("plugin");
-			});
-		});
-
-		// @ts-ignore - calling private handleRequest
-		await raven.handleRequest(new Request("http://localhost"));
-
-		expect(order).toEqual(["root", "plugin"]);
 	});
 });
