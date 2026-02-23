@@ -5,7 +5,6 @@
   "description": "CLI tool for RavenJS framework",
   "type": "module",
   "scripts": {
-    "prebuild": "bun run scripts/generate-registry.ts",
     "build": "bun build ./index.ts --compile --minify --outfile raven"
   },
   "dependencies": {
