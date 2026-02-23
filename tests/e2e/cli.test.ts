@@ -240,7 +240,7 @@ describe("CLI E2E", () => {
 			const moduleDir = join(cwd, "raven", "jtd-validator");
 			expect(await fileExists(coreDir)).toBe(true);
 			expect(await fileExists(moduleDir)).toBe(true);
-			expect(await fileExists(join(moduleDir, "main.ts"))).toBe(true);
+			expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
 		});
 
 		it("should replace @ravenjs/core with relative path in copied files", async () => {
@@ -248,7 +248,7 @@ describe("CLI E2E", () => {
 			await runCli(["init", "--source", repoRoot], cwd);
 			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
-			const mainTs = await readFile(join(cwd, "raven", "jtd-validator", "main.ts"), "utf-8");
+			const mainTs = await readFile(join(cwd, "raven", "jtd-validator", "index.ts"), "utf-8");
 			expect(mainTs).toContain('from "../core"');
 			expect(mainTs).not.toContain("@ravenjs/core");
 		});
@@ -284,8 +284,8 @@ describe("CLI E2E", () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("<readme>");
 			expect(result.stdout).toContain("</readme>");
-			expect(result.stdout).toContain("<code path=");
-			expect(result.stdout).toContain("OVERVIEW");
+			expect(result.stdout).toContain("<code>");
+			expect(result.stdout).toContain("</code>");
 		});
 
 		it("should fail when module not found", async () => {
@@ -344,10 +344,10 @@ describe("CLI E2E", () => {
 	describe("SKILL workflow (check-update flow)", () => {
 		it("should have SKILL source files in packages/ai", async () => {
 			const skillPaths = [
-				join(repoRoot, "packages", "ai", "learn", "skill.md"),
-				join(repoRoot, "packages", "ai", "install", "skill.md"),
-				join(repoRoot, "packages", "ai", "check-update", "skill.md"),
-				join(repoRoot, "packages", "ai", "merge", "skill.md"),
+				join(repoRoot, "packages", "ai", "raven-learn", "skill.md"),
+				join(repoRoot, "packages", "ai", "raven-setup", "skill.md"),
+				join(repoRoot, "packages", "ai", "raven-add", "skill.md"),
+				join(repoRoot, "packages", "ai", "raven-use", "skill.md"),
 			];
 			for (const p of skillPaths) {
 				expect(await fileExists(p)).toBe(true);
@@ -369,7 +369,7 @@ describe("CLI E2E", () => {
 			const guideResult = await runCli(["guide", "core"], cwd);
 			expect(guideResult.exitCode).toBe(0);
 			expect(guideResult.stdout).toContain("<readme>");
-			expect(guideResult.stdout).toContain("main.ts");
+			expect(guideResult.stdout).toContain("index.ts");
 		});
 	});
 
