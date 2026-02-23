@@ -58,9 +58,7 @@ Select all modules that are relevant. Note which ones are already installed and 
 
 ## Step 2 — Add missing modules (if needed)
 
-If any required module is not installed, use the **AskUserQuestion tool** to ask the user whether to add it. If the user confirms, follow:
-
-→ **[Adding a module](./add-new-module.md)**
+If any required module is not installed, use the **AskUserQuestion tool** to ask the user whether to add it. If the user confirms, follow the **raven-add** skill.
 
 After adding, re-run `raven status` to confirm the module appears as installed before continuing.
 
@@ -68,9 +66,7 @@ After adding, re-run `raven status` to confirm the module appears as installed b
 
 ## Step 3 — Learn the module API
 
-For each module you will use, run its guide and study the output before writing any code:
-
-→ **[Learning a module](./learn-module.md)**
+For each module you will use, follow the **raven-learn** skill to load and study the guide output before writing any code.
 
 Read the full README section (architecture, core concepts, design decisions, gotchas, anti-patterns) and the source code. This is the authoritative reference — do not rely on prior knowledge.
 
