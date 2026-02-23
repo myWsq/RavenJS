@@ -100,7 +100,7 @@ const binaryPath = generateBinPath();
 
 const child = spawn(binaryPath, process.argv.slice(2), {
   stdio: 'inherit',
-  env: { ...process.env, RAVEN_DEFAULT_REGISTRY_PATH: registryPath }
+  env: { ...process.env, RAVEN_DEFAULT_REGISTRY_PATH: registryPath, RAVEN_CLI_VERSION: ${JSON.stringify(versionArg)} }
 });
 child.on('exit', (code) => process.exit(code || 0));
 `;

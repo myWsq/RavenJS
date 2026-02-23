@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { readFileSync } from "node:fs";
 import { mkdir, rm, readdir, stat } from "node:fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
@@ -10,13 +9,7 @@ import { spinner as makeSpinner, log } from "@clack/prompts";
 import { parse, stringify } from "yaml";
 
 function loadCliVersion(): string {
-  try {
-    const pkgPath = join(import.meta.dir, "package.json");
-    const content = readFileSync(pkgPath, "utf-8");
-    return JSON.parse(content).version;
-  } catch {
-    return "0.0.0";
-  }
+  return process.env.RAVEN_CLI_VERSION ?? "0.0.0";
 }
 
 const GITHUB_REPO = "myWsq/RavenJS";
