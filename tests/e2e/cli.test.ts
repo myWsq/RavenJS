@@ -104,26 +104,21 @@ describe("CLI E2E", () => {
 		});
 	});
 
-	describe("Install Command", () => {
-		it("should install a new project with default root", async () => {
+	describe("Init Command", () => {
+		it("should init with default root and create raven dir", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--source", repoRoot], cwd);
+			const result = await runCli(["init", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(Array.isArray(out.modifiedFiles)).toBe(true);
 
 			const ravenDir = join(cwd, "raven");
 			expect(await fileExists(ravenDir)).toBe(true);
 			expect(await fileExists(join(ravenDir, "raven.yaml"))).toBe(true);
-			expect(await fileExists(join(ravenDir, "core", "main.ts"))).toBe(true);
-			expect(await fileExists(join(ravenDir, "core", "index.ts"))).toBe(true);
 		});
 
-		it("should install with custom root directory", async () => {
+		it("should init with custom root directory", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--root", "my-raven", "--source", repoRoot], cwd);
+			const result = await runCli(["init", "--root", "my-raven", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 
@@ -132,18 +127,21 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(ravenDir, "raven.yaml"))).toBe(true);
 		});
 
-		it("should fail when already installed", async () => {
+		it("should be idempotent when root exists (only updates AI resources)", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			const yamlPath = join(cwd, "raven", "raven.yaml");
+			const before = await readFile(yamlPath, "utf-8");
 
-			const result = await runCli(["install", "--source", repoRoot], cwd);
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("already installed");
+			const result = await runCli(["init", "--source", repoRoot], cwd);
+			expect(result.exitCode).toBe(0);
+			const after = await readFile(yamlPath, "utf-8");
+			expect(after).toBe(before);
 		});
 
 		it("should create valid raven.yaml", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 
 			const yamlContent = await readFile(join(cwd, "raven", "raven.yaml"), "utf-8");
 			expect(yamlContent).toContain("version:");
@@ -151,12 +149,16 @@ describe("CLI E2E", () => {
 
 		it("should show verbose output with --verbose", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--source", repoRoot, "--verbose"], cwd);
+			const result = await runCli(["init", "--source", repoRoot, "--verbose"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("Using local source");
 		});
 	});
+
+	function findModule(mods: { name: string; installed: boolean }[], name: string) {
+		return mods.find((m) => m.name === name);
+	}
 
 	describe("Status Command", () => {
 		it("should exit 0 in empty directory", async () => {
@@ -165,75 +167,67 @@ describe("CLI E2E", () => {
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
-			expect(out.core.installed).toBe(false);
-			expect(out.modules).toEqual([]);
+			expect(Array.isArray(out.modules)).toBe(true);
+			const coreMod = findModule(out.modules, "core");
+			expect(coreMod?.installed).toBe(false);
 		});
 
-		it("should output JSON with valid structure", async () => {
+		it("should output JSON with valid structure (modules with name and installed)", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const json = JSON.parse(result.stdout.trim());
-			expect(json).toHaveProperty("core");
-			expect(json.core).toEqual({ installed: false });
 			expect(json).toHaveProperty("modules");
-			expect(json.modules).toEqual([]);
+			expect(Array.isArray(json.modules)).toBe(true);
+			for (const m of json.modules) {
+				expect(m).toHaveProperty("name");
+				expect(m).toHaveProperty("installed");
+			}
 		});
 
-		it("should show core installed after install", async () => {
+		it("should show core installed after add core", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
-			expect(out.core.installed).toBe(true);
-			expect(out.modules).toEqual([]);
+			expect(findModule(out.modules, "core")?.installed).toBe(true);
 		});
 
 		it("should show modules after add", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
-			expect(out.core.installed).toBe(true);
-			expect(out.modules).toContain("jtd-validator");
-		});
-
-		it("should output correct JSON after install", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
-
-			const result = await runCli(["status"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const json = JSON.parse(result.stdout.trim());
-			expect(json.core).toEqual({ installed: true });
-			expect(json.modules).toEqual([]);
+			expect(findModule(out.modules, "core")?.installed).toBe(true);
+			expect(findModule(out.modules, "jtd-validator")?.installed).toBe(true);
 		});
 
 		it("should respect --root option", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--root", "my-raven", "--source", repoRoot], cwd);
+			await runCli(["init", "--root", "my-raven", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--root", "my-raven", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status", "--root", "my-raven"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const json = JSON.parse(result.stdout.trim());
-			expect(json.core.installed).toBe(true);
+			expect(findModule(json.modules, "core")?.installed).toBe(true);
 		});
 	});
 
 	describe("Add Command", () => {
-		it("should add a module to existing project", async () => {
+		it("should add a module and auto-install dependencies", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 
 			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
@@ -242,33 +236,34 @@ describe("CLI E2E", () => {
 			expect(out.success).toBe(true);
 			expect(out.moduleName).toBe("jtd-validator");
 
+			const coreDir = join(cwd, "raven", "core");
 			const moduleDir = join(cwd, "raven", "jtd-validator");
+			expect(await fileExists(coreDir)).toBe(true);
 			expect(await fileExists(moduleDir)).toBe(true);
 			expect(await fileExists(join(moduleDir, "main.ts"))).toBe(true);
-			expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
 		});
 
-		it("should fail when project not installed", async () => {
+		it("should replace @ravenjs/core with relative path in copied files", async () => {
+			const cwd = await createTempDir(tempDirs);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+
+			const mainTs = await readFile(join(cwd, "raven", "jtd-validator", "main.ts"), "utf-8");
+			expect(mainTs).toContain('from "../core"');
+			expect(mainTs).not.toContain("@ravenjs/core");
+		});
+
+		it("should fail when project not initialized", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not installed");
+			expect(result.stderr).toContain("raven init");
 		});
 
 		it("should fail for unknown module", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
-
-			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("Unknown module");
-		});
-
-		it("should show available modules on error", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 
 			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
 
@@ -280,7 +275,8 @@ describe("CLI E2E", () => {
 	describe("Update Command", () => {
 		it("should update existing project", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			const result = await runCli(["update", "--source", repoRoot], cwd);
@@ -290,7 +286,7 @@ describe("CLI E2E", () => {
 			expect(out.success).toBe(true);
 		});
 
-		it("should fail when project not installed", async () => {
+		it("should fail when project not initialized", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["update", "--source", repoRoot], cwd);
 
@@ -324,13 +320,14 @@ describe("CLI E2E", () => {
 			expect(out.success).toBe(true);
 			expect(out.name).toBe("RavenJS");
 			expect(out.installed).toBe(false);
-			expect(out.commands).toContain("install");
+			expect(out.commands).toContain("init");
+			expect(out.commands).toContain("add");
 			expect(out.commands).toContain("guide");
 		});
 
-		it("should output installed=true after install", async () => {
+		it("should output installed=true after init", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 
 			const result = await runCli(["explain"], cwd);
 
@@ -343,7 +340,8 @@ describe("CLI E2E", () => {
 	describe("Diff Command", () => {
 		it("should output JSON with no differences when unmodified", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 
 			const result = await runCli(["diff", "--source", repoRoot], cwd);
 
@@ -356,7 +354,8 @@ describe("CLI E2E", () => {
 
 		it("should output differences when file is modified", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 			const mainTs = join(cwd, "raven", "core", "main.ts");
 			const content = await readFile(mainTs, "utf-8");
 			await Bun.write(mainTs, content + "\n// local modification");
@@ -385,7 +384,8 @@ describe("CLI E2E", () => {
 	describe("Guide Command", () => {
 		it("should output readme and code for installed module", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 
 			const result = await runCli(["guide", "core"], cwd);
 
@@ -398,7 +398,7 @@ describe("CLI E2E", () => {
 
 		it("should fail when module not found", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
 
 			const result = await runCli(["guide", "nonexistent-module"], cwd);
 
@@ -418,31 +418,31 @@ describe("CLI E2E", () => {
 	describe("Error Handling", () => {
 		it("should show error for unknown option", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--unknown-option"], cwd);
+			const result = await runCli(["add", "core", "--unknown-option"], cwd);
 
 			expect(result.exitCode).not.toBe(0);
 		});
 	});
 
 	describe("Global Options", () => {
-		it("should accept --root option with install", async () => {
+		it("should accept --root option with init", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["--root", "custom-root", "install", "--source", repoRoot], cwd);
+			const result = await runCli(["--root", "custom-root", "init", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(await fileExists(join(cwd, "custom-root"))).toBe(true);
 		});
 
-		it("should accept --source option with install", async () => {
+		it("should accept --source option with init", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--source", repoRoot], cwd);
+			const result = await runCli(["init", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 		});
 
 		it("should accept -v as verbose shortcut", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["install", "--source", repoRoot, "-v"], cwd);
+			const result = await runCli(["init", "--source", repoRoot, "-v"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("Using local source");
@@ -464,12 +464,13 @@ describe("CLI E2E", () => {
 
 		it("should support status -> diff -> guide sequence", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 
 			const statusResult = await runCli(["status"], cwd);
 			expect(statusResult.exitCode).toBe(0);
 			const status = JSON.parse(statusResult.stdout.trim());
-			expect(status.core.installed).toBe(true);
+			expect(findModule(status.modules, "core")?.installed).toBe(true);
 			expect(status).toHaveProperty("version");
 			expect(status).toHaveProperty("fileHashes");
 
@@ -488,7 +489,8 @@ describe("CLI E2E", () => {
 	describe("Update workflow (two modes)", () => {
 		it("mode 1: direct overwrite when unmodified", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 			const originalContent = await readFile(join(cwd, "raven", "core", "main.ts"), "utf-8");
 
 			const result = await runCli(["update", "--source", repoRoot], cwd);
@@ -503,7 +505,8 @@ describe("CLI E2E", () => {
 
 		it("mode 2: diff reports modified files for Agent merge", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["install", "--source", repoRoot], cwd);
+			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--source", repoRoot], cwd);
 			const mainTs = join(cwd, "raven", "core", "main.ts");
 			await Bun.write(mainTs, "// user modified");
 

@@ -7,9 +7,61 @@ const AI_PACKAGE_DIR = join(ROOT_DIR, "packages", "ai");
 const OUTPUT_DIR = join(ROOT_DIR, "packages", "cli");
 const OUTPUT_FILE = join(OUTPUT_DIR, "registry.json");
 
+const RAVENJS_PREFIX = "@ravenjs/";
+
+function extractDependsOn(pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }): string[] {
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const dependsOn: string[] = [];
+  for (const key of Object.keys(deps)) {
+    if (key.startsWith(RAVENJS_PREFIX)) {
+      const moduleName = key.slice(RAVENJS_PREFIX.length);
+      if (moduleName && !dependsOn.includes(moduleName)) {
+        dependsOn.push(moduleName);
+      }
+    }
+  }
+  return dependsOn;
+}
+
+function detectCycle(modules: Record<string, { dependsOn: string[] }>): string[] | null {
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  const path: string[] = [];
+  function visit(name: string): string[] | null {
+    if (recStack.has(name)) {
+      const idx = path.indexOf(name);
+      return path.slice(idx).concat(name);
+    }
+    if (visited.has(name)) return null;
+    visited.add(name);
+    recStack.add(name);
+    path.push(name);
+
+    const mod = modules[name];
+    if (mod?.dependsOn) {
+      for (const dep of mod.dependsOn) {
+        if (modules[dep]) {
+          const cycle = visit(dep);
+          if (cycle) return cycle;
+        }
+      }
+    }
+    path.pop();
+    recStack.delete(name);
+    return null;
+  }
+
+  for (const name of Object.keys(modules)) {
+    const cycle = visit(name);
+    if (cycle) return cycle;
+  }
+  return null;
+}
+
 interface ModuleInfo {
   files: string[];
   dependencies: Record<string, string>;
+  dependsOn: string[];
 }
 
 interface Registry {
@@ -38,9 +90,11 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
         continue;
       }
 
+      const dependsOn = extractDependsOn(pkg);
       modules[entry.name] = {
         files: pkg.files,
         dependencies: pkg.dependencies || {},
+        dependsOn,
       };
     } catch (e) {
       console.warn(`Warning: Could not read package.json for ${entry.name}`);
@@ -79,6 +133,12 @@ async function generateRegistry(): Promise<void> {
   }
 
   const [modules, ai] = await Promise.all([scanModules(), scanAi()]);
+
+  const cycle = detectCycle(modules);
+  if (cycle) {
+    console.error(`Error: Circular dependency detected: ${cycle.join(" -> ")}`);
+    process.exit(1);
+  }
 
   const registry: Registry = {
     version,

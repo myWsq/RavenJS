@@ -9,7 +9,7 @@ import {
   ParamsState,
   HeadersState,
   RavenError,
-} from "../core";
+} from "@ravenjs/core";
 
 // =============================================================================
 // SECTION: JTD Schema Types
