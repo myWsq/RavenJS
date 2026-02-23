@@ -1,32 +1,124 @@
-# RavenJS JTD Validator
+# OVERVIEW
 
-A data validation module for RavenJS based on JSON Type Definition (JTD) standard, providing type-safe request validation.
+RavenJS JTD Validator 是一个基于 JSON Type Definition (JTD) 标准的数据验证模块参考实现，提供类型安全的请求验证。
 
-## Overview
+**核心思想**：这是一份参考代码，不是一个你需要 import 的 npm 包。你可以直接复制、修改、学习这份代码，然后用在你的项目中。
 
-JTD Validator uses RFC 8927 JSON Type Definition to validate request data. It provides compile-time type inference and supports validation for multiple data sources.
-
-### Core Features
-
-- **Type Safety**: Compile-time type inference
-- **JTD Standard**: Uses RFC 8927 JSON Type Definition
-- **Multi-source Validation**: Supports Body, Query, Params, Headers
-- **Chainable API**: Supports `optional()` and `nullable()` modifiers
-
-### Use Cases
-
-- REST API request validation
-- Form data validation
-- Query parameter validation
+**主要功能**：
+- 类型安全（编译时类型推断）
+- 基于 JTD 标准（RFC 8927）
+- 多源验证（支持 Body、Query、Params、Headers）
+- 链式 API（支持 optional() 和 nullable() 修饰符）
 
 ---
 
-## Quick Start
+# HOW TO READ THIS CODE
 
-### Basic Usage
+建议按以下顺序阅读：
+
+1. **先看整体结构**：浏览 main.ts 的 SECTION 注释，了解代码组织方式
+2. **理解类型定义**：看 SECTION: Types，理解核心数据结构
+3. **学习 Schema DSL**：看 SECTION: Schema Builder，理解 J 是怎么构建的
+4. **看验证逻辑**：看 SECTION: Validation，理解验证是怎么执行的
+5. **最后看 Hooks**：看 SECTION: Validation Hooks，理解 useBody 等是怎么工作的
+
+**关键文件**：
+- `main.ts` - 所有核心代码都在这里（单文件组织）
+- `index.ts` - 导出声明
+
+---
+
+# CORE CONCEPTS
+
+## J
+JTD Schema 构建器，用于创建验证 schema。
+
+## Schema
+JTD 格式的 schema 对象，用于描述数据结构。
+
+## Validation Hooks
+- `useBody(schema)` - 验证请求体
+- `useQuery(schema)` - 验证查询参数
+- `useParams(schema)` - 验证路径参数
+- `useHeaders(schema)` - 验证请求头
+
+## Infer
+从 Schema 推断 TypeScript 类型。
+
+---
+
+# ARCHITECTURE
+
+代码采用**单文件组织**，所有核心逻辑都在 `main.ts` 中，按 SECTION 注释分组：
+
+```
+main.ts
+├── SECTION: Imports
+├── SECTION: Types
+├── SECTION: Schema Builder
+├── SECTION: Validation
+└── SECTION: Validation Hooks
+```
+
+---
+
+# DESIGN DECISIONS
+
+## 为什么用 JTD 而不是 JSON Schema？
+
+选择 JTD 的原因：
+1. **更简单**：JTD 比 JSON Schema 更轻量
+2. **类型推断**：更容易映射到 TypeScript 类型
+3. **功能足够**：对于 API 验证场景来说功能完整
+
+替代方案考虑：
+- 方案 A：JSON Schema → rejected，太复杂了
+- 方案 B：自定义 schema 格式 → rejected，没必要重新发明轮子
+
+## 为什么在 beforeHandle 阶段自动验证？
+
+验证在 `beforeHandle` 阶段自动执行，不需要手动调用验证函数。这样做的好处：
+- Handler 代码更干净
+- 验证失败时自动返回 400 错误
+- 专注于业务逻辑
+
+---
+
+# KEY CODE LOCATIONS
+
+## 类型定义
+- 行 12-60：核心类型（JTDType、JTDSchema、FieldSchema 等）
+
+## Schema Builder
+- 行 63-200+：Schema 构建器实现
+- 关键方法：`J.string()`、`J.object()`、`optional()`、`nullable()`
+
+## 验证逻辑
+- 行 200+：验证函数实现
+- 关键函数：`validate()`
+
+## 验证 Hooks
+- 行 300+：`useBody()`、`useQuery()`、`useParams()`、`useHeaders()`
+
+---
+
+# EXTENSION POINTS
+
+如果你想扩展这个模块，可以考虑：
+
+1. **添加自定义验证函数**：在验证逻辑中添加自定义验证
+2. **添加跨字段验证**：支持多个字段之间的验证
+3. **添加异步验证**：支持异步验证函数
+4. **添加更多类型**：在 J 中添加更多 schema 类型
+
+---
+
+# USAGE EXAMPLES
+
+## 基本用法
 
 ```typescript
-import { J, useBody } from "./src/raven/jtd-validator/index.ts";
+import { J, useBody } from "./raven/jtd-validator/index.ts";
 
 const UserSchema = J.object({
   name: J.string(),
@@ -36,191 +128,38 @@ const UserSchema = J.object({
 
 app.post("/users", () => {
   const user = useBody(UserSchema);
-  // user type is inferred as { name: string; email: string; age?: number }
   return new Response(JSON.stringify(user));
 });
 ```
 
----
-
-## API Reference
-
-### Schema DSL
-
-#### `J`
-
-JTD Schema builder.
+## 查询参数验证
 
 ```typescript
-// Basic types
-J.string()
-J.boolean()
-J.number()      // float64
-J.int()         // int32
+import { J, useQuery } from "./raven/jtd-validator/index.ts";
 
-// Numeric types
-J.int8()
-J.int16()
-J.int32()
-J.uint8()
-J.uint16()
-J.uint32()
-J.float32()
-J.float64()
-J.timestamp()
-
-// Enum
-J.enum(["active", "inactive"])
-
-// Composite types
-J.array(itemSchema)
-J.record(valueSchema)
-J.object({ ...fields })
-```
-
-#### `optional()`
-
-Marks a field as optional.
-
-```typescript
-const schema = J.object({
-  name: J.string(),
-  age: J.int().optional(),  // age?: number
-});
-```
-
-#### `nullable()`
-
-Marks a field as nullable.
-
-```typescript
-const schema = J.object({
-  name: J.string().nullable(),  // name: string | null
-});
-```
-
-### Validation Hooks
-
-#### `useBody<T>(schema)`
-
-Validates request body.
-
-```typescript
-const schema = J.object({
-  name: J.string(),
-});
-
-app.post("/submit", () => {
-  const data = useBody(schema);
-  return new Response("OK");
-});
-```
-
-#### `useQuery<T>(schema)`
-
-Validates query parameters.
-
-```typescript
-const schema = J.object({
-  page: J.int(),
-  limit: J.int().optional(),
-});
-
-app.get("/items", () => {
-  const { page, limit } = useQuery(schema);
-  return new Response(`Page ${page}`);
-});
-```
-
-#### `useParams<T>(schema)`
-
-Validates path parameters.
-
-```typescript
-const schema = J.object({
-  id: J.string(),
-});
-
-app.get("/user/:id", () => {
-  const { id } = useParams(schema);
-  return new Response(`User ${id}`);
-});
-```
-
-#### `useHeaders<T>(schema)`
-
-Validates request headers.
-
-```typescript
-const schema = J.object({
-  authorization: J.string(),
-});
-
-app.get("/secure", () => {
-  const { authorization } = useHeaders(schema);
-  return new Response("OK");
-});
-```
-
-### Type Inference
-
-#### `Infer<T>`
-
-Infers TypeScript type from Schema.
-
-```typescript
-import { J, type Infer } from "./src/raven/jtd-validator/index.ts";
-
-const UserSchema = J.object({
-  name: J.string(),
-  age: J.int().optional(),
-});
-
-type User = Infer<typeof UserSchema>;
-// Equivalent to: { name: string; age?: number }
-```
-
----
-
-## Examples
-
-### Complete Validation Example
-
-```typescript
-import { Raven } from "../core/index.ts";
-import { J, useBody, useQuery } from "./index.ts";
-
-const app = new Raven();
-
-// POST /users - Create user
-app.post("/users", () => {
-  const user = useBody(J.object({
-    name: J.string(),
-    email: J.string(),
-    age: J.int().optional(),
-  }));
-  
-  // user type: { name: string; email: string; age?: number }
-  return new Response(JSON.stringify(user), {
-    headers: { "Content-Type": "application/json" }
-  });
-});
-
-// GET /items - Paginated query
 app.get("/items", () => {
   const { page, limit } = useQuery(J.object({
     page: J.int(),
     limit: J.int().optional(),
   }));
-  
-  // page: number, limit?: number
   return new Response(`Page ${page}, Limit ${limit ?? 10}`);
 });
-
-app.listen({ port: 3000 });
 ```
 
-### Nested Object Validation
+## 路径参数验证
+
+```typescript
+import { J, useParams } from "./raven/jtd-validator/index.ts";
+
+app.get("/user/:id", () => {
+  const { id } = useParams(J.object({
+    id: J.string(),
+  }));
+  return new Response(`User ${id}`);
+});
+```
+
+## 嵌套对象验证
 
 ```typescript
 const AddressSchema = J.object({
@@ -235,12 +174,11 @@ const UserSchema = J.object({
 
 app.post("/submit", () => {
   const data = useBody(UserSchema);
-  // data: { name: string; address: { city: string; country: string } }
   return new Response("OK");
 });
 ```
 
-### Array Validation
+## 数组验证
 
 ```typescript
 const ItemsSchema = J.array(J.object({
@@ -250,12 +188,11 @@ const ItemsSchema = J.array(J.object({
 
 app.post("/order", () => {
   const items = useBody(ItemsSchema);
-  // items: { id: string; quantity: number }[]
   return new Response("OK");
 });
 ```
 
-### Enum Validation
+## 枚举验证
 
 ```typescript
 const StatusSchema = J.enum(["pending", "approved", "rejected"]);
@@ -264,97 +201,20 @@ app.post("/status", () => {
   const status = useBody(J.object({
     status: StatusSchema,
   }));
-  // status.status: "pending" | "approved" | "rejected"
   return new Response("OK");
 });
 ```
 
----
-
-## Design Intent
-
-### Why JTD Instead of JSON Schema?
-
-1. **Simpler**: JTD is more lightweight than JSON Schema
-2. **Type Inference**: Easier to map to TypeScript types
-3. **Sufficient Power**: Complete functionality for API validation scenarios
-
-### Validation Timing
-
-Validation automatically executes in the `beforeHandle` phase, eliminating the need to manually call validation functions. This provides:
-
-- Cleaner Handler code
-- Automatic 400 error response on validation failure
-- Focus on business logic
-
----
-
-## Caveats
-
-### Must Use JTD Schema Objects
+## 类型推断
 
 ```typescript
-// Correct
-useBody(J.object({ name: J.string() }))
+import { J, type Infer } from "./raven/jtd-validator/index.ts";
 
-// Wrong - cannot directly pass JTD object
-useBody({ type: "object", properties: { name: { type: "string" } } })
-```
+const UserSchema = J.object({
+  name: J.string(),
+  age: J.int().optional(),
+});
 
-### optional() and nullable() Order
-
-```typescript
-// Both work
-J.string().optional().nullable()  // string | null | undefined
-J.string().nullable().optional()  // string | null | undefined
-```
-
-### Validation Failure Behavior
-
-On validation failure, throws `RavenError.ERR_VALIDATION` with status code 400.
-
-```typescript
-// On validation failure, returns:
-{
-  "message": "/: Invalid body; name: required"
-}
-```
-
-### Current Limitations
-
-- Custom validation functions not supported
-- Cross-field validation not supported
-- Async validation not supported
-
----
-
-## TypeScript Types
-
-### Core Types
-
-```typescript
-type JTDType = 
-  | "boolean" 
-  | "string" 
-  | "timestamp"
-  | "float32" 
-  | "float64"
-  | "int8" | "int16" | "int32"
-  | "uint8" | "uint16" | "uint32";
-
-type JTDSchema = 
-  | { type: JTDType; nullable?: true }
-  | { enum: readonly string[]; nullable?: true }
-  | { elements: JTDSchema; nullable?: true }
-  | { values: JTDSchema; nullable?: true }
-  | { properties: Record<string, JTDSchema>; optionalProperties?: Record<string, JTDSchema>; nullable?: true }
-  | { discriminator: string; mapping: Record<string, JTDSchema> }
-  | { ref: string }
-  | Record<string, never>;
-
-interface FieldSchema<T = JTDSchema> {
-  readonly schema: T;
-  optional(): FieldSchema<T>;
-  nullable(): FieldSchema<T & { nullable: true }>;
-}
+type User = Infer<typeof UserSchema>;
+// Equivalent to: { name: string; age?: number }
 ```

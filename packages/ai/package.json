@@ -5,6 +5,9 @@
   "private": true,
   "claude": {
     "add/skill.md": ".claude/skills/raven-add/SKILL.md",
-    "install/skill.md": ".claude/skills/raven-install/SKILL.md"
+    "install/skill.md": ".claude/skills/raven-install/SKILL.md",
+    "learn/skill.md": ".claude/skills/raven-learn/SKILL.md",
+    "check-update/skill.md": ".claude/skills/raven-check-update/SKILL.md",
+    "merge/skill.md": ".claude/skills/raven-merge/SKILL.md"
   }
 }

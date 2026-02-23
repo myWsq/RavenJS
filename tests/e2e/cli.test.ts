@@ -15,13 +15,14 @@ const scriptPath = join(
 	"generate-registry.ts",
 );
 
-async function runCommand(cmd: string[], cwd: string) {
+async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
 	if (!isBun) {
 		throw new Error("Bun runtime is required for CLI e2e tests");
 	}
 	const proc = Bun.spawn({
 		cmd,
 		cwd,
+		env: { ...process.env, ...env },
 		stdout: "pipe",
 		stderr: "pipe",
 	});
@@ -44,7 +45,9 @@ async function ensureRegistry(version = "0.0.0") {
 }
 
 async function runCli(args: string[], cwd: string) {
-	return runCommand(["bun", "run", cliPath, ...args], cwd);
+	return runCommand(["bun", "run", cliPath, ...args], cwd, {
+		RAVEN_DEFAULT_REGISTRY_PATH: registryPath,
+	});
 }
 
 async function createTempDir(tempDirs: string[]) {
@@ -107,7 +110,9 @@ describe("CLI E2E", () => {
 			const result = await runCli(["install", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("RavenJS installed successfully");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.success).toBe(true);
+			expect(Array.isArray(out.modifiedFiles)).toBe(true);
 
 			const ravenDir = join(cwd, "raven");
 			expect(await fileExists(ravenDir)).toBe(true);
@@ -149,7 +154,7 @@ describe("CLI E2E", () => {
 			const result = await runCli(["install", "--source", repoRoot, "--verbose"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Installing RavenJS");
+			expect(result.stdout).toContain("Using local source");
 		});
 	});
 
@@ -159,13 +164,14 @@ describe("CLI E2E", () => {
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("not installed");
-			expect(result.stdout).toContain("RavenJS Status");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.core.installed).toBe(false);
+			expect(out.modules).toEqual([]);
 		});
 
-		it("should output JSON with --json", async () => {
+		it("should output JSON with valid structure", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["status", "--json"], cwd);
+			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const json = JSON.parse(result.stdout.trim());
@@ -182,8 +188,9 @@ describe("CLI E2E", () => {
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("core: installed");
-			expect(result.stdout).toContain("modules: none");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.core.installed).toBe(true);
+			expect(out.modules).toEqual([]);
 		});
 
 		it("should show modules after add", async () => {
@@ -194,15 +201,16 @@ describe("CLI E2E", () => {
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("core: installed");
-			expect(result.stdout).toContain("jtd-validator");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.core.installed).toBe(true);
+			expect(out.modules).toContain("jtd-validator");
 		});
 
 		it("should output correct JSON after install", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["install", "--source", repoRoot], cwd);
 
-			const result = await runCli(["status", "--json"], cwd);
+			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const json = JSON.parse(result.stdout.trim());
@@ -217,7 +225,8 @@ describe("CLI E2E", () => {
 			const result = await runCli(["status", "--root", "my-raven"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("core: installed");
+			const json = JSON.parse(result.stdout.trim());
+			expect(json.core.installed).toBe(true);
 		});
 	});
 
@@ -229,7 +238,9 @@ describe("CLI E2E", () => {
 			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("added successfully");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.success).toBe(true);
+			expect(out.moduleName).toBe("jtd-validator");
 
 			const moduleDir = join(cwd, "raven", "jtd-validator");
 			expect(await fileExists(moduleDir)).toBe(true);
@@ -261,9 +272,8 @@ describe("CLI E2E", () => {
 
 			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
 
-			expect(result.stdout).toContain("Available modules");
-			expect(result.stdout).toContain("core");
-			expect(result.stdout).toContain("jtd-validator");
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stderr).toContain("Unknown module");
 		});
 	});
 
@@ -276,7 +286,8 @@ describe("CLI E2E", () => {
 			const result = await runCli(["update", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("updated successfully");
+			const out = JSON.parse(result.stdout.trim());
+			expect(out.success).toBe(true);
 		});
 
 		it("should fail when project not installed", async () => {
@@ -318,7 +329,7 @@ describe("CLI E2E", () => {
 			const result = await runCli(["install", "--source", repoRoot, "-v"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Installing RavenJS");
+			expect(result.stdout).toContain("Using local source");
 		});
 	});
 });

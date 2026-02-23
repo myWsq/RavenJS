@@ -1,43 +1,168 @@
-# RavenJS Core
+# OVERVIEW
 
-A lightweight, high-performance web framework designed for Bun and Node.js.
+RavenJS Core 是一个轻量级、高性能的 Web 框架参考实现，设计用于 Bun 和 Node.js 运行时。
 
-## Overview
+**核心思想**：这是一份参考代码，不是一个你需要 import 的 npm 包。你可以直接复制、修改、学习这份代码，然后用在你的项目中。
 
-RavenJS provides a unified HTTP server API that automatically adapts to Bun and Node.js runtimes. It features a Radix tree-based routing system, scoped state management, lifecycle hooks, and a plugin system.
-
-### Core Features
-
-- **HTTP Server**: Unified server startup API with automatic Bun/Node.js adaptation
-- **Routing**: Radix tree routing with path parameters and route groups
-- **State Management**: AppState (application-level) and RequestState (request-level)
-- **Lifecycle Hooks**: onRequest, beforeHandle, beforeResponse, onError
-- **Plugin System**: Extensible middleware mechanism
-
-### Use Cases
-
-- Building RESTful APIs
-- Microservice backends
-- Web server applications
-- High-performance HTTP services
-
-### Core Concepts
-
-| Concept | Description |
-|---------|-------------|
-| `Raven` | Main application class for creating and managing servers |
-| `Context` | Request context containing request, params, query, etc. |
-| `ScopedState` | Scoped state for sharing data across async boundaries |
-| `Plugin` | Plugin function to extend framework capabilities |
+**主要功能**：
+- 统一的 HTTP 服务器 API（自动适配 Bun 和 Node.js）
+- 基于 Radix 树的路由系统（支持路径参数和路由组）
+- 作用域状态管理（AppState 和 RequestState）
+- 生命周期钩子（onRequest、beforeHandle、beforeResponse、onError）
+- 插件系统
 
 ---
 
-## Quick Start
+# HOW TO READ THIS CODE
 
-### Minimal Example
+建议按以下顺序阅读：
+
+1. **先看整体结构**：浏览 main.ts 的 SECTION 注释，了解代码组织方式
+2. **理解类型定义**：看 SECTION: Types & Interfaces，理解核心数据结构
+3. **学习错误处理**：看 SECTION: Error Handling，了解错误是怎么处理的
+4. **理解状态管理**：看 SECTION: State Management，理解 AsyncLocalStorage 的使用
+5. **看路由系统**：看 SECTION: Routing，理解 Radix 树的实现
+6. **看服务器适配器**：看 SECTION: Server Adapters，理解 Bun/Node.js 适配
+7. **最后看核心类**：看 SECTION: Raven Class，理解整体流程
+
+**关键文件**：
+- `main.ts` - 所有核心代码都在这里（单文件组织）
+- `index.ts` - 导出声明
+
+---
+
+# CORE CONCEPTS
+
+## Raven
+主应用类，用于创建和管理服务器。
+
+## Context
+请求上下文对象，包含 request、params、query 等信息。
+
+## ScopedState
+用于在异步边界之间共享数据的作用域状态。
+- `AppState` - 应用级别状态，整个应用共享
+- `RequestState` - 请求级别状态，每个请求独立
+- `BodyState`、`QueryState`、`ParamsState`、`HeadersState` - 预定义状态
+
+## Plugin
+用于扩展框架功能的插件函数。
+
+---
+
+# ARCHITECTURE
+
+代码采用**单文件组织**，所有核心逻辑都在 `main.ts` 中，按 SECTION 注释分组：
+
+```
+main.ts
+├── SECTION: Imports
+├── SECTION: Types & Interfaces
+├── SECTION: Error Handling
+├── SECTION: State Management
+├── SECTION: Routing
+├── SECTION: Server Adapters
+├── SECTION: Context
+├── SECTION: Plugin System
+├── SECTION: Lifecycle Hooks
+└── SECTION: Raven Class
+```
+
+**请求处理流程**：
+1. `onRequest` 钩子（全局）
+2. 路由匹配
+3. `beforeHandle` 钩子（路由级别）
+4. Handler 执行
+5. `beforeResponse` 钩子（路由级别 + 全局）
+6. 返回响应
+
+---
+
+# DESIGN DECISIONS
+
+## 为什么用 AsyncLocalStorage？
+
+选择 AsyncLocalStorage 做状态管理的原因：
+1. **异步安全**：状态自动通过异步调用链传播
+2. **无样板代码**：不需要手动传递 context
+3. **高性能**：零拷贝访问，比装饰器或 DI 更轻量
+
+替代方案考虑：
+- 方案 A：手动传递 context 对象 → rejected，样板代码太多
+- 方案 B：依赖注入容器 → rejected，太重了，性能不好
+
+## 为什么 Handler 不自动接收 Context？
+
+Handler 设计为无参函数的原因：
+1. **简单**：只需要返回 Response，不需要理解框架特定类型
+2. **灵活**：用户可以用普通函数，不需要学习新范式
+3. **通过 State 访问**：需要时可以通过 `BodyState.get()` 等访问
+
+如果需要 Context，可以通过 `RavenContext.getOrFailed()` 获取。
+
+## 为什么用 Radix 树做路由？
+
+选择 Radix 树（压缩前缀树）的原因：
+1. **高性能**：查找复杂度 O(k)，k 是路径段数
+2. **内存高效**：共享前缀的路径只存储一次
+3. **支持参数**：天然支持 `:id` 参数提取
+
+替代方案考虑：
+- 方案 A：简单的对象映射 → rejected，不支持参数
+- 方案 B：正则表达式匹配 → rejected，性能差
+
+## 为什么做运行时适配？
+
+`BunAdapter` 和 `NodeAdapter` 抽象了运行时差异：
+- Bun：使用原生 `Bun.serve()`
+- Node.js：使用 `node:http`
+
+用户不需要关心底层实现，框架自动选择合适的适配器。
+
+---
+
+# KEY CODE LOCATIONS
+
+## 错误处理
+- 行 47-135：`RavenError` 类和 `isRavenError` 函数
+- 关键方法：`toResponse()`、`setContext()`
+
+## 状态管理
+- 行 141-142：`currentAppStorage` 和 `requestStorage`（AsyncLocalStorage）
+- 行 146-270：`ScopedState`、`AppState`、`RequestState` 类
+
+## 路由系统
+- 行 273-400+：`RadixRouter` 类
+- 关键方法：`insert()`、`match()`
+
+## 服务器适配器
+- 行 403-450：`BunAdapter` 和 `NodeAdapter`
+- 关键方法：`listen()`、`stop()`
+
+## 核心类
+- 行 500+：`Raven` 类
+- 关键方法：`constructor()`、`get()`、`post()`、`listen()`、`stop()`
+
+---
+
+# EXTENSION POINTS
+
+如果你想扩展这个框架，可以考虑：
+
+1. **添加新的状态类型**：继承 `ScopedState` 创建新的状态类
+2. **添加新的生命周期钩子**：在 `Raven` 类中添加新的钩子方法
+3. **添加新的服务器适配器**：为其他运行时（如 Deno）创建适配器
+4. **扩展路由系统**：在 `RadixRouter` 中添加新功能（如通配符、正则匹配）
+5. **添加插件**：通过 `createPlugin()` 创建新插件
+
+---
+
+# USAGE EXAMPLES
+
+## 最小示例
 
 ```typescript
-import { Raven } from "./src/raven/index.ts";
+import { Raven } from "./raven/index.ts";
 
 const app = new Raven();
 
@@ -48,10 +173,10 @@ app.get("/", () => {
 app.listen({ port: 3000 });
 ```
 
-### Route with Parameters
+## 带参数的路由
 
 ```typescript
-import { Raven } from "./src/raven/index.ts";
+import { Raven } from "./raven/index.ts";
 
 const app = new Raven();
 
@@ -62,10 +187,10 @@ app.get("/user/:id", (ctx) => {
 app.listen({ port: 3000 });
 ```
 
-### Route Groups
+## 路由组
 
 ```typescript
-import { Raven } from "./src/raven/index.ts";
+import { Raven } from "./raven/index.ts";
 
 const app = new Raven();
 
@@ -77,482 +202,26 @@ app.group("/api", (api) => {
 app.listen({ port: 3000 });
 ```
 
----
-
-## API Reference
-
-### Core Classes
-
-#### `new Raven(options?)`
-
-Creates a new Raven application instance.
+## 状态管理
 
 ```typescript
-interface RavenOptions {
-  prefix?: string;   // Route prefix
-  parent?: Raven;   // Parent instance (for route groups)
-}
+import { Raven, createAppState, createRequestState } from "./raven/index.ts";
 
-const app = new Raven({ prefix: "/api" });
-```
+const app = new Raven();
 
-#### `app.listen(config)`
-
-Starts the HTTP server.
-
-```typescript
-interface ServerConfig {
-  port: number;
-  hostname?: string;
-}
-
-await app.listen({ port: 3000 });
-await app.listen({ port: 3000, hostname: "localhost" });
-```
-
-#### `app.stop()`
-
-Stops the server.
-
-```typescript
-await app.stop();
-```
-
-### HTTP Methods
-
-| Method | Description |
-|--------|-------------|
-| `app.get(path, handler)` | Register GET route |
-| `app.post(path, handler)` | Register POST route |
-| `app.put(path, handler)` | Register PUT route |
-| `app.delete(path, handler)` | Register DELETE route |
-| `app.patch(path, handler)` | Register PATCH route |
-
-```typescript
-app.get("/users", () => new Response("GET users"));
-app.post("/users", () => new Response("POST users"));
-app.put("/users/:id", () => new Response("PUT user"));
-app.delete("/users/:id", () => new Response("DELETE user"));
-```
-
-### Handler
-
-A handler is a function that returns `Response` or `Promise<Response>`.
-
-```typescript
-type Handler = () => Response | Promise<Response>;
-```
-
-Handler can receive a `Context` parameter:
-
-```typescript
-app.get("/user/:id", (ctx) => {
-  const userId = ctx.params.id;
-  const query = ctx.query;
-  return new Response(`User: ${userId}`);
-});
-```
-
-### Context
-
-The request context object.
-
-```typescript
-class Context {
-  readonly request: Request;
-  readonly params: Record<string, string>;
-  readonly query: Record<string, string>;
-  readonly url: URL;
-  readonly method: string;
-  readonly headers: Headers;
-  readonly body: ReadableStream<Uint8Array> | null;
-}
-```
-
-### Lifecycle Hooks
-
-#### `app.onRequest(hook)`
-
-Executes before request processing begins.
-
-```typescript
-app.onRequest((request) => {
-  console.log("Request:", request.url);
-  // Returning a Response will short-circuit subsequent processing
-});
-```
-
-#### `app.beforeHandle(hook)`
-
-Executes before the Handler runs.
-
-```typescript
-app.beforeHandle(() => {
-  // Validation logic
-  // Returning a Response will skip the Handler
-});
-```
-
-#### `app.beforeResponse(hook)`
-
-Executes before the response is sent.
-
-```typescript
-app.beforeResponse((response) => {
-  response.headers.set("X-Custom", "value");
-  return response;
-});
-```
-
-#### `app.onError(hook)`
-
-Executes when an error occurs.
-
-```typescript
-app.onError((error) => {
-  console.error("Error:", error);
-  return new Response("Internal Error", { status: 500 });
-});
-```
-
-### Route Groups
-
-#### `app.group(prefix, callback)`
-
-Creates a route group with accumulated prefix.
-
-```typescript
-app.group("/api", (api) => {
-  api.group("/v1", (v1) => {
-    v1.get("/users", () => new Response("users"));
-  });
-});
-// Matches /api/v1/users
-```
-
-### State Management
-
-#### `createAppState<T>(options?)`
-
-Creates application-level state shared across the entire application.
-
-```typescript
 const counterState = createAppState<number>({ name: "counter" });
-
-// Set value
 counterState.set(0);
 
-// Get value
-const count = counterState.get();
-const countOrFail = counterState.getOrFailed();
-```
-
-#### `createRequestState<T>(options?)`
-
-Creates request-level state, unique to each request.
-
-```typescript
 const userState = createRequestState<User>({ name: "user" });
 
-// Set in beforeHandle
 app.beforeHandle(() => {
   userState.set(await fetchUser());
 });
 
-// Get in Handler
 app.get("/profile", () => {
   const user = userState.getOrFailed();
   return new Response(user.name);
 });
-```
-
-#### Predefined States
-
-Framework-built-in states:
-
-```typescript
-BodyState    // Request body (parsed JSON)
-QueryState   // Query parameters
-ParamsState  // Path parameters
-HeadersState // Request headers
-```
-
-```typescript
-app.post("/submit", () => {
-  const body = BodyState.getOrFailed();
-  const query = QueryState.getOrFailed();
-  return new Response(JSON.stringify({ body, query }));
-});
-```
-
-### Plugin System
-
-#### `createPlugin(pluginFn)`
-
-Creates a plugin.
-
-```typescript
-import { createPlugin } from "./src/raven/index.ts";
-
-const loggerPlugin = createPlugin((app) => {
-  app.onRequest((req) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  });
-});
-
-await app.register(loggerPlugin);
-```
-
-### Error Handling
-
-#### `RavenError`
-
-Framework built-in error class.
-
-```typescript
-import { RavenError } from "./src/raven/index.ts";
-
-throw RavenError.ERR_VALIDATION("Invalid input");
-throw RavenError.ERR_BAD_REQUEST("Missing required field");
-
-// Custom error
-const error = new RavenError("ERR_CUSTOM", "Custom error", {}, 400);
-```
-
-Error methods:
-
-```typescript
-error.setContext({ key: "value" });
-error.toResponse(); // Convert to Response
-```
-
-#### `isRavenError(value)`
-
-Type guard.
-
-```typescript
-import { isRavenError } from "./src/raven/index.ts";
-
-if (isRavenError(error)) {
-  console.log(error.code, error.statusCode);
-}
-```
-
----
-
-## Examples
-
-### Complete REST API Example
-
-```typescript
-import { Raven, createAppState, createRequestState, RavenError } from "./src/raven/index.ts";
-
-const app = new Raven();
-
-// Simulated database
-const users = [
-  { id: "1", name: "Alice" },
-  { id: "2", name: "Bob" }
-];
-const idCounter = createAppState<number>({ name: "idCounter" });
-idCounter.set(2);
-
-// Error handling
-app.onError((error) => {
-  if (RavenError.isRavenError(error)) {
-    return error.toResponse();
-  }
-  return new Response(String(error), { status: 500 });
-});
-
-// GET /users - Get all users
-app.get("/users", () => {
-  return new Response(JSON.stringify(users), {
-    headers: { "Content-Type": "application/json" }
-  });
-});
-
-// GET /users/:id - Get single user
-app.get("/users/:id", (ctx) => {
-  const user = users.find(u => u.id === ctx.params.id);
-  if (!user) {
-    throw RavenError.ERR_VALIDATION("User not found");
-  }
-  return new Response(JSON.stringify(user), {
-    headers: { "Content-Type": "application/json" }
-  });
-});
-
-// POST /users - Create user
-app.post("/users", (ctx) => {
-  const id = String(idCounter.getOrFailed() + 1);
-  idCounter.set(Number(id));
-  const newUser = { id, name: "New User" };
-  users.push(newUser);
-  return new Response(JSON.stringify(newUser), {
-    status: 201,
-    headers: { "Content-Type": "application/json" }
-  });
-});
 
 app.listen({ port: 3000 });
 ```
-
-### Using Plugins Example
-
-```typescript
-import { Raven, createPlugin } from "./src/raven/index.ts";
-
-const app = new Raven();
-
-// CORS plugin
-const corsPlugin = createPlugin((app) => {
-  app.beforeResponse((response) => {
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
-    return response;
-  });
-  
-  app.onRequest((request) => {
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
-        }
-      });
-    }
-  });
-});
-
-await app.register(corsPlugin);
-
-app.get("/api/data", () => {
-  return new Response(JSON.stringify({ message: "Hello" }));
-});
-
-app.listen({ port: 3000 });
-```
-
-### Route Groups Example
-
-```typescript
-import { Raven } from "./src/raven/index.ts";
-
-const app = new Raven();
-
-app.group("/api", (api) => {
-  // /api/users
-  api.get("/users", () => new Response("Users"));
-  
-  // /api/posts
-  api.get("/posts", () => new Response("Posts"));
-  
-  // Nested route group
-  api.group("/admin", (admin) => {
-    admin.get("/dashboard", () => new Response("Admin Dashboard"));
-  });
-});
-
-app.listen({ port: 3000 });
-// Available routes: GET /api/users, GET /api/posts, GET /api/admin/dashboard
-```
-
----
-
-## Design Intent
-
-### Why AsyncLocalStorage?
-
-RavenJS uses `AsyncLocalStorage` for state management because:
-
-1. **Async-safe**: State automatically propagates through the async call chain
-2. **No boilerplate**: No need to manually pass context
-3. **High performance**: Zero-copy access, lighter than decorators or DI
-
-### Why Handler Doesn't Automatically Receive Context?
-
-Handler is designed as a parameterless function because:
-
-1. **Simplicity**: Just return `Response`, no need to understand framework-specific types
-2. **Flexibility**: Users can use plain functions without learning new paradigms
-3. **Accessible via State**: Access via `BodyState.get()` etc. when needed
-
-Access Context via `RavenContext.getOrFailed()` if needed.
-
-### Routing System Design
-
-Using Radix tree (compressed prefix tree):
-
-1. **High performance**: Lookup complexity O(k), where k is the number of path segments
-2. **Memory efficiency**: Paths with shared prefixes are stored only once
-3. **Supports parameters**: Natural `:id` parameter extraction
-
-### Runtime Adaptation
-
-`BunAdapter` and `NodeAdapter` abstract runtime differences:
-
-- Bun: Uses native `Bun.serve()`
-- Node.js: Uses `node:http`
-
-Users don't need to care about the underlying implementation; the framework automatically selects the appropriate adapter.
-
----
-
-## Caveats
-
-### Reading Request Body
-
-- Request body can only be read once. If needed in multiple places, read first and store in State
-- JSON request body is automatically parsed
-
-```typescript
-// Correct
-app.beforeHandle(() => {
-  const body = BodyState.getOrFailed();
-  // Use body
-});
-
-app.post("/data", () => {
-  // Can also access in Handler
-  const body = BodyState.getOrFailed();
-  return new Response("OK");
-});
-```
-
-### State Access
-
-- `AppState` can be accessed anywhere
-- `RequestState`, `BodyState` etc. must be accessed during request processing (after router match)
-
-### Route Matching Order
-
-- Exact paths take priority over parameter paths
-- Parameter paths match in registration order
-
-```typescript
-app.get("/user/:id", () => new Response("param"));
-app.get("/user/admin", () => new Response("exact")); // This will match /user/admin
-```
-
-### Lifecycle Hook Execution Order
-
-1. Global `onRequest`
-2. Route match
-3. Route-level `beforeHandle`
-4. Handler
-5. Route-level `beforeResponse`
-6. Global `beforeResponse`
-
-### Server Can Only Start Once
-
-Calling `listen()` more than once on the same Raven instance throws `ERR_SERVER_ALREADY_RUNNING` error.
-
-### Bun vs Node.js Differences
-
-| Feature | Bun | Node.js |
-|---------|-----|---------|
-| Default hostname | 0.0.0.0 | 0.0.0.0 |
-| JSON parsing | Native support | Manual |
-| File uploads | Native support | Need to handle streams |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile, chmod } from "node:fs/promises";
+import { mkdir, writeFile, chmod, copyFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const args = process.argv.slice(2);
@@ -26,7 +26,6 @@ const packageName = "@raven.js/cli";
 async function main() {
   const packageDir = join(outDirArg, packageName.replace("/", "-"));
   await mkdir(packageDir, { recursive: true });
-  await mkdir(join(packageDir, "bin"), { recursive: true });
 
   const optionalDependencies: Record<string, string> = {};
   for (const target of targets) {
@@ -38,7 +37,7 @@ async function main() {
     version: versionArg,
     description: "CLI tool for RavenJS framework",
     bin: {
-      raven: "./bin/raven",
+      raven: "./raven",
     },
     optionalDependencies,
     keywords: ["ravenjs", "cli", "framework", "typescript"],
@@ -46,7 +45,7 @@ async function main() {
       type: "git",
       url: "https://github.com/myWsq/RavenJS.git",
     },
-    files: ["bin", "README.md"],
+    files: ["raven", "README.md", "registry.json"],
   };
 
   await writeFile(join(packageDir, "package.json"), JSON.stringify(pkg, null, 2));
@@ -56,6 +55,12 @@ const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+
+const registryPath = path.resolve(__dirname, 'registry.json');
+if (!fs.existsSync(registryPath)) {
+  console.error('registry.json not found at ' + registryPath);
+  process.exit(1);
+}
 
 const knownWindowsPackages = {
   'win32 x64': '@raven.js/cli-windows-x64'
@@ -93,13 +98,19 @@ function generateBinPath() {
 
 const binaryPath = generateBinPath();
 
-const child = spawn(binaryPath, process.argv.slice(2), { stdio: 'inherit' });
+const child = spawn(binaryPath, process.argv.slice(2), {
+  stdio: 'inherit',
+  env: { ...process.env, RAVEN_DEFAULT_REGISTRY_PATH: registryPath }
+});
 child.on('exit', (code) => process.exit(code || 0));
 `;
 
-  const binPath = join(packageDir, "bin", "raven");
+  const binPath = join(packageDir, "raven");
   await writeFile(binPath, wrapperScript);
   await chmod(binPath, 0o755);
+
+  const registrySourcePath = join(import.meta.dir, "..", "registry.json");
+  await copyFile(registrySourcePath, join(packageDir, "registry.json"));
 
   const readme = `# @raven.js/cli
 
