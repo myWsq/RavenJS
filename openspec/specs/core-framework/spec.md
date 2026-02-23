@@ -15,6 +15,15 @@
 
 ## Requirements
 
+### Requirement: RavenJS as Agent Teaching Tool
+
+RavenJS SHALL be positioned as an Agent teaching tool rather than a traditional npm framework. The framework code SHALL be provided as reference implementation for Agents to learn from, not as a dependency to import.
+
+#### Scenario: Agent learns from RavenJS code
+- **WHEN** an Agent reads the RavenJS reference code and README.md
+- **THEN** the Agent SHALL understand how to write code in RavenJS's style
+- **AND** the Agent SHALL be able to generate similar code without requiring RavenJS as a dependency
+
 ### Requirement: 运行时抽象层
 
 Raven 框架 SHALL 提供一个抽象层，用于屏蔽不同运行时（Bun, Node.js）之间的差异。

@@ -675,17 +675,14 @@ async function cmdGuide(moduleName: string, options: CLIOptions) {
       }
     }
   } catch (e) {
-    console.log(`Failed to list modules: ${e}`);
-    process.exit(1);
+    error(`Failed to list modules: ${e}`);
   }
 
   const moduleDir = join(ravenDir, moduleName);
   if (!(await pathExists(moduleDir))) {
-    console.log(`Module '${moduleName}' not found.`);
-    if (availableModules.length > 0) {
-      console.log(`Available modules: ${availableModules.join(", ")}`);
-    }
-    process.exit(1);
+    error(
+      `Module '${moduleName}' not found.${availableModules.length > 0 ? ` Available: ${availableModules.join(", ")}` : ""}`,
+    );
   }
 
   const output: string[] = [];

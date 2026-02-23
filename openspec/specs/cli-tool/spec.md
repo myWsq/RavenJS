@@ -442,6 +442,34 @@ The system SHALL download multiple files concurrently when installing modules.
 - **THEN** the system displays an error with the failed file URL
 - **AND** the system does not leave partial files
 
+### Requirement: All CLI outputs in JSON format (Agent-facing)
+
+All RavenJS CLI commands SHALL output JSON format by default, with the exception of `raven init` and `raven guide`.
+
+#### Scenario: CLI command outputs JSON
+- **WHEN** an Agent runs any RavenJS CLI command except `raven init` and `raven guide`
+- **THEN** the output SHALL be valid JSON
+
+#### Scenario: raven init for human use
+- **WHEN** a human runs `raven init`
+- **THEN** the output SHALL be human-friendly (non-JSON)
+
+### Requirement: CLI provides structured information for Agent
+
+The CLI SHALL provide structured information to help Agents make decisions, including current version, latest version, file hashes, and modified file status (via `raven status` and `raven diff`).
+
+#### Scenario: Agent checks status
+- **WHEN** an Agent runs `raven status`
+- **THEN** the output SHALL include current version, latest version (when available), and file hashes
+
+### Requirement: CLI provides guidance entry points
+
+The CLI SHALL provide entry points for Agents to fetch information, without pre-computing change analysis.
+
+#### Scenario: Agent gets guidance
+- **WHEN** an Agent runs `raven guide <module>`
+- **THEN** the output SHALL provide basic context (README and source code) and action entry points (fetch, diff, etc.)
+
 ### Requirement: Configurable Raven Root
 
 The system SHALL allow users to configure the RavenJS root directory.
