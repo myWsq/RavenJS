@@ -1,129 +1,91 @@
 ---
 name: raven-use
 description: |
-  当 Agent 需要使用 RavenJS 框架编写代码时自动调用。
+  Use when writing code with the RavenJS framework.
 
-  触发场景（Agent 应通过此 description 自主识别并调用）：
-  - 用户要求创建 HTTP 服务
-  - 需要定义路由、处理函数
-  - 使用中间件/hooks
-  - 数据验证逻辑
-  - 状态管理
-  - 任何涉及 ravenjs 框架的代码编写任务
+  Trigger automatically when the user wants to:
+  - Create an HTTP server or REST API
+  - Define routes or request handlers
+  - Add middleware, lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
+  - Validate request data (body, query params, path params, headers)
+  - Manage application or request-scoped state
+  - Use any RavenJS module or API
 
-  此 skill 会：
-  1. 检查项目是否已初始化（raven 根目录是否存在）
-  2. 获取已安装模块列表
-  3. 获取所有可用模块及其描述
-  4. 根据用户需求匹配模块描述，找到需要学习的模块
-  5. 调用 raven guide <module> 获取相关代码模式
-  6. 提供具体的代码示例和最佳实践
-
-  注意：不处理安装、更新等运维任务（请使用独立的 Command 型 skill）。
+  This skill does NOT handle installation, upgrades, or project setup — those are separate tasks.
+compatibility: Requires Raven CLI (raven)
 ---
 
 # RavenJS Use Skill
 
-教 Agent 如何使用 RavenJS 框架编写代码。
+A workflow for writing correct RavenJS code: check project state, identify needed modules, learn their APIs, then write.
 
-## 何时使用
+---
 
-Agent 应该在以下情况自动调用此 skill：
-- 用户说"帮我用 ravenjs 写个服务"
-- 用户说"添加一个 API 路由"
-- 用户要求数据验证
-- 用户询问如何使用 ravenjs 的某个功能
-- 任何需要用 ravenjs 框架编写代码的场景
+## Step 0 — Verify prerequisites
 
-## 何时不使用
-
-- 用户只是想了解 ravenjs 是什么（使用 raven-learn）
-- 用户想安装 ravenjs（使用 raven-install）
-- 用户想更新 ravenjs（使用 raven-merge）
-- 项目未初始化（先提示用户运行 raven init）
-
-## Steps
-
-### 1. 检查项目初始化状态
-
-运行 `raven status`（JSON 输出）检查项目是否已初始化。
-
-从 JSON 输出中检查：
-- 如果返回错误或 `ravenDir` 不存在 → 提示用户先运行 `raven init`
-- 如果返回正常 → 继续
-
-### 2. 获取已安装模块
-
-从 `raven status` 输出的 `modules` 数组中，解析已安装的模块列表。
-
-### 3. 获取所有可用模块
-
-运行 `raven fetch`（JSON 输出）获取 registry 中的所有可用模块。
-
-从输出中解析：
-- `modules` 对象：每个模块的详细信息
-- 每个模块包含 `description` 字段，描述模块的用途
-
-### 4. 根据用户需求匹配模块
-
-分析用户想要实现的功能，匹配对应的模块：
-
-- 用户想要创建 HTTP 服务 → 需要 core
-- 用户想要定义路由 → 需要 core
-- 用户想要处理请求 → 需要 core
-- 用户想要数据验证 → 需要 jtd-validator
-
-**模块 description 匹配逻辑**：
-- 读取每个模块的 description
-- 根据用户需求中的关键词（如"验证"、"路由"、"服务"）匹配
-- 选择最相关的模块
-
-### 5. 加载模块知识
-
-对于需要学习的每个模块，运行 `raven guide <module-name>`。
-
-`guide` 输出格式：
-```
-<readme>
-README.md 内容
-</readme>
-
-<code>
-文件: path/to/file.ts
-```typescript
-代码内容
-```
-</code>
+Run:
+```bash
+raven status
 ```
 
-### 6. 提供代码模式
+Handle the result:
 
-从 guide 输出中提取：
-- 推荐的代码结构
-- 关键 API 使用方式
-- 设计意图
+- **Command not found** → **stop** and tell the user:
+  > Raven CLI is required to use this skill. Please install it first.
+- **`ravenDir` missing or `initialized: false`** → **stop** and tell the user:
+  > This project has not been initialized. Run `raven init` to get started.
+- **Otherwise** → continue with the `modules` data from this response.
 
-### 7. 伴随式指导
+---
 
-在 Agent 编写代码的过程中：
-- 随时回答关于 ravenjs API 的问题
-- 指出可能的设计问题
-- 提供最佳实践建议
+## Step 1 — Identify required modules
 
-## Ref 参考
+From the `raven status` output, read the `modules` array. Each entry contains:
+- `name` — module identifier
+- `description` — what the module does
+- `installed` — whether it is present in the project
 
-如需更详细的操作指南，可加载同级目录下的 ref 文件：
+Match the user's task against module descriptions. Do **not** hardcode mappings — always use the descriptions from the live status output. Common patterns:
 
-- [添加新模块](./refs/add-new-module.md) - 如何使用 raven add 添加模块
-- [学习模块知识](./refs/learn-module.md) - 如何使用 raven guide 学习模块
-- [核心代码模式](./refs/core-patterns.md) - core 模块的代码模式
-- [验证使用方式](./refs/validation.md) - jtd-validator 使用指南
+| User wants to… | Likely module |
+|---|---|
+| Create a server, define routes, add hooks | `core` |
+| Validate request body / query / params / headers | `jtd-validator` |
+
+Select all modules that are relevant. Note which ones are already installed and which need to be added.
+
+---
+
+## Step 2 — Add missing modules (if needed)
+
+If any required module is not installed, use the **AskUserQuestion tool** to ask the user whether to add it. If the user confirms, follow:
+
+→ **[Adding a module](./add-new-module.md)**
+
+After adding, re-run `raven status` to confirm the module appears as installed before continuing.
+
+---
+
+## Step 3 — Learn the module API
+
+For each module you will use, run its guide and study the output before writing any code:
+
+→ **[Learning a module](./learn-module.md)**
+
+Read the full README section (architecture, core concepts, design decisions, gotchas, anti-patterns) and the source code. This is the authoritative reference — do not rely on prior knowledge.
+
+---
+
+## Step 4 — Write the code
+
+Apply the patterns from the guide output. The guide is the single source of truth — follow its GOTCHAS, ANTI-PATTERNS, and USAGE EXAMPLES sections exactly. When in doubt, re-read the guide rather than relying on prior knowledge.
+
+---
 
 ## Guardrails
 
-- 必须先运行 `raven status` 确认项目已初始化
-- 如果需要某个未安装的模块，提示用户先运行 `raven add <module>`
-- 所有 CLI 命令输出 JSON（guide 除外），直接解析即可
-- guide 输出是 Markdown 格式，需要正确解析 `<readme>` 和 `<code>` 标签
-- 不提供安装、升级等运维指导（那是 Command 型 skill 的职责）
-- 不要硬编码模块列表，始终从 registry 动态获取
+- Run `raven status` at the start of **every invocation** — never assume project state from a previous run.
+- Do not hardcode module names or capabilities — always derive them from the live `raven status` output.
+- Do not inline the add/guide instructions here — reference the docs above.
+- Do not suggest npm packages for functionality that a Raven module already covers.
+- Do not write code until Step 3 (learn the module) is complete for all required modules.

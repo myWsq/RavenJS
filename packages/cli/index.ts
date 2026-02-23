@@ -597,17 +597,11 @@ async function cmdGuide(moduleName: string, options: CLIOptions) {
       if (entry.isDirectory()) {
         await collectCodeFiles(fullPath, baseDir);
       } else if (entry.isFile()) {
-        const ext = entry.name.split(".").pop();
-        let language = "text";
-        if (ext === "ts" || ext === "tsx") language = "typescript";
-        else if (ext === "js" || ext === "jsx") language = "javascript";
-        else if (ext === "json") language = "json";
-        else if (ext === "md") continue;
-
         const relPath = fullPath.slice(baseDir.length + 1);
         const content = await Bun.file(fullPath).text();
-        output.push(`<code path="${relPath}">`);
-        output.push(`\`\`\`${language}`);
+        output.push(`<code>`);
+        output.push(`File: ${relPath}`);
+        output.push(`\`\`\``);
         output.push(content);
         output.push("```");
         output.push("</code>");

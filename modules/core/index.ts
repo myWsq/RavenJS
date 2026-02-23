@@ -377,9 +377,9 @@ export function createRequestState<T>(options?: StateOptions): RequestState<T> {
 // Predefined Request States
 export const RavenContext = createRequestState<Context>({ name: "raven:context" });
 export const BodyState = createRequestState<unknown>({ name: "raven:body" });
-export const QueryState = createRequestState<unknown>({ name: "raven:query" });
-export const ParamsState = createRequestState<unknown>({ name: "raven:params" });
-export const HeadersState = createRequestState<unknown>({ name: "raven:headers" });
+export const QueryState = createRequestState<Record<string, string>>({ name: "raven:query" });
+export const ParamsState = createRequestState<Record<string, string>>({ name: "raven:params" });
+export const HeadersState = createRequestState<Record<string, string>>({ name: "raven:headers" });
 
 // =============================================================================
 // SECTION: Router

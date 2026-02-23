@@ -1,220 +1,445 @@
 # OVERVIEW
 
-RavenJS JTD Validator 是一个基于 JSON Type Definition (JTD) 标准的数据验证模块参考实现，提供类型安全的请求验证。
+RavenJS JTD Validator is a request validation module built on [JSON Type Definition](https://jsontypedef.com/) (RFC 8927), providing compile-time type inference and runtime validation in a single schema declaration.
 
-**核心思想**：这是一份参考代码，不是一个你需要 import 的 npm 包。你可以直接复制、修改、学习这份代码，然后用在你的项目中。
+**Philosophy**: This is reference code, not an npm package to import. Copy it, modify it, learn from it, and use it directly in your project.
 
-**主要功能**：
-- 类型安全（编译时类型推断）
-- 基于 JTD 标准（RFC 8927）
-- 多源验证（支持 Body、Query、Params、Headers）
-- 链式 API（支持 optional() 和 nullable() 修饰符）
-
----
-
-# HOW TO READ THIS CODE
-
-建议按以下顺序阅读：
-
-1. **先看整体结构**：浏览 main.ts 的 SECTION 注释，了解代码组织方式
-2. **理解类型定义**：看 SECTION: Types，理解核心数据结构
-3. **学习 Schema DSL**：看 SECTION: Schema Builder，理解 J 是怎么构建的
-4. **看验证逻辑**：看 SECTION: Validation，理解验证是怎么执行的
-5. **最后看 Hooks**：看 SECTION: Validation Hooks，理解 useBody 等是怎么工作的
-
-**关键文件**：
-- `main.ts` - 所有核心代码都在这里（单文件组织）
-- `index.ts` - 导出声明
-
----
-
-# CORE CONCEPTS
-
-## J
-JTD Schema 构建器，用于创建验证 schema。
-
-## Schema
-JTD 格式的 schema 对象，用于描述数据结构。
-
-## Validation Hooks
-- `useBody(schema)` - 验证请求体
-- `useQuery(schema)` - 验证查询参数
-- `useParams(schema)` - 验证路径参数
-- `useHeaders(schema)` - 验证请求头
-
-## Infer
-从 Schema 推断 TypeScript 类型。
+**Features**:
+- Schema-driven type inference — define once, get both validation and TypeScript types
+- Fluent builder API (`J.string()`, `J.object()`, `.optional()`, `.nullable()`)
+- Four validation sources: `body`, `query`, `params`, `headers`
+- Compiled validator cache — schemas are compiled once, reused across requests
 
 ---
 
 # ARCHITECTURE
 
-代码采用**单文件组织**，所有核心逻辑都在 `main.ts` 中，按 SECTION 注释分组：
+All logic lives in a single file `index.ts`, organized by `SECTION` comments:
 
 ```
-main.ts
-├── SECTION: Imports
-├── SECTION: Types
-├── SECTION: Schema Builder
-├── SECTION: Validation
-└── SECTION: Validation Hooks
+index.ts
+├── SECTION: JTD Schema Types        — JTDType, JTDBaseSchema, FieldSchema interface
+├── SECTION: Field Schema Factory    — createField() internal constructor
+├── SECTION: Type Inference Utilities — Infer<T> and supporting mapped types
+├── SECTION: Schema DSL              — the J builder object
+├── SECTION: Validation Engine       — Ajv instance, validator cache, validateAndReturn()
+└── SECTION: Request Validation Helpers — useBody / useQuery / useParams / useHeaders
 ```
+
+**How it fits into the request lifecycle** (from `@ravenjs/core`):
+
+```
+[processStates]  ← framework populates BodyState / QueryState / ParamsState / HeadersState
+      │
+      ▼
+[beforeHandle]   ← call use*() here to validate early and short-circuit with 400
+      │
+      ▼
+[handler()]      ← call use*() here for inline validation
+```
+
+`useBody` / `useQuery` / `useParams` / `useHeaders` read from the corresponding `RequestState`. They must be called inside a handler or `beforeHandle` hook — never at module scope.
+
+---
+
+# CORE CONCEPTS
+
+## J — Schema builder
+
+`J` is a fluent object that constructs `FieldSchema` values. Every method returns a `FieldSchema` with a generic parameter precise enough for `Infer<T>` to produce the correct TypeScript type.
+
+| Method | JTD form | TypeScript type |
+|---|---|---|
+| `J.string()` | `{ type: "string" }` | `string` |
+| `J.boolean()` | `{ type: "boolean" }` | `boolean` |
+| `J.timestamp()` | `{ type: "timestamp" }` | `string` (ISO 8601) |
+| `J.number()` | `{ type: "float64" }` | `number` |
+| `J.int()` | `{ type: "int32" }` | `number` |
+| `J.int8/16/32()` | `{ type: "int8/16/32" }` | `number` |
+| `J.uint8/16/32()` | `{ type: "uint8/16/32" }` | `number` |
+| `J.float32/64()` | `{ type: "float32/64" }` | `number` |
+| `J.enum(["a","b"])` | `{ enum: [...] }` | `"a" \| "b"` |
+| `J.array(item)` | `{ elements: ... }` | `T[]` |
+| `J.record(value)` | `{ values: ... }` | `Record<string, T>` |
+| `J.object(fields)` | `{ properties, optionalProperties }` | `{ ... }` |
+
+**Chainable modifiers** (available on every `FieldSchema`):
+
+- `.optional()` — marks the field optional inside a `J.object()` (moves it to `optionalProperties`)
+- `.nullable()` — adds `nullable: true` to the JTD schema, expanding the TypeScript type to `T | null`
+
+The two modifiers can be chained in any order: `J.string().optional().nullable()`.
+
+## FieldSchema
+
+The wrapper type returned by every `J.*` method. It holds the raw `JTDBaseSchema` in `.schema` and carries the optional flag via the `[OPTIONAL]` symbol property. You never construct this directly.
+
+## Infer\<T\>
+
+A utility type that extracts the TypeScript type from a `FieldSchema` or raw `JTDBaseSchema`:
+
+```typescript
+const UserSchema = J.object({
+  id:    J.string(),
+  age:   J.int().optional(),
+  email: J.string().nullable(),
+});
+
+type User = Infer<typeof UserSchema>;
+// { id: string; age?: number; email: string | null }
+```
+
+## Validation helpers
+
+| Function | Reads from | Throws on failure |
+|---|---|---|
+| `useBody(schema)` | `BodyState` | `RavenError.ERR_VALIDATION` (400) |
+| `useQuery(schema)` | `QueryState` | `RavenError.ERR_VALIDATION` (400) |
+| `useParams(schema)` | `ParamsState` | `RavenError.ERR_VALIDATION` (400) |
+| `useHeaders(schema)` | `HeadersState` | `RavenError.ERR_VALIDATION` (400) |
+
+On validation failure the error is thrown as a `RavenError` with `statusCode: 400`. The framework's `onError` hook catches it; call `error.toResponse()` to serialize it to a structured JSON response.
 
 ---
 
 # DESIGN DECISIONS
 
-## 为什么用 JTD 而不是 JSON Schema？
+## Why JTD instead of JSON Schema?
 
-选择 JTD 的原因：
-1. **更简单**：JTD 比 JSON Schema 更轻量
-2. **类型推断**：更容易映射到 TypeScript 类型
-3. **功能足够**：对于 API 验证场景来说功能完整
+JTD (RFC 8927) was chosen over JSON Schema for two reasons:
 
-替代方案考虑：
-- 方案 A：JSON Schema → rejected，太复杂了
-- 方案 B：自定义 schema 格式 → rejected，没必要重新发明轮子
+1. **Direct TypeScript mapping** — every JTD form maps 1-to-1 to a TypeScript type (object, array, scalar, enum). The `Infer<T>` utility only needs ~50 lines of conditional types to cover the entire spec.
+2. **Simpler validation rules** — JTD has no `pattern`, `minimum`, `allOf`, `anyOf`, etc. This keeps the schema readable and prevents the validator from becoming a second type system.
 
-## 为什么在 beforeHandle 阶段自动验证？
+For cross-field constraints or format checks (email, UUID, etc.) that JTD cannot express, add them manually in the handler after `use*()` returns.
 
-验证在 `beforeHandle` 阶段自动执行，不需要手动调用验证函数。这样做的好处：
-- Handler 代码更干净
-- 验证失败时自动返回 400 错误
-- 专注于业务逻辑
+## Why validate inside the handler, not in a dedicated hook?
 
----
+`use*()` is a plain function call, not a hook registration. This is intentional:
 
-# KEY CODE LOCATIONS
+- **Co-location** — the schema lives next to the code that consumes it
+- **Selective validation** — different routes can share the same handler function but validate different subsets
+- **No magic** — the call site makes it obvious when and what is being validated
 
-## 类型定义
-- 行 12-60：核心类型（JTDType、JTDSchema、FieldSchema 等）
+You can still move `use*()` calls into a `beforeHandle` hook if you want to validate before business logic runs and short-circuit early.
 
-## Schema Builder
-- 行 63-200+：Schema 构建器实现
-- 关键方法：`J.string()`、`J.object()`、`optional()`、`nullable()`
+## Why a schema cache keyed on object identity?
 
-## 验证逻辑
-- 行 200+：验证函数实现
-- 关键函数：`validate()`
-
-## 验证 Hooks
-- 行 300+：`useBody()`、`useQuery()`、`useParams()`、`useHeaders()`
+`getOrCompileValidator` uses a `WeakMap<object, ValidateFunction>` keyed on the raw schema object reference. Schemas defined at module scope (the common pattern) are created once and reused across every request, paying the Ajv compilation cost only once.
 
 ---
 
-# EXTENSION POINTS
+# GOTCHAS
 
-如果你想扩展这个模块，可以考虑：
+## 1. `useQuery`, `useParams`, and `useHeaders` only receive strings — never use numeric types with them
 
-1. **添加自定义验证函数**：在验证逻辑中添加自定义验证
-2. **添加跨字段验证**：支持多个字段之间的验证
-3. **添加异步验证**：支持异步验证函数
-4. **添加更多类型**：在 J 中添加更多 schema 类型
+`QueryState`, `ParamsState`, and `HeadersState` are typed and populated as `Record<string, string>`. Every value is a raw string extracted from the URL or header. JTD validation is strict: the value `"42"` does not satisfy `{ type: "int32" }`.
+
+```typescript
+// ❌ Wrong: "42" is a string, not an int32 — validation will always fail
+app.get("/items", () => {
+  const { page } = useQuery(J.object({ page: J.int() }));
+});
+
+// ✓ Correct: validate as string, then convert manually
+app.get("/items", () => {
+  const { page } = useQuery(J.object({ page: J.string() }));
+  const pageNum = parseInt(page, 10);
+});
+```
+
+The same rule applies to `useParams` and `useHeaders`. **Only `useBody` can use numeric, boolean, array, and nested object types**, because the JSON body is already parsed to native JavaScript values before validation.
+
+## 2. `use*()` must be called inside a request context
+
+These functions read from `RequestState`, which is only populated during an active request. Calling them at module scope, inside app setup code, or inside `onRequest` will throw `ERR_STATE_NOT_SET`.
+
+```typescript
+// ❌ Wrong: called outside a request
+const data = useBody(MySchema);
+
+// ✓ Correct: called inside a handler
+app.post("/submit", () => {
+  const data = useBody(MySchema); // ✓ RequestState is active here
+  return Response.json(data);
+});
+```
+
+## 3. Validation errors are thrown, not returned — wire up `onError`
+
+`use*()` throws `RavenError.ERR_VALIDATION` on failure. If you don't register an `onError` handler, the framework falls through to its default 500 response. Register a handler to return a proper 400:
+
+```typescript
+import { isRavenError } from "@ravenjs/core";
+
+app.onError((error) => {
+  if (isRavenError(error)) {
+    return error.toResponse(); // { error: "...", statusCode: 400, ... }
+  }
+  return new Response("Internal Server Error", { status: 500 });
+});
+```
+
+## 4. `discriminator` and `ref` forms have no `J` builder
+
+`JTDBaseSchema` includes `{ discriminator: string; mapping: ... }` and `{ ref: string }` in its type union because AJV supports them, but `J` does not expose builder methods for them. If you need tagged unions or schema references, construct the raw `JTDBaseSchema` object manually and wrap it with `createField()` — or add a `J.discriminator()` method yourself.
+
+## 5. Schemas defined inline are recompiled on every call
+
+The validator cache is keyed on object identity. An inline schema object is a new object on every call, so it gets compiled fresh every time:
+
+```typescript
+// ❌ Recompiled on every request — new object reference each call
+app.post("/users", () => {
+  const body = useBody(J.object({ name: J.string() })); // new schema object each time
+});
+
+// ✓ Define at module scope — compiled once, cached forever
+const UserSchema = J.object({ name: J.string() });
+
+app.post("/users", () => {
+  const body = useBody(UserSchema); // same object reference → cache hit
+});
+```
+
+---
+
+# ANTI-PATTERNS
+
+## Do not cast `use*()` return values — let inference do it
+
+```typescript
+// ❌ Redundant cast — Infer<T> already produced the correct type
+const body = useBody(UserSchema) as { name: string };
+
+// ✓ Trust the inferred type
+const body = useBody(UserSchema); // type: { name: string }
+```
+
+## Do not use `J.object({})` to validate arbitrary JSON
+
+An empty `J.object({})` produces `{}` as the JTD schema, which AJV treats as "accept anything". If you intentionally want to pass through unvalidated body data, read `BodyState` directly and cast:
+
+```typescript
+// ❌ Misleading — looks like validation but accepts everything
+const data = useBody(J.object({}));
+
+// ✓ Explicit about skipping validation
+const data = BodyState.getOrFailed() as MyType;
+```
+
+## Do not validate the same source twice with different schemas
+
+`use*()` validates `data` against `schema` and returns it. Calling `useBody()` twice with different schemas on the same request is wasteful and potentially confusing — extract everything you need in a single call with a combined schema.
+
+```typescript
+// ❌ Two passes over the same data
+const { name } = useBody(J.object({ name: J.string() }));
+const { age }  = useBody(J.object({ age: J.int() }));
+
+// ✓ Single schema covering all required fields
+const { name, age } = useBody(J.object({
+  name: J.string(),
+  age:  J.int(),
+}));
+```
 
 ---
 
 # USAGE EXAMPLES
 
-## 基本用法
+## Basic body validation
 
 ```typescript
-import { J, useBody } from "./raven/jtd-validator/index.ts";
+import { J, useBody } from "./index.ts";
 
-const UserSchema = J.object({
-  name: J.string(),
+const CreateUserSchema = J.object({
+  name:  J.string(),
   email: J.string(),
-  age: J.int().optional(),
+  age:   J.int().optional(),
 });
 
 app.post("/users", () => {
-  const user = useBody(UserSchema);
-  return new Response(JSON.stringify(user));
+  const user = useBody(CreateUserSchema);
+  // user: { name: string; email: string; age?: number }
+  return Response.json({ created: user.name });
 });
 ```
 
-## 查询参数验证
+## Path parameter validation (strings only)
 
 ```typescript
-import { J, useQuery } from "./raven/jtd-validator/index.ts";
+import { J, useParams } from "./index.ts";
+
+app.get("/users/:id", () => {
+  const { id } = useParams(J.object({ id: J.string() }));
+  return Response.json({ id });
+});
+```
+
+## Query parameter validation (strings only)
+
+```typescript
+import { J, useQuery } from "./index.ts";
 
 app.get("/items", () => {
-  const { page, limit } = useQuery(J.object({
-    page: J.int(),
-    limit: J.int().optional(),
+  const { page, sort } = useQuery(J.object({
+    page: J.string(),
+    sort: J.enum(["asc", "desc"]).optional(),
   }));
-  return new Response(`Page ${page}, Limit ${limit ?? 10}`);
+  const pageNum = parseInt(page, 10);
+  return Response.json({ page: pageNum, sort: sort ?? "asc" });
 });
 ```
 
-## 路径参数验证
+## Header validation
 
 ```typescript
-import { J, useParams } from "./raven/jtd-validator/index.ts";
+import { J, useHeaders } from "./index.ts";
 
-app.get("/user/:id", () => {
-  const { id } = useParams(J.object({
-    id: J.string(),
+app.get("/secure", () => {
+  const { authorization } = useHeaders(J.object({
+    authorization: J.string(),
   }));
-  return new Response(`User ${id}`);
+  // authorization: string
+  return Response.json({ token: authorization });
 });
 ```
 
-## 嵌套对象验证
+## Nullable and optional fields
+
+```typescript
+const ProfileSchema = J.object({
+  username:  J.string(),
+  bio:       J.string().nullable(),     // string | null
+  website:   J.string().optional(),     // may be absent
+  age:       J.int().optional().nullable(), // may be absent or null
+});
+
+type Profile = Infer<typeof ProfileSchema>;
+// { username: string; bio: string | null; website?: string; age?: number | null }
+```
+
+## Nested objects
 
 ```typescript
 const AddressSchema = J.object({
-  city: J.string(),
-  country: J.string(),
+  street: J.string(),
+  city:   J.string(),
+  zip:    J.string(),
 });
 
-const UserSchema = J.object({
-  name: J.string(),
-  address: AddressSchema,
+const OrderSchema = J.object({
+  item:     J.string(),
+  quantity: J.int(),
+  address:  AddressSchema,
 });
 
-app.post("/submit", () => {
-  const data = useBody(UserSchema);
-  return new Response("OK");
+app.post("/orders", () => {
+  const order = useBody(OrderSchema);
+  return Response.json({ city: order.address.city });
 });
 ```
 
-## 数组验证
+## Array validation
 
 ```typescript
 const ItemsSchema = J.array(J.object({
-  id: J.string(),
+  id:       J.string(),
   quantity: J.int(),
 }));
 
-app.post("/order", () => {
+app.post("/cart", () => {
   const items = useBody(ItemsSchema);
-  return new Response("OK");
+  // items: Array<{ id: string; quantity: number }>
+  return Response.json({ count: items.length });
 });
 ```
 
-## 枚举验证
+## Enum validation
 
 ```typescript
-const StatusSchema = J.enum(["pending", "approved", "rejected"]);
+const StatusSchema = J.object({
+  status: J.enum(["pending", "approved", "rejected"]),
+});
 
-app.post("/status", () => {
-  const status = useBody(J.object({
-    status: StatusSchema,
-  }));
-  return new Response("OK");
+app.patch("/order/:id/status", () => {
+  const { status } = useBody(StatusSchema);
+  // status: "pending" | "approved" | "rejected"
+  return Response.json({ status });
 });
 ```
 
-## 类型推断
+## String-keyed map (record)
 
 ```typescript
-import { J, type Infer } from "./raven/jtd-validator/index.ts";
+const MetaSchema = J.record(J.string());
+
+app.post("/meta", () => {
+  const meta = useBody(MetaSchema);
+  // meta: Record<string, string>
+  return Response.json(meta);
+});
+```
+
+## Extracting the type for reuse
+
+```typescript
+import { J, type Infer } from "./index.ts";
 
 const UserSchema = J.object({
   name: J.string(),
-  age: J.int().optional(),
+  age:  J.int().optional(),
 });
 
-type User = Infer<typeof UserSchema>;
-// Equivalent to: { name: string; age?: number }
+export type User = Infer<typeof UserSchema>;
+// { name: string; age?: number }
+
+export async function createUser(user: User) { /* ... */ }
+```
+
+## Validation in `beforeHandle` (early short-circuit)
+
+```typescript
+import { J, useBody, useHeaders } from "./index.ts";
+
+const AuthHeaderSchema = J.object({ authorization: J.string() });
+const CreateSchema = J.object({ name: J.string() });
+
+app.beforeHandle(() => {
+  // validate authorization header for ALL routes registered after this hook
+  useHeaders(AuthHeaderSchema); // throws 400 if missing; add your own auth check after
+});
+
+app.post("/resources", () => {
+  const { name } = useBody(CreateSchema);
+  return Response.json({ name });
+});
+```
+
+## Full error handling integration
+
+```typescript
+import { Raven } from "@ravenjs/core";
+import { isRavenError } from "@ravenjs/core";
+import { J, useBody } from "./index.ts";
+
+const app = new Raven();
+
+app.onError((error) => {
+  if (isRavenError(error)) {
+    return error.toResponse();
+    // { error: "ERR_VALIDATION", message: "/name: must be string", statusCode: 400 }
+  }
+  return new Response("Internal Server Error", { status: 500 });
+});
+
+const Schema = J.object({ name: J.string() });
+
+app.post("/test", () => {
+  const { name } = useBody(Schema); // throws ERR_VALIDATION if invalid
+  return Response.json({ name });
+});
+
+await app.listen({ port: 3000 });
 ```

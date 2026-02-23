@@ -1,228 +1,431 @@
 # OVERVIEW
 
-RavenJS Core 是一个轻量级、高性能的 Web 框架参考实现，设计用于 Bun 和 Node.js 运行时。
+RavenJS Core is a lightweight, high-performance Web framework reference implementation designed for Bun and Node.js runtimes.
 
-**核心思想**：这是一份参考代码，不是一个你需要 import 的 npm 包。你可以直接复制、修改、学习这份代码，然后用在你的项目中。
+**Philosophy**: This is reference code, not an npm package to import. Copy it, modify it, learn from it, and use it directly in your project.
 
-**主要功能**：
-- 统一的 HTTP 服务器 API（自动适配 Bun 和 Node.js）
-- 基于 Radix 树的路由系统（支持路径参数和路由组）
-- 作用域状态管理（AppState 和 RequestState）
-- 生命周期钩子（onRequest、beforeHandle、beforeResponse、onError）
-- 插件系统
+**Features**:
+- Unified HTTP server API (auto-detects Bun and Node.js)
+- Radix tree router (path parameters and route groups)
+- Scoped state management (AppState and RequestState)
+- Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
+- Plugin system
 
 ---
 
-# HOW TO READ THIS CODE
+# ARCHITECTURE
 
-建议按以下顺序阅读：
+All core logic lives in a single file `index.ts`, organized by `SECTION` comments:
 
-1. **先看整体结构**：浏览 main.ts 的 SECTION 注释，了解代码组织方式
-2. **理解类型定义**：看 SECTION: Types & Interfaces，理解核心数据结构
-3. **学习错误处理**：看 SECTION: Error Handling，了解错误是怎么处理的
-4. **理解状态管理**：看 SECTION: State Management，理解 AsyncLocalStorage 的使用
-5. **看路由系统**：看 SECTION: Routing，理解 Radix 树的实现
-6. **看服务器适配器**：看 SECTION: Server Adapters，理解 Bun/Node.js 适配
-7. **最后看核心类**：看 SECTION: Raven Class，理解整体流程
+```
+index.ts
+├── SECTION: Types & Interfaces        — all type definitions
+├── SECTION: Error Handling            — RavenError class
+├── SECTION: Context & State Management — Context, AsyncLocalStorage, ScopedState
+├── SECTION: Router                    — Radix tree router
+├── SECTION: Server Adapters           — Bun / Node.js adapters
+└── SECTION: Core Framework            — Raven main class
+```
 
-**关键文件**：
-- `main.ts` - 所有核心代码都在这里（单文件组织）
-- `index.ts` - 导出声明
+**Full request lifecycle**:
+
+```
+incoming request
+      │
+      ▼
+[onRequest hooks]     ← global; receives raw Request. Returning a Response short-circuits.
+      │
+      ▼
+[route matching]      ← no match → 404
+      │
+      ▼
+[processStates]       ← populates ParamsState / QueryState / HeadersState / BodyState
+      │
+      ▼
+[beforeHandle hooks]  ← route-scoped (includes parent hooks); no args. Returning a Response short-circuits.
+      │
+      ▼
+[handler()]           ← no args; returns Response
+      │
+      ▼
+[beforeResponse hooks] ← route-scoped (includes parent hooks); receives Response. Returning a new Response replaces it.
+      │
+      ▼
+outgoing response
+
+any uncaught exception → [onError hooks] → fallback 500
+```
 
 ---
 
 # CORE CONCEPTS
 
 ## Raven
-主应用类，用于创建和管理服务器。
+
+The main application class. Each `group()` call creates a child `Raven` instance that shares the same `RadixRouter` but has its own independent hook list.
+
+```typescript
+const app = new Raven();
+```
 
 ## Context
-请求上下文对象，包含 request、params、query 等信息。
+
+The per-request context object, exposing `request`, `params`, `query`, `url`, `method`, `headers`, and `body`.
+
+Access it via the built-in `RavenContext` state:
+
+```typescript
+const ctx = RavenContext.getOrFailed();
+console.log(ctx.method); // "GET"
+console.log(ctx.params); // { id: "42" }
+```
 
 ## ScopedState
-用于在异步边界之间共享数据的作用域状态。
-- `AppState` - 应用级别状态，整个应用共享
-- `RequestState` - 请求级别状态，每个请求独立
-- `BodyState`、`QueryState`、`ParamsState`、`HeadersState` - 预定义状态
+
+A state container backed by `AsyncLocalStorage`, with two lifetime scopes:
+
+| Type | Lifetime | Typical use |
+|---|---|---|
+| `AppState` | Shared across the entire app | DB connections, config, counters |
+| `RequestState` | Isolated per HTTP request | Current user, parsed body, auth info |
+
+**Built-in states** (populated automatically by the framework — do not set manually):
+
+| State | Type | Description |
+|---|---|---|
+| `RavenContext` | `Context` | Full request context |
+| `ParamsState` | `Record<string, string>` | URL path parameters |
+| `QueryState` | `Record<string, string>` | Query string parameters |
+| `HeadersState` | `Record<string, string>` | Request headers (lowercased keys) |
+| `BodyState` | `unknown` | Request body (JSON only; cast required) |
 
 ## Plugin
-用于扩展框架功能的插件函数。
 
----
-
-# ARCHITECTURE
-
-代码采用**单文件组织**，所有核心逻辑都在 `main.ts` 中，按 SECTION 注释分组：
-
-```
-main.ts
-├── SECTION: Imports
-├── SECTION: Types & Interfaces
-├── SECTION: Error Handling
-├── SECTION: State Management
-├── SECTION: Routing
-├── SECTION: Server Adapters
-├── SECTION: Context
-├── SECTION: Plugin System
-├── SECTION: Lifecycle Hooks
-└── SECTION: Raven Class
-```
-
-**请求处理流程**：
-1. `onRequest` 钩子（全局）
-2. 路由匹配
-3. `beforeHandle` 钩子（路由级别）
-4. Handler 执行
-5. `beforeResponse` 钩子（路由级别 + 全局）
-6. 返回响应
+A function that extends a `Raven` instance, registered via `app.register()`. Calling `AppState.set()` is safe inside a plugin callback.
 
 ---
 
 # DESIGN DECISIONS
 
-## 为什么用 AsyncLocalStorage？
+## Why AsyncLocalStorage for state?
 
-选择 AsyncLocalStorage 做状态管理的原因：
-1. **异步安全**：状态自动通过异步调用链传播
-2. **无样板代码**：不需要手动传递 context
-3. **高性能**：零拷贝访问，比装饰器或 DI 更轻量
+- **Async-safe**: state propagates automatically through the async call chain without cross-request leakage
+- **Zero boilerplate**: handlers don't need to receive a context argument
+- **High performance**: zero-copy access, lighter than decorators or DI containers
 
-替代方案考虑：
-- 方案 A：手动传递 context 对象 → rejected，样板代码太多
-- 方案 B：依赖注入容器 → rejected，太重了，性能不好
+## Why are handlers zero-argument functions?
 
-## 为什么 Handler 不自动接收 Context？
+```typescript
+type Handler = () => Response | Promise<Response>
+```
 
-Handler 设计为无参函数的原因：
-1. **简单**：只需要返回 Response，不需要理解框架特定类型
-2. **灵活**：用户可以用普通函数，不需要学习新范式
-3. **通过 State 访问**：需要时可以通过 `BodyState.get()` 等访问
+This is intentional:
+- A handler only needs to return a `Response` — no framework-specific types required
+- Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
+- Any plain function can be a handler with zero migration cost
 
-如果需要 Context，可以通过 `RavenContext.getOrFailed()` 获取。
+## Why is the hook pipeline snapshotted at route registration?
 
-## 为什么用 Radix 树做路由？
+When `addRoute()` is called, it immediately calls `getAllHooks()` to collect all currently registered hooks and stores them in the route's `pipeline`. This means:
 
-选择 Radix 树（压缩前缀树）的原因：
-1. **高性能**：查找复杂度 O(k)，k 是路径段数
-2. **内存高效**：共享前缀的路径只存储一次
-3. **支持参数**：天然支持 `:id` 参数提取
-
-替代方案考虑：
-- 方案 A：简单的对象映射 → rejected，不支持参数
-- 方案 B：正则表达式匹配 → rejected，性能差
-
-## 为什么做运行时适配？
-
-`BunAdapter` 和 `NodeAdapter` 抽象了运行时差异：
-- Bun：使用原生 `Bun.serve()`
-- Node.js：使用 `node:http`
-
-用户不需要关心底层实现，框架自动选择合适的适配器。
+- **Hooks must be registered before routes** — hooks added after a route is registered will not apply to it
+- Each route's pipeline is an independent snapshot and does not affect other routes
 
 ---
 
-# KEY CODE LOCATIONS
+# GOTCHAS
 
-## 错误处理
-- 行 47-135：`RavenError` 类和 `isRavenError` 函数
-- 关键方法：`toResponse()`、`setContext()`
+## 1. Hooks must be declared before routes
 
-## 状态管理
-- 行 141-142：`currentAppStorage` 和 `requestStorage`（AsyncLocalStorage）
-- 行 146-270：`ScopedState`、`AppState`、`RequestState` 类
+```typescript
+// ❌ Wrong: beforeHandle will NOT apply to /users
+app.get("/users", handler);
+app.beforeHandle(authHook);
 
-## 路由系统
-- 行 273-400+：`RadixRouter` 类
-- 关键方法：`insert()`、`match()`
+// ✓ Correct: register hooks first, then routes
+app.beforeHandle(authHook);
+app.get("/users", handler);
+```
 
-## 服务器适配器
-- 行 403-450：`BunAdapter` 和 `NodeAdapter`
-- 关键方法：`listen()`、`stop()`
+Reason: `addRoute()` snapshots all current hooks at call time.
 
-## 核心类
-- 行 500+：`Raven` 类
-- 关键方法：`constructor()`、`get()`、`post()`、`listen()`、`stop()`
+## 2. `group()` and `register()` are async — always await them
+
+```typescript
+// ❌ Wrong: routes inside the group may not be registered yet
+app.group("/api", (api) => {
+  api.get("/users", handler);
+});
+await app.listen({ port: 3000 }); // /api/users might not exist yet
+
+// ✓ Correct
+await app.group("/api", (api) => {
+  api.get("/users", handler);
+});
+await app.listen({ port: 3000 });
+```
+
+## 3. `AppState.set()` only works inside an AppStorage context
+
+`AppState.set()` depends on `currentAppStorage`. It is only valid inside:
+- a `register()` plugin callback
+- a `group()` callback
+- a request handler (after `handleRequest` establishes the context)
+
+Calling it outside these locations throws `ERR_STATE_CANNOT_SET`.
+
+```typescript
+const dbState = createAppState<DB>({ name: "db" });
+
+// ❌ Wrong: called outside AppStorage context
+dbState.set(db);
+
+// ✓ Correct: called inside register()
+await app.register((instance) => {
+  dbState.set(db);
+});
+```
+
+## 4. `BodyState` only parses JSON
+
+The framework automatically parses the body and populates `BodyState` only when `Content-Type: application/json` is present. For all other content types (form-data, plain text, binary), `BodyState.get()` returns `undefined` — read the body manually via `RavenContext`.
+
+```typescript
+// Content-Type: application/json → populated automatically
+const body = BodyState.getOrFailed() as { name: string };
+
+// Content-Type: multipart/form-data → read manually
+const ctx = RavenContext.getOrFailed();
+const formData = await ctx.request.formData();
+```
+
+## 5. `BodyState` is typed `unknown` — cast required
+
+`ParamsState`, `QueryState`, and `HeadersState` are typed as `Record<string, string>` and can be used directly. Only `BodyState` remains `unknown` because JSON structure is arbitrary.
+
+```typescript
+// ParamsState / QueryState / HeadersState — use directly, no cast needed
+const { id } = ParamsState.getOrFailed();
+
+// BodyState — cast required
+const body = BodyState.getOrFailed() as { name: string };
+```
+
+## 6. `onRequest` has a different signature from all other hooks
+
+`onRequest` is the only hook that receives an argument — the raw `Request` object. At this point, `RavenContext`, `ParamsState`, and other states **are not yet initialized** (route matching hasn't happened).
+
+```typescript
+// onRequest: receives the raw Request
+app.onRequest((request) => {
+  // RavenContext is NOT set here — do not call RavenContext.get()
+  const token = request.headers.get("authorization");
+});
+
+// beforeHandle: no args, all states are ready
+app.beforeHandle(() => {
+  const ctx = RavenContext.getOrFailed(); // ✓ safe
+});
+```
+
+## 7. Route group hook scope
+
+Hooks registered inside a `group()` only affect routes registered within that same group. They do not propagate upward to the parent. Parent hooks are inherited downward into child groups (the snapshot walk traverses the parent chain).
+
+```typescript
+await app.group("/admin", (admin) => {
+  admin.beforeHandle(adminAuthHook); // only applies to /admin/* routes
+  admin.get("/dashboard", handler);
+});
+app.get("/public", handler); // adminAuthHook does NOT apply here
+```
 
 ---
 
-# EXTENSION POINTS
+# ANTI-PATTERNS
 
-如果你想扩展这个框架，可以考虑：
+## Do not store request-scoped data in AppState
 
-1. **添加新的状态类型**：继承 `ScopedState` 创建新的状态类
-2. **添加新的生命周期钩子**：在 `Raven` 类中添加新的钩子方法
-3. **添加新的服务器适配器**：为其他运行时（如 Deno）创建适配器
-4. **扩展路由系统**：在 `RadixRouter` 中添加新功能（如通配符、正则匹配）
-5. **添加插件**：通过 `createPlugin()` 创建新插件
+```typescript
+const userState = createAppState<User>({ name: "user" }); // ❌
+
+// AppState is shared across the entire app — concurrent requests will overwrite each other
+app.beforeHandle(async () => {
+  userState.set(await fetchUser()); // dangerous! concurrent requests corrupt this value
+});
+
+// ✓ Use RequestState instead
+const userState = createRequestState<User>({ name: "user" });
+```
+
+## Do not register group-scoped hooks outside the group
+
+```typescript
+// ❌ Intended to only hook /api, but hooks are registered in the wrong place
+await app.group("/api", (api) => {
+  api.get("/users", handler);
+});
+app.beforeHandle(apiOnlyHook); // this will apply to ALL routes registered after this line, not just /api
+
+// ✓ Register the hook inside the group
+await app.group("/api", (api) => {
+  api.beforeHandle(apiOnlyHook); // only applies to /api/* routes
+  api.get("/users", handler);
+});
+```
+
+## Do not forget to return a Response from `onError`
+
+```typescript
+// ❌ Missing return — the framework falls through to subsequent hooks or the default 500
+app.onError((error) => {
+  console.error(error);
+  // no return!
+});
+
+// ✓ Always return a Response
+app.onError((error) => {
+  console.error(error);
+  return new Response("Something went wrong", { status: 500 });
+});
+```
 
 ---
 
 # USAGE EXAMPLES
 
-## 最小示例
+## Minimal
 
 ```typescript
-import { Raven } from "./raven/index.ts";
+import { Raven } from "./index.ts";
 
 const app = new Raven();
 
-app.get("/", () => {
-  return new Response("Hello, World!");
-});
+app.get("/", () => new Response("Hello, World!"));
 
-app.listen({ port: 3000 });
+await app.listen({ port: 3000 });
 ```
 
-## 带参数的路由
+## Path parameters
 
 ```typescript
-import { Raven, ParamsState } from "./raven/index.ts";
+import { Raven, ParamsState } from "./index.ts";
 
 const app = new Raven();
 
 app.get("/user/:id", () => {
-  const params = ParamsState.getOrFailed();
-  return new Response(`User ID: ${params.id}`);
+  const { id } = ParamsState.getOrFailed();
+  return new Response(`User ID: ${id}`);
 });
 
-app.listen({ port: 3000 });
+await app.listen({ port: 3000 });
 ```
 
-## 路由组
+## Route groups (remember to await)
 
 ```typescript
-import { Raven } from "./raven/index.ts";
+import { Raven } from "./index.ts";
 
 const app = new Raven();
 
-app.group("/api", (api) => {
+await app.group("/api/v1", (api) => {
   api.get("/users", () => new Response("Users list"));
-  api.post("/users", () => new Response("Create user"));
+  api.post("/users", () => new Response("Create user", { status: 201 }));
 });
 
-app.listen({ port: 3000 });
+await app.listen({ port: 3000 });
 ```
 
-## 状态管理
+## Auth middleware (hooks must come before routes)
 
 ```typescript
-import { Raven, createAppState, createRequestState } from "./raven/index.ts";
+import { Raven, createRequestState, RavenContext } from "./index.ts";
+
+interface User { id: string; role: string }
+const currentUser = createRequestState<User>({ name: "currentUser" });
 
 const app = new Raven();
 
-const counterState = createAppState<number>({ name: "counter" });
-counterState.set(0);
-
-const userState = createRequestState<User>({ name: "user" });
-
-app.beforeHandle(() => {
-  userState.set(await fetchUser());
+// register hook first
+app.beforeHandle(async () => {
+  const ctx = RavenContext.getOrFailed();
+  const token = ctx.headers.get("authorization");
+  if (!token) return new Response("Unauthorized", { status: 401 });
+  currentUser.set(await verifyToken(token));
 });
 
+// then register routes
 app.get("/profile", () => {
-  const user = userState.getOrFailed();
-  return new Response(user.name);
+  const user = currentUser.getOrFailed();
+  return Response.json({ id: user.id });
 });
 
-app.listen({ port: 3000 });
+await app.listen({ port: 3000 });
+```
+
+## App-level state via plugin
+
+```typescript
+import { Raven, createAppState, createPlugin } from "./index.ts";
+
+interface DB { query: (sql: string) => Promise<unknown[]> }
+const dbState = createAppState<DB>({ name: "db" });
+
+const dbPlugin = createPlugin(async (app) => {
+  const db = await connectDatabase();
+  dbState.set(db); // ✓ inside register(), AppStorage context is active
+});
+
+const app = new Raven();
+await app.register(dbPlugin);
+
+app.get("/users", async () => {
+  const db = dbState.getOrFailed();
+  const users = await db.query("SELECT * FROM users");
+  return Response.json(users);
+});
+
+await app.listen({ port: 3000 });
+```
+
+## Error handling
+
+```typescript
+import { Raven, RavenError, isRavenError, ParamsState } from "./index.ts";
+
+const app = new Raven();
+
+app.onError((error) => {
+  if (isRavenError(error)) {
+    return error.toResponse(); // serializes to JSON using statusCode
+  }
+  console.error("Unexpected error:", error);
+  return new Response("Internal Server Error", { status: 500 });
+});
+
+app.get("/items/:id", () => {
+  const { id } = ParamsState.getOrFailed();
+  if (!id.match(/^\d+$/)) {
+    throw RavenError.ERR_BAD_REQUEST("id must be numeric");
+  }
+  return Response.json({ id });
+});
+
+await app.listen({ port: 3000 });
+```
+
+## Mutating the response (beforeResponse hook)
+
+```typescript
+const app = new Raven();
+
+app.beforeResponse((response) => {
+  const newResponse = new Response(response.body, response);
+  newResponse.headers.set("Access-Control-Allow-Origin", "*");
+  return newResponse;
+});
+
+app.get("/data", () => Response.json({ ok: true }));
+
+await app.listen({ port: 3000 });
 ```
