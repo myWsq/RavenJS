@@ -272,114 +272,6 @@ describe("CLI E2E", () => {
 		});
 	});
 
-	describe("Update Command", () => {
-		it("should update existing project", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
-
-			const result = await runCli(["update", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-		});
-
-		it("should fail when project not initialized", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["update", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not installed");
-		});
-	});
-
-	describe("Fetch Command", () => {
-		it("should output JSON with registry info", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["fetch"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(out.version).toBeDefined();
-			expect(Array.isArray(out.modules)).toBe(true);
-			expect(out.registry).toBeDefined();
-			expect(out.modules).toContain("core");
-		});
-	});
-
-	describe("Explain Command", () => {
-		it("should output JSON when not installed", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["explain"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(out.name).toBe("RavenJS");
-			expect(out.installed).toBe(false);
-			expect(out.commands).toContain("init");
-			expect(out.commands).toContain("add");
-			expect(out.commands).toContain("guide");
-		});
-
-		it("should output installed=true after init", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-
-			const result = await runCli(["explain"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.installed).toBe(true);
-		});
-	});
-
-	describe("Diff Command", () => {
-		it("should output JSON with no differences when unmodified", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-
-			const result = await runCli(["diff", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(out.hasDifferences).toBe(false);
-			expect(out.differences).toEqual([]);
-		});
-
-		it("should output differences when file is modified", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-			const mainTs = join(cwd, "raven", "core", "main.ts");
-			const content = await readFile(mainTs, "utf-8");
-			await Bun.write(mainTs, content + "\n// local modification");
-
-			const result = await runCli(["diff", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(out.hasDifferences).toBe(true);
-			expect(out.differences.length).toBeGreaterThan(0);
-			expect(out.differences[0]).toHaveProperty("path");
-			expect(out.differences[0]).toHaveProperty("localHash");
-			expect(out.differences[0]).toHaveProperty("remoteHash");
-		});
-
-		it("should fail when project not installed", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["diff", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not installed");
-		});
-	});
 
 	describe("Guide Command", () => {
 		it("should output readme and code for installed module", async () => {
@@ -474,11 +366,6 @@ describe("CLI E2E", () => {
 			expect(status).toHaveProperty("version");
 			expect(status).toHaveProperty("fileHashes");
 
-			const diffResult = await runCli(["diff", "--source", repoRoot], cwd);
-			expect(diffResult.exitCode).toBe(0);
-			const diff = JSON.parse(diffResult.stdout.trim());
-			expect(diff.success).toBe(true);
-
 			const guideResult = await runCli(["guide", "core"], cwd);
 			expect(guideResult.exitCode).toBe(0);
 			expect(guideResult.stdout).toContain("<readme>");
@@ -486,35 +373,4 @@ describe("CLI E2E", () => {
 		});
 	});
 
-	describe("Update workflow (two modes)", () => {
-		it("mode 1: direct overwrite when unmodified", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-			const originalContent = await readFile(join(cwd, "raven", "core", "main.ts"), "utf-8");
-
-			const result = await runCli(["update", "--source", repoRoot], cwd);
-			expect(result.exitCode).toBe(0);
-			const out = JSON.parse(result.stdout.trim());
-			expect(out.success).toBe(true);
-			expect(out.modifiedFiles.length).toBeGreaterThan(0);
-
-			const afterContent = await readFile(join(cwd, "raven", "core", "main.ts"), "utf-8");
-			expect(afterContent).toBe(originalContent);
-		});
-
-		it("mode 2: diff reports modified files for Agent merge", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-			const mainTs = join(cwd, "raven", "core", "main.ts");
-			await Bun.write(mainTs, "// user modified");
-
-			const diffResult = await runCli(["diff", "--source", repoRoot], cwd);
-			expect(diffResult.exitCode).toBe(0);
-			const diff = JSON.parse(diffResult.stdout.trim());
-			expect(diff.hasDifferences).toBe(true);
-			expect(diff.differences.some((d: { path: string }) => d.path.includes("core/main.ts"))).toBe(true);
-		});
-	});
 });

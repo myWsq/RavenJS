@@ -1,5 +1,5 @@
 import { describe, it, expect } from "@ravenjs/testing";
-import { J } from "../../modules/jtd-validator/main";
+import { J } from "../../modules/jtd-validator";
 
 describe("JTD Schema DSL", () => {
   it("should build correct JTD schema for object with required fields", () => {

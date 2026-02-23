@@ -176,12 +176,13 @@ app.listen({ port: 3000 });
 ## 带参数的路由
 
 ```typescript
-import { Raven } from "./raven/index.ts";
+import { Raven, ParamsState } from "./raven/index.ts";
 
 const app = new Raven();
 
-app.get("/user/:id", (ctx) => {
-  return new Response(`User ID: ${ctx.params.id}`);
+app.get("/user/:id", () => {
+  const params = ParamsState.getOrFailed();
+  return new Response(`User ID: ${params.id}`);
 });
 
 app.listen({ port: 3000 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "@ravenjs/testing";
-import { Raven, RavenContext } from "../../../modules/core/main";
+import { Raven, RavenContext } from "../../../modules/core";
 
 describe("Routing System", () => {
 	it("should match simple GET route", async () => {

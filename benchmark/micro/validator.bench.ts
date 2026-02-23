@@ -1,6 +1,6 @@
 import { bench, group, run } from "mitata";
 import Ajv from "ajv/dist/jtd";
-import { J } from "../../modules/jtd-validator/main";
+import { J } from "../../modules/jtd-validator";
 
 const ajv = new Ajv();
 

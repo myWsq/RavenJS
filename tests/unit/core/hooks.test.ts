@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@ravenjs/testing";
-import { Raven, RavenContext } from "../../../modules/core/main";
+import { Raven, RavenContext } from "../../../modules/core";
 
 describe("Raven Lifecycle Hooks", () => {
 	test("should execute hooks in order and have context access", async () => {

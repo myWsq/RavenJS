@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "@ravenjs/testing";
-import { Raven, createPlugin } from "../../../modules/core/main";
+import { Raven, createPlugin } from "../../../modules/core";
 
 describe("Plugin System", () => {
 	it("should register a simple sync plugin", async () => {

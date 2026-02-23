@@ -1,5 +1,5 @@
 import { describe, test, expect } from "@ravenjs/testing";
-import { Raven } from "../../../modules/core/main";
+import { Raven } from "../../../modules/core";
 
 describe("Raven Basic Server", () => {
 	test("should initialize correctly", () => {

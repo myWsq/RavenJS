@@ -7,7 +7,7 @@ import {
   createRequestState,
   currentAppStorage,
   requestStorage,
-} from "../../../modules/core/main";
+} from "../../../modules/core";
 
 describe("Unified State Mount (AppState & RequestState)", () => {
   describe("RequestState", () => {

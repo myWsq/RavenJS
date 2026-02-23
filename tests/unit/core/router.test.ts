@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@ravenjs/testing";
-import { RadixRouter } from "../../../modules/core/main";
+import { RadixRouter } from "../../../modules/core";
 
 describe("RadixRouter", () => {
 	it("should match static routes", () => {

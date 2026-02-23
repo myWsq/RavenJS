@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { RadixRouter } from "../../modules/core/main";
+import { RadixRouter } from "../../modules/core";
 
 function createRouter(routeCount: number): RadixRouter<{ id: number }> {
   const router = new RadixRouter<{ id: number }>();
