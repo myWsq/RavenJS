@@ -35,7 +35,7 @@ Invoke **raven-setup** (e.g. `/raven-setup`). The Agent adds core, fixes config,
 
 **3. Write code via Agent**
 
-Invoke **raven-use** when building—e.g. "`/raven-use` create an HTTP server with /hello". The Agent generates and integrates RavenJS code.
+Invoke **raven-use** when building (e.g. `/raven-use` create an HTTP server with /hello). The Agent generates and integrates RavenJS code.
 
 ## AI Agent Skills
 
