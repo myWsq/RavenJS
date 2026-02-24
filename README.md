@@ -1,14 +1,13 @@
 <div align="center">
 
-# RavenJS
-
 ![RavenJS Logo](./docs/logo.webp)
 
-RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**.
+RavenJS is an **AI-native web framework for Bun**—lightweight, high-performance.
+
+**Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
 </div>
 
-**Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
 ## Philosophy
 
