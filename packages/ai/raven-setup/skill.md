@@ -128,9 +128,6 @@ Tell the user:
 
 ## Guardrails
 
-- Run `bunx raven status` at the start — never assume project state.
-- Parse all paths from CLI JSON output; do not hardcode `ravenDir`.
-- Do not modify files inside `ravenDir` unless a framework bug is certain.
 - If a lint/format tool is configured, exclude `ravenDir` instead of fixing its warnings.
 - Do not start a long-running server in the test file.
 - Always delete the temporary test file, even if the run fails.

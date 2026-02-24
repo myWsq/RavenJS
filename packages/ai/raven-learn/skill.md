@@ -39,6 +39,5 @@ The guide points you to the files that matter. It often references other docs or
 
 ## Guardrails
 
-- GUIDE.md is the authoritative learning path for the module — read it directly from the installed module directory.
 - Do not rely on prior knowledge — follow the guide structure.
 - If something is unclear, re-read the guide and referenced files before asking or guessing.

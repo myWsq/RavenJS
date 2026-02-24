@@ -70,7 +70,6 @@ Apply the patterns from the guide output. The guide is the single source of trut
 ## Guardrails
 
 - Run `bunx raven status` at the start of **every invocation** — never assume project state from a previous run.
-- Do not hardcode module names or capabilities — always derive them from the live `bunx raven status` output.
-- Do not inline the add/guide instructions here — reference the docs above.
-- Do not suggest npm packages for functionality that a Raven module already covers.
+- Do not modify files inside `ravenDir` unless a framework bug is certain.
 - Do not write code until Step 3 (learn the module) is complete for all required modules.
+- Do not suggest npm packages for functionality that a Raven module already covers.
