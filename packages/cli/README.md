@@ -15,7 +15,6 @@ bun add -d @raven.js/cli
 | `bunx raven init` | Initialize AI skills and raven root. Run once before using raven-setup. |
 | `bunx raven add <module>` | Add a module. Installs dependencies (`dependsOn`) in topological order, copies files, and rewrites `@ravenjs/*` imports to relative paths. |
 | `bunx raven status` | Installation status for all modules. Output is JSON for Agent consumption. |
-| `bunx raven guide <module>` | Output module GUIDE.md. Used by raven-learn. |
 
 ## Options
 
@@ -26,6 +25,3 @@ bun add -d @raven.js/cli
 | `--registry <path>` | Path to registry JSON (default: bundled with CLI). Overridable via `RAVEN_DEFAULT_REGISTRY_PATH`. |
 | `--verbose, -v` | Verbose output. |
 
-## Agent-facing output
-
-All commands except `raven init` and `raven guide` output JSON by default. `raven status` includes version info, file hashes, and modified file status for Agent decision-making.
