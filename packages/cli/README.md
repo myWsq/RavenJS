@@ -2,6 +2,12 @@
 
 The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, raven-add, raven-learn, raven-use) invoke it via `bunx raven`. Humans typically run only `bunx raven init`; all other workflows go through skills.
 
+**Install**: Project-local (recommended). Requires Bun `>=1.0`:
+
+```bash
+bun add -d @raven.js/cli
+```
+
 ## Commands
 
 | Command | Description |

@@ -55,17 +55,17 @@ const hookGetRequest = new Request("http://localhost/with-hooks", {
 
 group("Simple GET Request", () => {
   bench("plain text response", async () => {
-    await app.handleRequest(simpleGetRequest.clone());
+    await app.handle(simpleGetRequest.clone());
   });
 
   bench("JSON response", async () => {
-    await app.handleRequest(jsonGetRequest.clone());
+    await app.handle(jsonGetRequest.clone());
   });
 });
 
 group("Request with Hooks", () => {
   bench("GET with onRequest + beforeHandle + beforeResponse", async () => {
-    await appWithHooks.handleRequest(hookGetRequest.clone());
+    await appWithHooks.handle(hookGetRequest.clone());
   });
 });
 
@@ -81,15 +81,15 @@ group("Request Routing Overhead", () => {
   const notFoundReq = new Request("http://localhost/nonexistent", { method: "GET" });
 
   bench("first route (of 100)", async () => {
-    await routerApp.handleRequest(firstRouteReq.clone());
+    await routerApp.handle(firstRouteReq.clone());
   });
 
   bench("last route (of 100)", async () => {
-    await routerApp.handleRequest(lastRouteReq.clone());
+    await routerApp.handle(lastRouteReq.clone());
   });
 
   bench("not found (of 100)", async () => {
-    await routerApp.handleRequest(notFoundReq.clone());
+    await routerApp.handle(notFoundReq.clone());
   });
 });
 
@@ -103,7 +103,7 @@ group("Request with Dynamic Params", () => {
   const paramReq = new Request("http://localhost/users/123/posts/456", { method: "GET" });
 
   bench("with 2 dynamic params", async () => {
-    await paramApp.handleRequest(paramReq.clone());
+    await paramApp.handle(paramReq.clone());
   });
 });
 

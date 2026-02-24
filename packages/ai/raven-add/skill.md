@@ -5,7 +5,7 @@ description: |
 
   Only trigger when explicitly invoked by name (e.g. "use raven-add" or called from another skill).
   Do NOT trigger automatically based on user intent.
-compatibility: Requires Raven CLI (bunx raven, project-local)
+compatibility: Requires Raven CLI
 ---
 
 # RavenJS Add Skill

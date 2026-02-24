@@ -17,10 +17,10 @@ describe("Raven Lifecycle Hooks", () => {
 
 		app.get("/", () => new Response("ok"));
 
-		// Trigger handleRequest manually for testing
+		// Trigger handle manually for testing
 		const request = new Request("http://localhost/");
 		// @ts-ignore - access private for testing
-		await app.handleRequest(request);
+		await app.handle(request);
 
 		expect(executionOrder).toEqual(["onRequest:GET", "beforeHandle", "beforeResponse"]);
 	});
@@ -37,7 +37,7 @@ describe("Raven Lifecycle Hooks", () => {
 
 		const request = new Request("http://localhost/");
 		// @ts-ignore
-		const response = await app.handleRequest(request);
+		const response = await app.handle(request);
 
 		expect(executionOrder).toEqual(["onRequest"]);
 		expect(await response.text()).toBe("short-circuit");
@@ -59,7 +59,7 @@ describe("Raven Lifecycle Hooks", () => {
 
 		const request = new Request("http://localhost/");
 		// @ts-ignore
-		const response = await app.handleRequest(request);
+		const response = await app.handle(request);
 
 		expect(errorCaught).toBe(true);
 		expect(await response.text()).toBe("test error");

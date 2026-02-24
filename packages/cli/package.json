@@ -13,9 +13,6 @@
     "dist",
     "README.md"
   ],
-  "engines": {
-    "bun": ">=1.0"
-  },
   "dependencies": {
     "@clack/prompts": "^1.0.1",
     "cac": "^6.7.14",

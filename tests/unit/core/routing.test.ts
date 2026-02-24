@@ -8,7 +8,7 @@ describe("Routing System", () => {
 		raven.get("/hello", handler);
 
 		// @ts-ignore
-		const response = await raven.handleRequest(new Request("http://localhost/hello"));
+		const response = await raven.handle(new Request("http://localhost/hello"));
 		expect(await response.text()).toBe("ok");
 		expect(handler).toHaveBeenCalled();
 	});
@@ -21,7 +21,7 @@ describe("Routing System", () => {
 		});
 
 		// @ts-ignore
-		const response = await raven.handleRequest(new Request("http://localhost/user/123"));
+		const response = await raven.handle(new Request("http://localhost/user/123"));
 		expect(await response.text()).toBe("User 123");
 	});
 
@@ -33,7 +33,7 @@ describe("Routing System", () => {
 		});
 
 		// @ts-ignore
-		const response = await raven.handleRequest(
+		const response = await raven.handle(
 			new Request("http://localhost/org/raven/project/routing"),
 		);
 		expect(await response.text()).toBe("Org: raven, Project: routing");
@@ -47,7 +47,7 @@ describe("Routing System", () => {
 		});
 
 		// @ts-ignore
-		const response = await raven.handleRequest(
+		const response = await raven.handle(
 			new Request("http://localhost/search?q=raven"),
 		);
 		expect(await response.text()).toBe("Search: raven");
@@ -74,7 +74,7 @@ describe("Routing System", () => {
 		});
 
 		// @ts-ignore
-		await raven.handleRequest(new Request("http://localhost/test/123"));
+		await raven.handle(new Request("http://localhost/test/123"));
 
 		expect(onRequestParams).toBeUndefined(); // In Phase 1, params are not yet matched
 		expect(beforeHandleParams).toEqual({ id: "123" }); // In Phase 2, params are available
@@ -83,7 +83,7 @@ describe("Routing System", () => {
 	it("should return 404 for unknown routes", async () => {
 		const raven = new Raven();
 		// @ts-ignore
-		const response = await raven.handleRequest(new Request("http://localhost/unknown"));
+		const response = await raven.handle(new Request("http://localhost/unknown"));
 		expect(response.status).toBe(404);
 		expect(await response.text()).toBe("Not Found");
 	});

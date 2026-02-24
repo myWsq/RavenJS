@@ -5,33 +5,31 @@ description: |
 
   Only trigger when explicitly invoked by name (e.g. "use raven-setup" or called from another skill).
   Do NOT trigger automatically based on user intent.
-compatibility: Requires Raven CLI (bunx raven, project-local) and Bun runtime (bun-only)
+compatibility: Requires Raven CLI
 ---
 
 # RavenJS Setup Skill
 
 Configure the project environment so that the RavenJS `core` module executes correctly. This skill does **not** build a full application — it only ensures the runtime is properly set up.
 
-**RavenJS is Bun-only** — the `core` module requires Bun. Node.js, tsx, ts-node, and other runtimes are not supported.
-
 ---
 
 ## Step 0 — Verify prerequisites
 
-**Bun runtime:** RavenJS is Bun-only. Ensure Bun is installed:
+**Runtime:** This skill uses `bunx raven` and runs tests with `bun`. Ensure Bun is installed:
 ```bash
 bun --version
 ```
 - **Command not found** → **stop** and tell the user:
-  > RavenJS requires Bun. Please install it first: https://bun.sh
+  > Bun is required. Please install: https://bun.sh
 
-**Raven CLI:** Raven is installed in the project and invoked via `bunx`:
+**Raven CLI:** Use project-local CLI:
 ```bash
 bunx raven status
 ```
 Handle the result:
 - **Command not found** → **stop** and tell the user:
-  > Raven CLI is required. Install it in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
+  > Raven CLI is required. Install in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
 - **`ravenDir` missing or `initialized: false`** → run `bunx raven init` to initialize the project, then continue.
 - **Otherwise** → note the `ravenDir` path and the `modules` array and continue.
 
@@ -65,9 +63,7 @@ Gather the information needed to judge whether the project can execute the `core
 
 1. Read `package.json` — note `type`, `scripts`, `dependencies`, `devDependencies`.
 2. Check whether a `tsconfig.json` exists at the project root (or the path referenced from `package.json`).
-3. Confirm Bun usage. Look for evidence of:
-   - **Bun** — `bun` in scripts, `bun.lockb` / `bun.lock` present, or `bun` as a dev dependency.
-   - If the project appears to use npm/yarn/pnpm with Node — inform the user that RavenJS is Bun-only and recommend migrating scripts to use `bun run` / `bun`.
+3. Confirm runtime. Raven requires Bun `>=1.0`.
 
 ---
 
@@ -77,9 +73,9 @@ Based on what you found in Step 3, identify which of the following problems appl
 
 | Problem | Evidence to look for |
 |---|---|
-| Project not using Bun | npm/yarn/pnpm scripts without `bun` |
+| Bun not installed or version too old | `bun --version` fails or < 1.0 |
 | Missing or incomplete `tsconfig.json` | File absent, or missing `target` / `moduleResolution` |
-| npm package dependencies missing | `bunx raven add` listed packages not present in `node_modules` |
+| Package dependencies missing | `bunx raven add` listed packages not present in `node_modules` |
 | Incompatible `moduleResolution` | `node` instead of `bundler` or `node16`/`nodenext` |
 
 List the diagnosed problems before fixing anything.
@@ -91,8 +87,8 @@ List the diagnosed problems before fixing anything.
 Fix only the issues identified in Step 4. Apply the **minimum change** needed — do not refactor or improve unrelated config.
 
 **What to fix (project-level configuration):**
-- Install missing npm packages using `bun install`.
-- Add or correct `tsconfig.json` settings required by Bun.
+- Install missing packages using the project's package manager (`bun install`, `npm install`, etc.).
+- Add or correct `tsconfig.json` settings for TypeScript.
 
 **What NOT to touch:**
 - Files inside `ravenDir` (the raven root directory) — **do not modify framework code** unless you are certain beyond reasonable doubt that the file itself contains a bug. Configuration problems in the project almost always explain runtime errors.
@@ -116,7 +112,7 @@ Use the USAGE EXAMPLES from the `bunx raven guide core` output as the basis. The
 
 Run the file with Bun:
 ```bash
-bun _raven_setup_test.ts
+bun run _raven_setup_test.ts
 ```
 
 **If the run fails:**
@@ -137,7 +133,7 @@ Delete `_raven_setup_test.ts`.
 
 Tell the user:
 - Which issues were found and fixed (if any).
-- That the project is ready to use RavenJS `core` with Bun.
+- That the project is ready to use RavenJS `core`.
 
 ---
 
@@ -149,4 +145,4 @@ Tell the user:
 - If a lint/format tool is configured, exclude `ravenDir` instead of fixing its warnings.
 - Do not start a long-running server in the test file.
 - Always delete the temporary test file, even if the run fails.
-- Do not suggest adding unnecessary dependencies. RavenJS is Bun-only — do not recommend tsx, ts-node, Node, or other runtimes.
+- Do not suggest adding unnecessary dependencies. RavenJS is Bun-only.

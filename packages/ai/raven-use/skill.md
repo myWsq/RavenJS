@@ -12,7 +12,7 @@ description: |
   - Use any RavenJS module or API
 
   This skill does NOT handle installation, upgrades, or project setup — those are separate tasks.
-compatibility: Requires Raven CLI (bunx raven, project-local)
+compatibility: Requires Raven CLI (project-local: bunx raven)
 ---
 
 # RavenJS Use Skill
@@ -31,7 +31,7 @@ bunx raven status
 Handle the result:
 
 - **Command not found** → **stop** and tell the user:
-  > Raven CLI is required. Install it in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
+  > Raven CLI is required. Install in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
 - **`ravenDir` missing or `initialized: false`** → **stop** and tell the user:
   > This project has not been initialized. Run `bunx raven init` to get started.
 - **Otherwise** → continue with the `modules` data from this response.

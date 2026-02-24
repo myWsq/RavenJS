@@ -51,7 +51,7 @@ const paramRequest = new Request("http://localhost/users/123");
 
 group("Plain Text Response - GET /", () => {
   bench("RavenJS", async () => {
-    await ravenApp.handleRequest(textRequest.clone());
+    await ravenApp.handle(textRequest.clone());
   });
 
   if (honoApp) {
@@ -69,7 +69,7 @@ group("Plain Text Response - GET /", () => {
 
 group("JSON Response - GET /json", () => {
   bench("RavenJS", async () => {
-    await ravenApp.handleRequest(jsonRequest.clone());
+    await ravenApp.handle(jsonRequest.clone());
   });
 
   if (honoApp) {
@@ -87,7 +87,7 @@ group("JSON Response - GET /json", () => {
 
 group("Dynamic Route - GET /users/:id", () => {
   bench("RavenJS", async () => {
-    await ravenApp.handleRequest(paramRequest.clone());
+    await ravenApp.handle(paramRequest.clone());
   });
 
   if (honoApp) {
@@ -129,11 +129,11 @@ group("Router Scaling - 100 routes", () => {
   const req99 = new Request("http://localhost/route99");
 
   bench("RavenJS - middle route", async () => {
-    await raven100.handleRequest(req50.clone());
+    await raven100.handle(req50.clone());
   });
 
   bench("RavenJS - last route", async () => {
-    await raven100.handleRequest(req99.clone());
+    await raven100.handle(req99.clone());
   });
 
   if (hono100) {

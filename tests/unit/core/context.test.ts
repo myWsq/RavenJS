@@ -25,7 +25,7 @@ describe("Raven Context Assembly", () => {
 
 		const request = new Request("http://localhost/user/123?name=raven");
 		// @ts-ignore
-		await app.handleRequest(request);
+		await app.handle(request);
 
 		// onRequest should NOT have access to context token
 		expect(onRequestHasCtx).toBe(false);

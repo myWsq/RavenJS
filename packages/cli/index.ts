@@ -1,9 +1,13 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import { cac } from "cac";
-import { mkdir, rm, readdir, stat } from "fs/promises";
+import { mkdir, readdir, stat, readFile, writeFile, access } from "fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
+import { createHash } from "crypto";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 import pc from "picocolors";
 import { spinner as makeSpinner, log } from "@clack/prompts";
 import { parse, stringify } from "yaml";
@@ -42,6 +46,15 @@ interface Registry {
   ai: RegistryAi;
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function loadRegistry(options?: { registry?: string }): Promise<Registry> {
   const candidates: string[] = [];
   if (options?.registry) {
@@ -51,11 +64,13 @@ async function loadRegistry(options?: { registry?: string }): Promise<Registry> 
     const p = process.env.RAVEN_DEFAULT_REGISTRY_PATH;
     candidates.push(isAbsolute(p) ? p : resolve(cwd(), p));
   }
-  candidates.push(join(import.meta.dir, "registry.json"));
+  candidates.push(join(__dirname, "registry.json"));
 
   for (const p of candidates) {
-    const exists = await Bun.file(p).exists();
-    if (exists) return (await Bun.file(p).json()) as Registry;
+    if (await fileExists(p)) {
+      const content = await readFile(p, "utf-8");
+      return JSON.parse(content) as Registry;
+    }
   }
   console.error(
     "registry.json not found. Run 'bun run build' in packages/cli first, or use --registry <path>.",
@@ -140,7 +155,7 @@ async function ensureRavenInstalled(options: CLIOptions): Promise<{ ravenDir: st
 
   const yamlPath = join(ravenDir, "raven.yaml");
   try {
-    const content = await Bun.file(yamlPath).text();
+    const content = await readFile(yamlPath, "utf-8");
     const config = parse(content) as RavenYamlConfig;
     if (!config?.version) {
       error("Invalid raven.yaml: version field is missing");
@@ -226,16 +241,16 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   }
   const content = await response.text();
   await ensureDir(dirname(destPath));
-  await Bun.write(destPath, content);
+  await writeFile(destPath, content);
 }
 
 async function copyLocalFile(srcPath: string, destPath: string): Promise<void> {
-  const exists = await Bun.file(srcPath).exists();
-  if (!exists) {
+  if (!(await fileExists(srcPath))) {
     throw new Error(`Missing local file: ${srcPath}`);
   }
   await ensureDir(dirname(destPath));
-  await Bun.write(destPath, Bun.file(srcPath));
+  const content = await readFile(srcPath);
+  await writeFile(destPath, content);
 }
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
@@ -283,13 +298,13 @@ async function downloadModule(
     if (sourcePath) {
       const primaryPath = join(sourcePath, "modules", moduleName, file);
       const fallbackPath = join(sourcePath, moduleName, file);
-      const src = (await Bun.file(primaryPath).exists())
+      const src = (await fileExists(primaryPath))
         ? primaryPath
-        : (await Bun.file(fallbackPath).exists())
+        : (await fileExists(fallbackPath))
           ? fallbackPath
           : "";
       if (!src) throw new Error(`Missing local file: ${primaryPath}`);
-      content = await Bun.file(src).text();
+      content = await readFile(src, "utf-8");
     } else {
       const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
       const response = await fetch(url);
@@ -302,7 +317,7 @@ async function downloadModule(
     }
 
     await ensureDir(dirname(destPath));
-    await Bun.write(destPath, content);
+    await writeFile(destPath, content);
     modifiedFiles.push(destPath);
   });
 
@@ -405,7 +420,7 @@ interface RavenYamlConfig {
 
 async function createRavenYaml(destDir: string, version: string) {
   const content = stringify({ version });
-  await Bun.write(join(destDir, "raven.yaml"), content);
+  await writeFile(join(destDir, "raven.yaml"), content);
 }
 
 async function getInstalledModules(ravenDir: string, registry: Registry): Promise<Set<string>> {
@@ -471,10 +486,8 @@ interface StatusResult {
 }
 
 async function computeFileHash(filePath: string): Promise<string> {
-  const content = await Bun.file(filePath).bytes();
-  const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(content);
-  return hasher.digest("hex");
+  const content = await readFile(filePath);
+  return createHash("sha256").update(content).digest("hex");
 }
 
 async function getStatus(registry: Registry, options: CLIOptions): Promise<StatusResult> {
@@ -492,7 +505,7 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
   if (await pathExists(ravenDir)) {
     const yamlPath = join(ravenDir, "raven.yaml");
     try {
-      const content = await Bun.file(yamlPath).text();
+      const content = await readFile(yamlPath, "utf-8");
       const config = parse(content) as RavenYamlConfig;
       if (config?.version) {
         currentVersion = config.version;
@@ -594,7 +607,7 @@ async function cmdGuide(moduleName: string, options: CLIOptions) {
 
   const readmePath = join(moduleDir, "README.md");
   if (await pathExists(readmePath)) {
-    const readmeContent = await Bun.file(readmePath).text();
+    const readmeContent = await readFile(readmePath, "utf-8");
     output.push("<readme>");
     output.push(readmeContent);
     output.push("</readme>");
@@ -609,7 +622,7 @@ async function cmdGuide(moduleName: string, options: CLIOptions) {
         await collectCodeFiles(fullPath, baseDir);
       } else if (entry.isFile()) {
         const relPath = fullPath.slice(baseDir.length + 1);
-        const content = await Bun.file(fullPath).text();
+        const content = await readFile(fullPath, "utf-8");
         output.push(`<code>`);
         output.push(`File: ${relPath}`);
         output.push(`\`\`\``);

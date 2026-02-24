@@ -128,7 +128,7 @@ async function scanAi(): Promise<{ claude: Record<string, string> }> {
 }
 
 async function getVersion(): Promise<string> {
-  const content = await Bun.file(join(CLI_DIR, "package.json")).text();
+  const content = await readFile(join(CLI_DIR, "package.json"), "utf-8");
   const pkg = JSON.parse(content) as { version?: string };
   if (pkg.version) return pkg.version;
   return "0.0.0";
@@ -170,7 +170,7 @@ async function main() {
   await Bun.build({
     entrypoints: [join(CLI_DIR, "index.ts")],
     outdir: DIST_DIR,
-    target: "bun",
+    target: "node",
     naming: "raven",
     sourcemap: "linked",
     packages: "external",

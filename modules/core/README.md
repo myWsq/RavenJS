@@ -2,11 +2,8 @@
 
 RavenJS Core is a lightweight, high-performance Web framework reference implementation for Bun.
 
-**Philosophy**: This is reference code, not an npm package to import. Copy it, modify it, learn from it, and use it directly in your project.
-
 **Features**:
-
-- HTTP server via Bun.serve
+- Logic layer: `app.handle` (FetchHandler)
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
 - Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
@@ -52,9 +49,12 @@ any uncaught exception → [onError hooks] → fallback 500
 ## Raven
 
 The main application class. Register routes with full paths (e.g. `app.get('/api/v1/users', handler)`).
+Raven is a **logic layer**—it exposes `handle(request) => Promise<Response>`:
 
 ```typescript
 const app = new Raven();
+app.get("/", () => new Response("Hello"));
+Bun.serve({ fetch: app.handle });
 ```
 
 ## Context
@@ -147,11 +147,9 @@ Reason: `addRoute()` snapshots all current hooks at call time.
 ```typescript
 // ❌ Wrong: plugin may not have run yet
 app.register(plugin);
-await app.listen({ port: 3000 });
 
 // ✓ Correct
 await app.register(plugin);
-await app.listen({ port: 3000 });
 ```
 
 ## 3. `AppState.set()` only works inside an AppStorage context
@@ -159,7 +157,7 @@ await app.listen({ port: 3000 });
 `AppState.set()` depends on `currentAppStorage`. It is only valid inside:
 
 - a `register()` plugin callback
-- a request handler (after `handleRequest` establishes the context)
+- a request handler (after `handle` establishes the context)
 
 Calling it outside these locations throws `ERR_STATE_CANNOT_SET`.
 
@@ -290,7 +288,7 @@ const app = new Raven();
 
 app.get("/", () => new Response("Hello, World!"));
 
-await app.listen({ port: 3000 });
+Bun.serve({ fetch: app.handle, port: 3000 });
 ```
 
 ## Path parameters
@@ -304,8 +302,6 @@ app.get("/user/:id", () => {
   const { id } = ParamsState.getOrFailed();
   return new Response(`User ID: ${id}`);
 });
-
-await app.listen({ port: 3000 });
 ```
 
 ## Route prefix (use full paths)
@@ -317,8 +313,6 @@ const app = new Raven();
 
 app.get("/api/v1/users", () => new Response("Users list"));
 app.post("/api/v1/users", () => new Response("Create user", { status: 201 }));
-
-await app.listen({ port: 3000 });
 ```
 
 ## Auth middleware (hooks must come before routes)
@@ -347,8 +341,6 @@ app.get("/profile", () => {
   const user = currentUser.getOrFailed();
   return Response.json({ id: user.id });
 });
-
-await app.listen({ port: 3000 });
 ```
 
 ## App-level state via plugin
@@ -374,8 +366,6 @@ app.get("/users", async () => {
   const users = await db.query("SELECT * FROM users");
   return Response.json(users);
 });
-
-await app.listen({ port: 3000 });
 ```
 
 ## Error handling
@@ -400,8 +390,6 @@ app.get("/items/:id", () => {
   }
   return Response.json({ id });
 });
-
-await app.listen({ port: 3000 });
 ```
 
 ## Mutating the response (beforeResponse hook)
@@ -416,6 +404,4 @@ app.beforeResponse((response) => {
 });
 
 app.get("/data", () => Response.json({ ok: true }));
-
-await app.listen({ port: 3000 });
 ```

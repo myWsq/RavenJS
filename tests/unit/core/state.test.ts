@@ -31,14 +31,14 @@ describe("Unified State Mount (AppState & RequestState)", () => {
       expect(results).toEqual(["req-1", "req-2", "req-3"]);
     });
 
-    it("should work with RavenContext in Raven.handleRequest", async () => {
+    it("should work with RavenContext in Raven.handle", async () => {
       const app = new Raven();
       app.get("/test", () => {
         const ctx = RavenContext.getOrFailed();
         return new Response(ctx.url.pathname);
       });
 
-      const res = await app.handleRequest(new Request("http://localhost/test"));
+      const res = await app.handle(new Request("http://localhost/test"));
       expect(await res.text()).toBe("/test");
     });
   });
@@ -78,7 +78,7 @@ describe("Unified State Mount (AppState & RequestState)", () => {
         return new Response(DB.getOrFailed());
       });
 
-      const res = await app.handleRequest(new Request("http://localhost/db"));
+      const res = await app.handle(new Request("http://localhost/db"));
       expect(await res.text()).toBe("client-ready");
     });
   });

@@ -24,69 +24,63 @@ RavenJS SHALL be positioned as an Agent teaching tool rather than a traditional 
 - **THEN** the Agent SHALL understand how to write code in RavenJS's style
 - **AND** the Agent SHALL be able to generate similar code without requiring RavenJS as a dependency
 
-### Requirement: 运行时抽象层
+### Requirement: Bun-only 运行时
 
-Raven 框架 SHALL 仅支持 Bun 运行时。框架不再提供 Node.js 运行时适配，启动时直接使用 Bun 原生 API（如 `Bun.serve`）。
+Raven 框架 SHALL 定位为 Bun-only 框架。用户需使用 `Bun.serve({ fetch: app.handle })` 启动 HTTP 服务。文档 SHALL 明确声明 RavenJS 仅支持 Bun 运行时。
 
-#### Scenario: 在 Bun 下启动
+#### Scenario: 在 Bun 下使用 Raven
 
-- **WHEN** 框架在 Bun 运行时下启动
-- **THEN** 框架使用 `Bun.serve` 处理 HTTP 请求
-- **AND** 服务器正常响应 HTTP 请求
+- **WHEN** 用户需要启动 HTTP 服务
+- **THEN** 用户 SHALL 使用 Bun 运行并调用 `Bun.serve({ fetch: app.handle, port, hostname })` 自行启动
+- **AND** Raven 的 `handle` 方法作为 fetch 回调正常工作
 
-#### Scenario: Node.js 环境不再支持
+#### Scenario: Bun-only 声明
 
-- **WHEN** 用户尝试在 Node.js 运行时下启动框架
-- **THEN** 框架不保证正常工作
-- **AND** 文档 SHALL 声明 ravenjs 为 Bun-only
+- **WHEN** 用户在选择运行环境
+- **THEN** 文档 SHALL 明确声明 RavenJS 仅支持 Bun
+- **AND** 文档 SHALL 不提及 Node.js 或其它运行时的兼容性
 
-### Requirement: Server can be started with configuration
+### Requirement: Raven 作为逻辑层暴露 handle 方法
 
-The Raven framework SHALL provide a method to start an HTTP server with configurable port and optional hostname. 框架必须在 Bun 环境下通过统一的 API 启动。
+Raven 框架 SHALL 作为纯逻辑层，不包含 HTTP 服务器启动能力。Raven 类 SHALL 提供 `handle` 方法，接收 Web API 的 `Request`，返回 `Promise<Response>`，实现 FetchHandler 语义。
 
-#### Scenario: Start server with port only
+#### Scenario: handle 处理 Request 返回 Response
 
-- **WHEN** user calls `app.listen({ port: 3000 })`
-- **THEN** server starts listening on port 3000
-- **AND** server responds to HTTP requests when running on Bun
+- **WHEN** 调用 `app.handle(request)` 且请求匹配已注册路由
+- **THEN** 框架执行完整生命周期（onRequest、beforeHandle、Handler、beforeResponse）
+- **AND** 返回 Web 标准 `Response` 对象
 
-#### Scenario: Start server with port and hostname
+#### Scenario: handle 作为 Bun.serve 的 fetch 回调
 
-- **WHEN** user calls `app.listen({ port: 3000, hostname: 'localhost' })`
-- **THEN** server starts listening on port 3000 at localhost
-- **AND** server responds to HTTP requests
+- **WHEN** 用户需要在 Bun 下启动 HTTP 服务
+- **THEN** 可将 `app.handle` 直接作为 fetch 回调传入 `Bun.serve`
+- **AND** 例如 `Bun.serve({ fetch: app.handle })` 即可启动 HTTP 服务
 
-#### Scenario: Default hostname when not specified
+### Requirement: Raven handle 方法处理 HTTP 请求
 
-- **WHEN** user calls `app.listen({ port: 3000 })` without hostname
-- **THEN** server uses default hostname ('0.0.0.0' for Bun)
-- **AND** server responds to HTTP requests
-
-### Requirement: Server handles HTTP requests
-
-The Raven framework SHALL process incoming HTTP requests and return responses. 在请求处理过程中，必须按照定义的生命周期顺序执行已注册的钩子函数。
+Raven 框架 SHALL 通过 `handle` 方法处理传入的 HTTP 请求并返回响应。在请求处理过程中，必须按照定义的生命周期顺序执行已注册的钩子函数。
 
 #### Scenario: Handle GET request
 
-- **WHEN** server receives a GET request to any path
-- **THEN** server processes the request
-- **AND** server returns a standard Response object (Web Standards compliant)
+- **WHEN** 调用 `app.handle(new Request("http://x/", { method: "GET" }))` 且路径匹配已注册路由
+- **THEN** 框架处理该请求
+- **AND** 返回符合 Web 标准的 Response 对象
 
 #### Scenario: Handle POST request
 
-- **WHEN** server receives a POST request with body
-- **THEN** server processes the request
-- **AND** server returns a Response object
+- **WHEN** 调用 `app.handle` 且请求为 POST 并携带 body
+- **THEN** 框架处理该请求
+- **AND** 返回 Response 对象
 
 #### Scenario: Handle different HTTP methods
 
-- **WHEN** server receives requests with different HTTP methods (GET, POST, PUT, DELETE, etc.)
-- **THEN** server processes each request appropriately
-- **AND** server returns appropriate Response objects
+- **WHEN** 对 `app.handle` 传入不同 HTTP 方法的 Request（GET、POST、PUT、DELETE 等）
+- **THEN** 框架按注册的路由与方法分别处理
+- **AND** 返回相应的 Response 对象
 
 #### Scenario: 生命周期钩子完整执行链
 
-- **WHEN** 接收到一个标准的 GET 请求，且注册了所有类型的钩子
+- **WHEN** 传入标准的 GET 请求且注册了所有类型的钩子
 - **THEN** 执行顺序 MUST 为：onRequest -> (Context 创建) -> beforeHandle -> Handler -> beforeResponse
 - **AND** 最终返回由钩子或 Handler 产生的 Response
 
@@ -111,16 +105,6 @@ The Raven framework SHALL provide a Context object that encapsulates request and
 - **WHEN** a request handler receives a Context object
 - **THEN** context allows setting response status, headers, and body
 - **AND** framework returns the response to the client
-
-### Requirement: Server can be stopped
-
-The Raven framework SHALL provide a method to stop the running server.
-
-#### Scenario: Stop running server
-
-- **WHEN** user calls `app.stop()` or similar method
-- **THEN** server stops accepting new requests
-- **AND** existing connections are gracefully closed
 
 ### Requirement: onRequest 钩子执行
 

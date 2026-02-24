@@ -33,14 +33,10 @@ export interface StateOptions {
 }
 
 /**
- * Configuration for starting the server.
+ * Standard FetchHandler type - a function that takes a Request and returns a Response.
+ * Raven.handle implements this interface.
  */
-export interface ServerConfig {
-  /** Port number to listen on. */
-  port: number;
-  /** Optional hostname to bind to (e.g., '0.0.0.0' or 'localhost'). */
-  hostname?: string;
-}
+export type FetchHandler = (request: Request) => Response | Promise<Response>;
 
 /**
  * Request handler function type.
@@ -118,14 +114,6 @@ export class RavenError extends Error {
   public setContext(context: ErrorContext): this {
     Object.assign(this.context, context);
     return this;
-  }
-
-  public static ERR_SERVER_ALREADY_RUNNING(): RavenError {
-    return new RavenError(
-      "ERR_SERVER_ALREADY_RUNNING",
-      "Server is already running",
-      {},
-    );
   }
 
   public static ERR_STATE_NOT_INITIALIZED(name: string): RavenError {
@@ -350,7 +338,6 @@ export function createPlugin(plugin: Plugin): Plugin {
  * Main application class for the Raven framework.
  */
 export class Raven implements RavenInstance {
-  private server: ReturnType<typeof Bun.serve> | null = null;
   private router: RadixRouter<RouteData>;
   public readonly internalStateMap = new Map<symbol, any>();
   private plugins: Plugin[] = [];
@@ -414,32 +401,6 @@ export class Raven implements RavenInstance {
     return this;
   }
 
-  /**
-   * Starts the server listening on the configured port.
-   * @param config Server configuration including port.
-   */
-  async listen(config: ServerConfig): Promise<void> {
-    if (this.server) {
-      throw RavenError.ERR_SERVER_ALREADY_RUNNING();
-    }
-
-    this.server = Bun.serve({
-      port: config.port,
-      hostname: config.hostname,
-      fetch: (request) => this.handleRequest(request),
-    });
-  }
-
-  /**
-   * Stops the running server.
-   */
-  async stop(): Promise<void> {
-    if (this.server) {
-      this.server.stop();
-      this.server = null;
-    }
-  }
-
   /** Adds an OnRequest hook. */
   onRequest(hook: OnRequestHook): this {
     this.hooks.onRequest.push(hook);
@@ -465,10 +426,11 @@ export class Raven implements RavenInstance {
   }
 
   /**
-   * Main request processing entrypoint.
+   * Main request processing entrypoint (FetchHandler).
    * Evaluates hooks, matches routes, and handles responses/errors.
+   * Use with HTTP server
    */
-  public async handleRequest(request: Request): Promise<Response> {
+  public async handle(request: Request): Promise<Response> {
     return currentAppStorage.run(this, () => {
       return requestStorage.run(new Map(), async () => {
         try {
