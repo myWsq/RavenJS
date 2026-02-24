@@ -3,7 +3,6 @@
 ![RavenJS Logo](./docs/logo.webp)
 
 RavenJS is an **AI-native web framework for Bun**—lightweight, high-performance.
-
 **Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
 </div>
