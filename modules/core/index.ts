@@ -85,7 +85,7 @@ export type BeforeResponseHook = (
  * Hook executed when an error occurs during the request lifecycle.
  * Should return a Response to send to the client.
  */
-export type OnErrorHook = (error: Error) => Response | Promise<Response>;
+export type OnErrorHook = (error: Error) => Response | Promise<Response> | void | Promise<void>;
 
 /**
  * Pipeline of hooks associated with a specific route.
@@ -166,10 +166,6 @@ export class RavenError extends Error {
       `Cannot set value for state "${name}": Scope is not initialized.`,
       {},
     );
-  }
-
-  public static ERR_VALIDATION(message: string): RavenError {
-    return new RavenError("ERR_VALIDATION", message, {}, 400);
   }
 
   public static ERR_BAD_REQUEST(message: string): RavenError {

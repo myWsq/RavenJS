@@ -52,7 +52,6 @@ Follow the **raven-learn** skill for the `core` module.
 
 Read the full guide output (README + source). Pay attention to:
 
-- **ARCHITECTURE** — understand the file layout and where the entry point is.
 - **USAGE EXAMPLES** — you will base the minimal test on these.
 - **GOTCHAS / ANTI-PATTERNS** — avoid common mistakes in the test file.
 

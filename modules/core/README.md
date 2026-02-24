@@ -5,26 +5,16 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 **Philosophy**: This is reference code, not an npm package to import. Copy it, modify it, learn from it, and use it directly in your project.
 
 **Features**:
+
 - HTTP server via Bun.serve
 - Radix tree router (path parameters and route groups)
-- Scoped state management (AppState and RequestState)
+- Dependency injection (DI) via AsyncLocalStorage (ScopedState)
 - Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
 
 ---
 
 # ARCHITECTURE
-
-All core logic lives in a single file `index.ts`, organized by `SECTION` comments:
-
-```
-index.ts
-├── SECTION: Types & Interfaces        — all type definitions
-├── SECTION: Error Handling            — RavenError class
-├── SECTION: Context & State Management — Context, AsyncLocalStorage, ScopedState
-├── SECTION: Router                    — Radix tree router
-└── SECTION: Core Framework            — Raven main class (listen uses Bun.serve directly)
-```
 
 **Full request lifecycle**:
 
@@ -79,24 +69,24 @@ console.log(ctx.method); // "GET"
 console.log(ctx.params); // { id: "42" }
 ```
 
-## ScopedState
+## Dependency Injection (DI)
 
-A state container backed by `AsyncLocalStorage`, with two lifetime scopes:
+**ScopedState is RavenJS's dependency injection (DI) implementation.** It uses `AsyncLocalStorage` to inject state into the async call chain, allowing handlers and hooks to access dependencies without explicit parameter passing. Each ScopedState is a state container with a well-defined lifetime:
 
-| Type | Lifetime | Typical use |
-|---|---|---|
-| `AppState` | Shared across the entire app | DB connections, config, counters |
-| `RequestState` | Isolated per HTTP request | Current user, parsed body, auth info |
+| Type           | Lifetime                     | Typical use                          |
+| -------------- | ---------------------------- | ------------------------------------ |
+| `AppState`     | Shared across the entire app | DB connections, config, counters     |
+| `RequestState` | Isolated per HTTP request    | Current user, parsed body, auth info |
 
 **Built-in states** (populated automatically by the framework — do not set manually):
 
-| State | Type | Description |
-|---|---|---|
-| `RavenContext` | `Context` | Full request context |
-| `ParamsState` | `Record<string, string>` | URL path parameters |
-| `QueryState` | `Record<string, string>` | Query string parameters |
-| `HeadersState` | `Record<string, string>` | Request headers (lowercased keys) |
-| `BodyState` | `unknown` | Request body (JSON only; cast required) |
+| State          | Type                     | Description                             |
+| -------------- | ------------------------ | --------------------------------------- |
+| `RavenContext` | `Context`                | Full request context                    |
+| `ParamsState`  | `Record<string, string>` | URL path parameters                     |
+| `QueryState`   | `Record<string, string>` | Query string parameters                 |
+| `HeadersState` | `Record<string, string>` | Request headers (lowercased keys)       |
+| `BodyState`    | `unknown`                | Request body (JSON only; cast required) |
 
 ## Plugin
 
@@ -108,17 +98,21 @@ A function that extends a `Raven` instance, registered via `app.register()`. Cal
 
 ## Why AsyncLocalStorage for state?
 
+ScopedState uses AsyncLocalStorage as the underlying mechanism for DI. Compared to traditional DI containers or class decorators:
+
 - **Async-safe**: state propagates automatically through the async call chain without cross-request leakage
-- **Zero boilerplate**: handlers don't need to receive a context argument
-- **High performance**: zero-copy access, lighter than decorators or DI containers
+- **Zero boilerplate**: handlers don't need to receive a context argument — dependencies are injected into the call chain automatically
+- **Flexible access**: unlike decorators that bake dependencies into constructor or method signatures, you can obtain injected dependencies anywhere in the call chain, only when needed — no rigid injection points
+- **High performance**: zero-copy access, lighter than decorators or full-featured DI containers
 
 ## Why are handlers zero-argument functions?
 
 ```typescript
-type Handler = () => Response | Promise<Response>
+type Handler = () => Response | Promise<Response>;
 ```
 
 This is intentional:
+
 - A handler only needs to return a `Response` — no framework-specific types required
 - Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
 - Any plain function can be a handler with zero migration cost
@@ -167,6 +161,7 @@ await app.listen({ port: 3000 });
 ## 3. `AppState.set()` only works inside an AppStorage context
 
 `AppState.set()` depends on `currentAppStorage`. It is only valid inside:
+
 - a `register()` plugin callback
 - a `group()` callback
 - a request handler (after `handleRequest` establishes the context)
@@ -340,7 +335,10 @@ await app.listen({ port: 3000 });
 ```typescript
 import { Raven, createRequestState, RavenContext } from "./index.ts";
 
-interface User { id: string; role: string }
+interface User {
+  id: string;
+  role: string;
+}
 const currentUser = createRequestState<User>({ name: "currentUser" });
 
 const app = new Raven();
@@ -367,7 +365,9 @@ await app.listen({ port: 3000 });
 ```typescript
 import { Raven, createAppState, createPlugin } from "./index.ts";
 
-interface DB { query: (sql: string) => Promise<unknown[]> }
+interface DB {
+  query: (sql: string) => Promise<unknown[]>;
+}
 const dbState = createAppState<DB>({ name: "db" });
 
 const dbPlugin = createPlugin(async (app) => {
