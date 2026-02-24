@@ -1,6 +1,6 @@
 <div align="center">
 
-![RavenJS Logo](./docs/logo.webp)
+<img src="./docs/logo.webp" alt="RavenJS Logo" width="200" />
 
 RavenJS is an **AI-native web framework for Bun**—lightweight, high-performance.
 
