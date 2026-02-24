@@ -193,14 +193,14 @@ describe("CLI E2E", () => {
 		it("should show modules after add", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
 			expect(findModule(out.modules, "core")?.installed).toBe(true);
-			expect(findModule(out.modules, "jtd-validator")?.installed).toBe(true);
+			expect(findModule(out.modules, "schema-validator")?.installed).toBe(true);
 		});
 
 		it("should respect --root option", async () => {
@@ -221,15 +221,15 @@ describe("CLI E2E", () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--source", repoRoot], cwd);
 
-			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+			const result = await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
 			expect(out.success).toBe(true);
-			expect(out.moduleName).toBe("jtd-validator");
+			expect(out.moduleName).toBe("schema-validator");
 
 			const coreDir = join(cwd, "raven", "core");
-			const moduleDir = join(cwd, "raven", "jtd-validator");
+			const moduleDir = join(cwd, "raven", "schema-validator");
 			expect(await fileExists(coreDir)).toBe(true);
 			expect(await fileExists(moduleDir)).toBe(true);
 			expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
@@ -238,16 +238,16 @@ describe("CLI E2E", () => {
 		it("should replace @raven.js/core with relative path in copied files", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
-			const mainTs = await readFile(join(cwd, "raven", "jtd-validator", "index.ts"), "utf-8");
+			const mainTs = await readFile(join(cwd, "raven", "schema-validator", "index.ts"), "utf-8");
 			expect(mainTs).toContain('from "../core"');
 			expect(mainTs).not.toContain("@raven.js/core");
 		});
 
 		it("should fail when project not initialized", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
+			const result = await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stderr).toContain("raven init");

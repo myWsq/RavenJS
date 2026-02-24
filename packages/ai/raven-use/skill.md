@@ -39,7 +39,6 @@ Match the user's task against module descriptions. Do **not** hardcode mappings 
 | User wants to… | Likely module |
 |---|---|
 | Create a server, define routes, add hooks | `core` |
-| Validate request body / query / params / headers | `jtd-validator` |
 
 Select all modules that are relevant. Note which ones are already installed and which need to be added.
 

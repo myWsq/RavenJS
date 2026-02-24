@@ -22,7 +22,7 @@ If not initialized, stop and tell the user to run `bunx raven init` first, then 
 
 From the user's request, determine the module name:
 
-- **Explicit name** (e.g. "add jtd-validator") → use it directly.
+- **Explicit name** (e.g. "add core") → use it directly.
 - **Described functionality** → infer the module from `bunx raven status` module descriptions.
 - **Unclear** → use **AskUserQuestion** to ask; show the available modules from the `modules` array in `bunx raven status`.
 
@@ -36,7 +36,7 @@ Do not hardcode module names — always derive the available list from the live 
 bunx raven add <module-name>
 ```
 
-`bunx raven add` resolves dependencies automatically — for example, adding `jtd-validator` will install `core` first if not already present.
+`bunx raven add` resolves dependencies automatically — for example, adding a module will install its dependencies first if not already present.
 
 On success, the command returns JSON with:
 

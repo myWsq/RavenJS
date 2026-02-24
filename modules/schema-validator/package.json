@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Plugin for schema-based parameter validation using Standard Schema interface.",
+  "description": "Validation helper based on Standard Schema. Use this module when you need to validate request data (body, query, params, headers) using Zod, Valibot, or ArkType, and want type-safe context in handlers.",
   "devDependencies": {
     "@raven.js/core": "workspace:*"
   }

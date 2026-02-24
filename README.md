@@ -53,7 +53,7 @@ Skills are the primary way to work with RavenJS
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **raven‑setup** | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime.                             |
 | **raven‑use**   | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
-| **raven‑add**   | Add a new module (e.g. jtd-validator). Use when the project is already initialized.                                                              |
+| **raven‑add**   | Add a new module (e.g. core). Use when the project is already initialized.                                                              |
 | **raven‑learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module.                                 |
 
 ## Available Modules
@@ -61,7 +61,6 @@ Skills are the primary way to work with RavenJS
 | Module          | Description                                                                                    | Docs                                      |
 | --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `core`          | Logic layer (`handle`), routing, lifecycle hooks, state management, plugin system.             | [README](modules/core/README.md)          |
-| `jtd‑validator` | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
 
 ## CLI
 

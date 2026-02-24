@@ -645,7 +645,7 @@ cli
   .action((options) => cmdInit(options as CLIOptions));
 
 cli
-  .command("add <module>", "Add a module (e.g., jtd-validator)")
+  .command("add <module>", "Add a module (e.g., core)")
   .action((module, options) => cmdAdd(module, options as CLIOptions));
 
 cli
