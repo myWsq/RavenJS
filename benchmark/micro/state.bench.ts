@@ -7,9 +7,8 @@ import {
   type RavenInstance,
 } from "../../modules/core";
 
-function createAppInstance(parent: RavenInstance | null = null): RavenInstance {
+function createAppInstance(): RavenInstance {
   return {
-    parent,
     internalStateMap: new Map(),
   };
 }
@@ -17,23 +16,9 @@ function createAppInstance(parent: RavenInstance | null = null): RavenInstance {
 const appState = new AppState<string>({ name: "bench:app" });
 const requestState = new RequestState<string>({ name: "bench:request" });
 
-function setupAppContext(depth: number): RavenInstance {
-  let root = createAppInstance(null);
-  let current = root;
-  
-  for (let i = 0; i < depth; i++) {
-    const child = createAppInstance(current);
-    current = child;
-  }
-  
-  root.internalStateMap.set(appState.symbol, "root-value");
-  
-  return current;
-}
-
 group("AppState Operations", () => {
   bench("get - direct", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     app.internalStateMap.set(appState.symbol, "test-value");
     
     currentAppStorage.run(app, () => {
@@ -42,7 +27,7 @@ group("AppState Operations", () => {
   });
 
   bench("set", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     
     currentAppStorage.run(app, () => {
       appState.set("test-value");
@@ -50,7 +35,7 @@ group("AppState Operations", () => {
   });
 
   bench("get + set cycle", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     
     currentAppStorage.run(app, () => {
       appState.set("test-value");
@@ -87,43 +72,9 @@ group("RequestState Operations", () => {
   });
 });
 
-group("AppState Inheritance Chain Lookup", () => {
-  bench("depth 1 (no inheritance)", () => {
-    const app = setupAppContext(0);
-    
-    currentAppStorage.run(app, () => {
-      appState.get();
-    });
-  });
-
-  bench("depth 3", () => {
-    const app = setupAppContext(2);
-    
-    currentAppStorage.run(app, () => {
-      appState.get();
-    });
-  });
-
-  bench("depth 5", () => {
-    const app = setupAppContext(4);
-    
-    currentAppStorage.run(app, () => {
-      appState.get();
-    });
-  });
-
-  bench("depth 10", () => {
-    const app = setupAppContext(9);
-    
-    currentAppStorage.run(app, () => {
-      appState.get();
-    });
-  });
-});
-
 group("AsyncLocalStorage Overhead", () => {
   bench("getStore (app)", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     
     currentAppStorage.run(app, () => {
       currentAppStorage.getStore();
@@ -139,12 +90,12 @@ group("AsyncLocalStorage Overhead", () => {
   });
 
   bench("run context switch", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     currentAppStorage.run(app, () => {});
   });
 
   bench("nested run (app + request)", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     const store = new Map<symbol, any>();
     
     currentAppStorage.run(app, () => {
@@ -159,7 +110,7 @@ group("Multiple State Access Pattern", () => {
   const state3 = new AppState<string>({ name: "bench:state3" });
 
   bench("access 3 states sequentially", () => {
-    const app = createAppInstance(null);
+    const app = createAppInstance();
     app.internalStateMap.set(state1.symbol, "v1");
     app.internalStateMap.set(state2.symbol, "v2");
     app.internalStateMap.set(state3.symbol, "v3");

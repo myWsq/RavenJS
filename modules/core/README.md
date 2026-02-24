@@ -7,7 +7,7 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 **Features**:
 
 - HTTP server via Bun.serve
-- Radix tree router (path parameters and route groups)
+- Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
 - Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
@@ -31,13 +31,13 @@ incoming request
 [processStates]       ← populates ParamsState / QueryState / HeadersState / BodyState
       │
       ▼
-[beforeHandle hooks]  ← route-scoped (includes parent hooks); no args. Returning a Response short-circuits.
+[beforeHandle hooks]  ← route-scoped; no args. Returning a Response short-circuits.
       │
       ▼
 [handler()]           ← no args; returns Response
       │
       ▼
-[beforeResponse hooks] ← route-scoped (includes parent hooks); receives Response. Returning a new Response replaces it.
+[beforeResponse hooks] ← route-scoped; receives Response. Returning a new Response replaces it.
       │
       ▼
 outgoing response
@@ -51,7 +51,7 @@ any uncaught exception → [onError hooks] → fallback 500
 
 ## Raven
 
-The main application class. Each `group()` call creates a child `Raven` instance that shares the same `RadixRouter` but has its own independent hook list.
+The main application class. Register routes with full paths (e.g. `app.get('/api/v1/users', handler)`).
 
 ```typescript
 const app = new Raven();
@@ -119,7 +119,7 @@ This is intentional:
 
 ## Why is the hook pipeline snapshotted at route registration?
 
-When `addRoute()` is called, it immediately calls `getAllHooks()` to collect all currently registered hooks and stores them in the route's `pipeline`. This means:
+When `addRoute()` is called, it snapshots all currently registered hooks and stores them in the route's `pipeline`. This means:
 
 - **Hooks must be registered before routes** — hooks added after a route is registered will not apply to it
 - Each route's pipeline is an independent snapshot and does not affect other routes
@@ -142,19 +142,15 @@ app.get("/users", handler);
 
 Reason: `addRoute()` snapshots all current hooks at call time.
 
-## 2. `group()` and `register()` are async — always await them
+## 2. `register()` is async — always await it
 
 ```typescript
-// ❌ Wrong: routes inside the group may not be registered yet
-app.group("/api", (api) => {
-  api.get("/users", handler);
-});
-await app.listen({ port: 3000 }); // /api/users might not exist yet
+// ❌ Wrong: plugin may not have run yet
+app.register(plugin);
+await app.listen({ port: 3000 });
 
 // ✓ Correct
-await app.group("/api", (api) => {
-  api.get("/users", handler);
-});
+await app.register(plugin);
 await app.listen({ port: 3000 });
 ```
 
@@ -163,7 +159,6 @@ await app.listen({ port: 3000 });
 `AppState.set()` depends on `currentAppStorage`. It is only valid inside:
 
 - a `register()` plugin callback
-- a `group()` callback
 - a request handler (after `handleRequest` establishes the context)
 
 Calling it outside these locations throws `ERR_STATE_CANNOT_SET`.
@@ -222,16 +217,14 @@ app.beforeHandle(() => {
 });
 ```
 
-## 7. Route group hook scope
+## 7. Use full paths for route registration
 
-Hooks registered inside a `group()` only affect routes registered within that same group. They do not propagate upward to the parent. Parent hooks are inherited downward into child groups (the snapshot walk traverses the parent chain).
+Routes must use complete paths. There is no `group()` or prefix stacking—concatenate paths in code if needed.
 
 ```typescript
-await app.group("/admin", (admin) => {
-  admin.beforeHandle(adminAuthHook); // only applies to /admin/* routes
-  admin.get("/dashboard", handler);
-});
-app.get("/public", handler); // adminAuthHook does NOT apply here
+const apiPrefix = "/api/v1";
+app.get(`${apiPrefix}/users`, handler);
+app.get(`${apiPrefix}/items`, handler);
 ```
 
 ---
@@ -252,20 +245,20 @@ app.beforeHandle(async () => {
 const userState = createRequestState<User>({ name: "user" });
 ```
 
-## Do not register group-scoped hooks outside the group
+## Do not register route-specific hooks globally
 
 ```typescript
-// ❌ Intended to only hook /api, but hooks are registered in the wrong place
-await app.group("/api", (api) => {
-  api.get("/users", handler);
-});
-app.beforeHandle(apiOnlyHook); // this will apply to ALL routes registered after this line, not just /api
+// ❌ Intended to only hook /api, but the hook applies to ALL routes
+app.get("/api/users", handler);
+app.beforeHandle(apiOnlyHook); // applies to all routes registered after this
 
-// ✓ Register the hook inside the group
-await app.group("/api", (api) => {
-  api.beforeHandle(apiOnlyHook); // only applies to /api/* routes
-  api.get("/users", handler);
+// ✓ Use path checks inside the hook, or structure routes so hooks apply only where needed
+app.beforeHandle(() => {
+  const ctx = RavenContext.getOrFailed();
+  if (!ctx.url.pathname.startsWith("/api")) return;
+  return apiOnlyHook();
 });
+app.get("/api/users", handler);
 ```
 
 ## Do not forget to return a Response from `onError`
@@ -315,17 +308,15 @@ app.get("/user/:id", () => {
 await app.listen({ port: 3000 });
 ```
 
-## Route groups (remember to await)
+## Route prefix (use full paths)
 
 ```typescript
 import { Raven } from "./index.ts";
 
 const app = new Raven();
 
-await app.group("/api/v1", (api) => {
-  api.get("/users", () => new Response("Users list"));
-  api.post("/users", () => new Response("Create user", { status: 201 }));
-});
+app.get("/api/v1/users", () => new Response("Users list"));
+app.post("/api/v1/users", () => new Response("Create user", { status: 201 }));
 
 await app.listen({ port: 3000 });
 ```

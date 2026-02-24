@@ -256,15 +256,6 @@ The Raven framework SHALL provide a method to stop the running server.
 - **WHEN** 发起请求 `GET /search?q=raven`
 - **THEN** 在路由处理流程中，`ctx.query` 应当包含 `{ q: "raven" }`
 
-### Requirement: 路由组
-
-框架 SHALL 提供 `group` 方法，允许对路由进行逻辑分组并累加前缀。
-
-#### Scenario: 路由前缀累加
-
-- **WHEN** 在 `raven.group('/api', ...)` 中定义 `api.get('/v1', ...)`
-- **THEN** 该路由应当匹配 `GET /api/v1`
-
 ### Requirement: App-level State Management
 
 The system SHALL provide an `AppState<T>` class for managing state at the application (Raven instance) level.
@@ -274,10 +265,11 @@ The system SHALL provide an `AppState<T>` class for managing state at the applic
 - **WHEN** a value is set for an `AppState` on one Raven instance
 - **THEN** it SHALL NOT be accessible from a different Raven instance
 
-#### Scenario: AppState inheritance
+#### Scenario: AppState scoped to current instance only
 
-- **WHEN** a value is not set for an `AppState` on a child Raven instance (e.g., created via `.group()`)
-- **THEN** it SHALL resolve to the value set on its parent Raven instance
+- **WHEN** `AppState.get()` is called within a Raven instance's execution context
+- **THEN** it SHALL return only the value set on that specific instance
+- **AND** it SHALL NOT resolve to any parent instance (parent chain is removed)
 
 ### Requirement: Request-level State Management
 

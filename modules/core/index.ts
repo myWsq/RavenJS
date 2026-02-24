@@ -3,6 +3,7 @@
 // =============================================================================
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { RadixRouter } from "./router.ts";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -19,8 +20,6 @@ export interface ErrorContext {
  * Core interface representing a Raven application instance.
  */
 export interface RavenInstance {
-  /** Reference to the parent instance, if any (used for grouped routes). */
-  parent: RavenInstance | null;
   /** Internal storage for application-scoped state. */
   internalStateMap: Map<symbol, any>;
 }
@@ -31,17 +30,6 @@ export interface RavenInstance {
 export interface StateOptions {
   /** Optional name for the state, useful for debugging. */
   name?: string;
-}
-
-/**
- * Result of a successful route match.
- * @template T The type of data associated with the route (e.g., handler and pipeline).
- */
-export interface RouteMatch<T> {
-  /** The data payload stored for the matched route. */
-  data: T;
-  /** Extracted path parameters. */
-  params: Record<string, string>;
 }
 
 /**
@@ -87,21 +75,9 @@ export type BeforeResponseHook = (
  */
 export type OnErrorHook = (error: Error) => Response | Promise<Response> | void | Promise<void>;
 
-/**
- * Pipeline of hooks associated with a specific route.
- */
-export interface RoutePipeline {
-  onRequest: OnRequestHook[];
-  beforeHandle: BeforeHandleHook[];
-  beforeResponse: BeforeResponseHook[];
-}
-
-/**
- * Internal route data structure combining the handler and its hook pipeline.
- */
+/** Internal route data structure. */
 interface RouteData {
   handler: Handler;
-  pipeline: RoutePipeline;
 }
 
 /**
@@ -298,14 +274,8 @@ export class AppState<T> extends ScopedState<T> {
   }
 
   public get(): T | undefined {
-    let current: RavenInstance | null | undefined = currentAppStorage.getStore();
-    while (current) {
-      if (current.internalStateMap.has(this.symbol)) {
-        return current.internalStateMap.get(this.symbol);
-      }
-      current = current.parent;
-    }
-    return undefined;
+    const app = currentAppStorage.getStore();
+    return app?.internalStateMap.get(this.symbol);
   }
 
   public set(value: T): void {
@@ -356,123 +326,8 @@ export const QueryState = createRequestState<Record<string, string>>({ name: "ra
 export const ParamsState = createRequestState<Record<string, string>>({ name: "raven:params" });
 export const HeadersState = createRequestState<Record<string, string>>({ name: "raven:headers" });
 
-// =============================================================================
-// SECTION: Router
-// =============================================================================
-
-/**
- * Internal tree node for the Radix router.
- * @template T The type of data stored at the node.
- */
-class RouterNode<T> {
-  children: Map<string, RouterNode<T>> = new Map();
-  paramChild: RouterNode<T> | null = null;
-  wildcardChild: RouterNode<T> | null = null;
-  paramName: string | null = null;
-  handlers: Map<string, T> = new Map();
-
-  /**
-   * Inserts a route into the node tree.
-   */
-  insert(segments: string[], method: string, data: T) {
-    let current: RouterNode<T> = this;
-
-    for (const segment of segments) {
-      if (segment.startsWith(":")) {
-        if (!current.paramChild) {
-          current.paramChild = new RouterNode<T>();
-          current.paramName = segment.slice(1);
-        }
-        current = current.paramChild;
-      } else if (segment === "*") {
-        if (!current.wildcardChild) {
-          current.wildcardChild = new RouterNode<T>();
-        }
-        current = current.wildcardChild;
-        break;
-      } else {
-        if (!current.children.has(segment)) {
-          current.children.set(segment, new RouterNode<T>());
-        }
-        current = current.children.get(segment)!;
-      }
-    }
-
-    current.handlers.set(method.toUpperCase(), data);
-  }
-
-  /**
-   * Searches for a matching route in the node tree.
-   */
-  search(
-    segments: string[],
-    method: string,
-    params: Record<string, string>,
-  ): T | null {
-    let current: RouterNode<T> = this;
-
-    for (const segment of segments) {
-      const next = current.children.get(segment);
-      if (next) {
-        current = next;
-      } else if (current.paramChild) {
-        if (current.paramName) {
-          params[current.paramName] = segment;
-        }
-        current = current.paramChild;
-      } else if (current.wildcardChild) {
-        current = current.wildcardChild;
-        return current.handlers.get(method.toUpperCase()) || null;
-      } else {
-        return null;
-      }
-    }
-
-    return current.handlers.get(method.toUpperCase()) || null;
-  }
-}
-
-/**
- * Radix tree based router for efficient URL pattern matching.
- * @template T The type of data associated with each route.
- */
-export class RadixRouter<T> {
-  private root = new RouterNode<T>();
-
-  /**
-   * Adds a new route to the router.
-   * @param method HTTP method.
-   * @param path URL path pattern.
-   * @param data Data payload to store with the route.
-   */
-  add(method: string, path: string, data: T) {
-    const segments = this.splitPath(path);
-    this.root.insert(segments, method, data);
-  }
-
-  /**
-   * Finds a matching route for the given method and path.
-   * @param method HTTP method.
-   * @param path URL path to match.
-   * @returns RouteMatch containing the data and extracted parameters, or null if not found.
-   */
-  find(method: string, path: string): RouteMatch<T> | null {
-    const segments = this.splitPath(path);
-    const params: Record<string, string> = {};
-    const data = this.root.search(segments, method, params);
-
-    if (data === null) {
-      return null;
-    }
-
-    return { data, params };
-  }
-
-  /** Helper to split a path into normalized segments. */
-  private splitPath(path: string): string[] {
-    return path.split("/").filter((s) => s.length > 0);
-  }
-}
+// Re-export router types for consumers
+export { RadixRouter, type RouteMatch } from "./router.ts";
 
 // =============================================================================
 // SECTION: Server Adapters
@@ -497,8 +352,6 @@ export function createPlugin(plugin: Plugin): Plugin {
 export class Raven implements RavenInstance {
   private server: ReturnType<typeof Bun.serve> | null = null;
   private router: RadixRouter<RouteData>;
-  private prefix: string;
-  public readonly parent: Raven | null;
   public readonly internalStateMap = new Map<symbol, any>();
   private plugins: Plugin[] = [];
   
@@ -512,14 +365,8 @@ export class Raven implements RavenInstance {
   /**
    * Initializes a new Raven application instance.
    */
-  constructor(options?: {
-    prefix?: string;
-    parent?: Raven | null;
-    router?: RadixRouter<RouteData>;
-  }) {
-    this.prefix = options?.prefix ?? "";
-    this.parent = options?.parent ?? null;
-    this.router = options?.router ?? new RadixRouter<RouteData>();
+  constructor() {
+    this.router = new RadixRouter<RouteData>();
   }
 
   /**
@@ -532,48 +379,9 @@ export class Raven implements RavenInstance {
     return this;
   }
 
-  /**
-   * Creates a sub-router (group) with a shared path prefix.
-   * @param prefix The path prefix for the group.
-   * @param callback Configuration function for the grouped instance.
-   */
-  async group(
-    prefix: string,
-    callback: (instance: Raven) => void | Promise<void>,
-  ): Promise<this> {
-    const child = new Raven({
-      prefix: this.prefix + prefix,
-      parent: this,
-      router: this.router,
-    });
-    await currentAppStorage.run(child, () => callback(child));
-    return this;
-  }
-
-  /**
-   * Aggregates hooks of a specific type from the current instance and all parents.
-   */
-  private getAllHooks<K extends keyof typeof this.hooks>(
-    type: K,
-  ): (typeof this.hooks)[K] {
-    const allHooks = [] as any[];
-    let current: Raven | null = this;
-    while (current) {
-      allHooks.unshift(...current.hooks[type]);
-      current = current.parent;
-    }
-    return allHooks as (typeof this.hooks)[K];
-  }
-
   /** Internal helper to register a route handler. */
   private addRoute(method: string, path: string, handler: Handler) {
-    const fullPath = this.prefix + path;
-    const pipeline: RoutePipeline = {
-      onRequest: this.getAllHooks("onRequest"),
-      beforeHandle: this.getAllHooks("beforeHandle"),
-      beforeResponse: this.getAllHooks("beforeResponse"),
-    };
-    this.router.add(method, fullPath, { handler, pipeline });
+    this.router.add(method, path, { handler });
   }
 
   /** Registers a GET route. */
@@ -611,7 +419,7 @@ export class Raven implements RavenInstance {
    * @param config Server configuration including port.
    */
   async listen(config: ServerConfig): Promise<void> {
-    if (this.server || this.parent?.server) {
+    if (this.server) {
       throw RavenError.ERR_SERVER_ALREADY_RUNNING();
     }
 
@@ -664,7 +472,7 @@ export class Raven implements RavenInstance {
     return currentAppStorage.run(this, () => {
       return requestStorage.run(new Map(), async () => {
         try {
-          const globalOnRequest = this.getAllHooks("onRequest");
+          const globalOnRequest = this.hooks.onRequest;
           for (const hook of globalOnRequest) {
             const result = await hook(request);
             if (result instanceof Response) {
@@ -692,16 +500,16 @@ export class Raven implements RavenInstance {
 
           await this.processStates(request, params, query);
 
-          for (const hook of routeData.pipeline.beforeHandle) {
+          for (const hook of this.hooks.beforeHandle) {
             const result = await hook();
             if (result instanceof Response) {
-              return this.handleResponseHooks(result, routeData.pipeline);
+              return this.handleResponseHooks(result);
             }
           }
 
           const response = await routeData.handler();
 
-          return this.handleResponseHooks(response, routeData.pipeline);
+          return this.handleResponseHooks(response);
         } catch (error) {
           if (!RavenContext.get()) {
             RavenContext.set(new Context(request));
@@ -750,14 +558,9 @@ export class Raven implements RavenInstance {
   /**
    * Runs response modification hooks.
    */
-  private async handleResponseHooks(
-    response: Response,
-    pipeline?: RoutePipeline,
-  ): Promise<Response> {
+  private async handleResponseHooks(response: Response): Promise<Response> {
     let currentResponse = response;
-    const hooks =
-      pipeline?.beforeResponse ?? this.getAllHooks("beforeResponse");
-    for (const hook of hooks) {
+    for (const hook of this.hooks.beforeResponse) {
       const result = await hook(currentResponse);
       if (result instanceof Response) {
         currentResponse = result;
@@ -773,7 +576,7 @@ export class Raven implements RavenInstance {
     error: Error,
     status: number = 500,
   ): Promise<Response> {
-    const onErrorHooks = this.getAllHooks("onError");
+    const onErrorHooks = this.hooks.onError;
     if (onErrorHooks.length > 0) {
       for (const hook of onErrorHooks) {
         const result = await hook(error);

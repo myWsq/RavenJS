@@ -53,56 +53,6 @@ describe("Routing System", () => {
 		expect(await response.text()).toBe("Search: raven");
 	});
 
-	it("should support route groups and prefix stacking", async () => {
-		const raven = new Raven();
-		await raven.group("/api", async (api) => {
-			await api.group("/v1", (v1) => {
-				v1.get("/users", () => new Response("v1 users"));
-			});
-		});
-
-		// @ts-ignore
-		const response = await raven.handleRequest(
-			new Request("http://localhost/api/v1/users"),
-		);
-		expect(await response.text()).toBe("v1 users");
-	});
-
-	it("should handle scoped hooks in groups", async () => {
-		const raven = new Raven();
-		const order: string[] = [];
-
-		raven.onRequest(() => {
-			order.push("global onRequest");
-		});
-
-		await raven.group("/admin", (admin) => {
-			admin.beforeHandle(() => {
-				order.push("admin beforeHandle");
-			});
-			admin.get("/dashboard", () => {
-				order.push("handler");
-				return new Response("admin ok");
-			});
-		});
-
-		raven.get("/public", () => {
-			order.push("public handler");
-			return new Response("public ok");
-		});
-
-		// 1. Admin request
-		// @ts-ignore
-		await raven.handleRequest(new Request("http://localhost/admin/dashboard"));
-		expect(order).toEqual(["global onRequest", "admin beforeHandle", "handler"]);
-
-		// 2. Public request (should NOT trigger admin hook)
-		order.length = 0;
-		// @ts-ignore
-		await raven.handleRequest(new Request("http://localhost/public"));
-		expect(order).toEqual(["global onRequest", "public handler"]);
-	});
-
 	it("should assemble context correctly (onRequest vs beforeHandle)", async () => {
 		const raven = new Raven();
 		let onRequestParams: any = undefined;

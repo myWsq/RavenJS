@@ -66,23 +66,6 @@ describe("Unified State Mount (AppState & RequestState)", () => {
       });
     });
 
-    it("should inherit state from parent Raven instances", async () => {
-      const GlobalConfig = createAppState<string>({ name: "global" });
-      const root = new Raven();
-
-      await currentAppStorage.run(root, async () => {
-        GlobalConfig.set("root-value");
-
-        await root.group("/v1", async (v1: any) => {
-          expect(GlobalConfig.get()).toBe("root-value");
-          GlobalConfig.set("v1-value");
-          expect(GlobalConfig.get()).toBe("v1-value");
-        });
-
-        expect(GlobalConfig.get()).toBe("root-value");
-      });
-    });
-
     it("should support穿透 (AppState accessible in Request context)", async () => {
       const DB = createAppState<string>({ name: "db" });
       const app = new Raven();
