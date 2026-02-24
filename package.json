@@ -17,7 +17,9 @@
     "ajv": "^8.18.0",
     "elysia": "^1.4.25",
     "hono": "^4.12.0",
-    "mitata": "^1.0.34"
+    "mitata": "^1.0.34",
+    "typescript": "^5",
+    "zod": "^4.3.6"
   },
   "scripts": {
     "test": "bun test tests/**/*.test.ts",
@@ -29,11 +31,5 @@
     "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",
     "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts",
     "release": "bun run scripts/release.ts"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "engines": {
-    "bun": ">=1.0"
   }
 }

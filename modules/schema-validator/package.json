@@ -1,0 +1,10 @@
+{
+  "name": "@raven.js/schema-validator",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Plugin for schema-based parameter validation using Standard Schema interface.",
+  "devDependencies": {
+    "@raven.js/core": "workspace:*"
+  }
+}
