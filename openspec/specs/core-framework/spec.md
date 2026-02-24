@@ -26,29 +26,29 @@ RavenJS SHALL be positioned as an Agent teaching tool rather than a traditional 
 
 ### Requirement: 运行时抽象层
 
-Raven 框架 SHALL 提供一个抽象层，用于屏蔽不同运行时（Bun, Node.js）之间的差异。
+Raven 框架 SHALL 仅支持 Bun 运行时。框架不再提供 Node.js 运行时适配，启动时直接使用 Bun 原生 API（如 `Bun.serve`）。
 
-#### Scenario: 成功检测 Bun 环境
+#### Scenario: 在 Bun 下启动
 
 - **WHEN** 框架在 Bun 运行时下启动
-- **THEN** 框架检测到环境为 Bun
-- **AND** 优先使用 Bun 原生 API（如 `Bun.serve`）
+- **THEN** 框架使用 `Bun.serve` 处理 HTTP 请求
+- **AND** 服务器正常响应 HTTP 请求
 
-#### Scenario: 成功检测 Node.js 环境
+#### Scenario: Node.js 环境不再支持
 
-- **WHEN** 框架在 Node.js 运行时下启动
-- **THEN** 框架检测到环境为 Node.js
-- **AND** 使用 Node.js 兼容的实现（如 `node:http`）
+- **WHEN** 用户尝试在 Node.js 运行时下启动框架
+- **THEN** 框架不保证正常工作
+- **AND** 文档 SHALL 声明 ravenjs 为 Bun-only
 
 ### Requirement: Server can be started with configuration
 
-The Raven framework SHALL provide a method to start an HTTP server with configurable port and optional hostname. 框架必须能够在 Bun 和 Node.js 环境下通过统一的 API 启动。
+The Raven framework SHALL provide a method to start an HTTP server with configurable port and optional hostname. 框架必须在 Bun 环境下通过统一的 API 启动。
 
 #### Scenario: Start server with port only
 
 - **WHEN** user calls `app.listen({ port: 3000 })`
 - **THEN** server starts listening on port 3000
-- **AND** server responds to HTTP requests regardless of whether it's running on Bun or Node.js
+- **AND** server responds to HTTP requests when running on Bun
 
 #### Scenario: Start server with port and hostname
 
@@ -59,7 +59,7 @@ The Raven framework SHALL provide a method to start an HTTP server with configur
 #### Scenario: Default hostname when not specified
 
 - **WHEN** user calls `app.listen({ port: 3000 })` without hostname
-- **THEN** server uses default hostname (Bun 下为 '0.0.0.0'，Node.js 下为 'localhost' 或 '0.0.0.0' 取决于实现)
+- **THEN** server uses default hostname ('0.0.0.0' for Bun)
 - **AND** server responds to HTTP requests
 
 ### Requirement: Server handles HTTP requests

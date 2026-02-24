@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { cac } from "cac";
-import { mkdir, rm, readdir, stat } from "node:fs/promises";
+import { mkdir, rm, readdir, stat } from "fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
 import pc from "picocolors";

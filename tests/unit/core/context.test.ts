@@ -1,4 +1,4 @@
-import { describe, test, expect } from "@ravenjs/testing";
+import { describe, test, expect } from "bun:test";
 import { Raven, RavenContext } from "../../../modules/core";
 
 describe("Raven Context Assembly", () => {

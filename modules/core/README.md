@@ -1,11 +1,11 @@
 # OVERVIEW
 
-RavenJS Core is a lightweight, high-performance Web framework reference implementation designed for Bun and Node.js runtimes.
+RavenJS Core is a lightweight, high-performance Web framework reference implementation for Bun.
 
 **Philosophy**: This is reference code, not an npm package to import. Copy it, modify it, learn from it, and use it directly in your project.
 
 **Features**:
-- Unified HTTP server API (auto-detects Bun and Node.js)
+- HTTP server via Bun.serve
 - Radix tree router (path parameters and route groups)
 - Scoped state management (AppState and RequestState)
 - Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
@@ -23,8 +23,7 @@ index.ts
 ├── SECTION: Error Handling            — RavenError class
 ├── SECTION: Context & State Management — Context, AsyncLocalStorage, ScopedState
 ├── SECTION: Router                    — Radix tree router
-├── SECTION: Server Adapters           — Bun / Node.js adapters
-└── SECTION: Core Framework            — Raven main class
+└── SECTION: Core Framework            — Raven main class (listen uses Bun.serve directly)
 ```
 
 **Full request lifecycle**:

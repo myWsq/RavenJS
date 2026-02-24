@@ -3,7 +3,6 @@
 // =============================================================================
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { IncomingMessage, ServerResponse } from "node:http";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -53,26 +52,6 @@ export interface ServerConfig {
   port: number;
   /** Optional hostname to bind to (e.g., '0.0.0.0' or 'localhost'). */
   hostname?: string;
-}
-
-/**
- * Interface for environment-specific server adapters (e.g., Bun, Node.js).
- */
-export interface ServerAdapter {
-  /**
-   * Starts the server.
-   * @param config The server configuration.
-   * @param handler The main request handler function.
-   */
-  listen(
-    config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>,
-  ): void | Promise<void>;
-
-  /**
-   * Stops the server.
-   */
-  stop(): void | Promise<void>;
 }
 
 /**
@@ -503,102 +482,6 @@ export class RadixRouter<T> {
 // SECTION: Server Adapters
 // =============================================================================
 
-/**
- * Server adapter for the Bun runtime.
- */
-export class BunAdapter implements ServerAdapter {
-  private server: any = null;
-
-  listen(
-    config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>,
-  ): void {
-    // @ts-ignore - Bun is globally available in the Bun runtime
-    this.server = Bun.serve({
-      port: config.port,
-      hostname: config.hostname,
-      fetch: handler,
-    });
-  }
-
-  stop(): void {
-    if (this.server) {
-      this.server.stop();
-      this.server = null;
-    }
-  }
-}
-
-/**
- * Server adapter for the Node.js runtime using the built-in HTTP module.
- */
-export class NodeAdapter implements ServerAdapter {
-  private server: any = null;
-
-  async listen(
-    config: ServerConfig,
-    handler: (request: Request) => Response | Promise<Response>,
-  ): Promise<void> {
-    const http = await import("node:http");
-
-    this.server = http.createServer(
-      async (req: IncomingMessage, res: ServerResponse) => {
-        try {
-          const protocol = req.headers["x-forwarded-proto"] || "http";
-          const host = req.headers.host || `localhost:${config.port}`;
-          const url = new URL(req.url || "/", `${protocol}://${host}`);
-
-          let body: any = null;
-          if (req.method !== "GET" && req.method !== "HEAD") {
-            const chunks: Uint8Array[] = [];
-            for await (const chunk of req) {
-              chunks.push(chunk);
-            }
-            // @ts-ignore
-            body = Buffer.concat(chunks);
-          }
-
-          const request = new Request(url.toString(), {
-            method: req.method,
-            headers: req.headers as any,
-            body: body,
-          });
-
-          const response = await handler(request);
-
-          res.statusCode = response.status;
-          response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
-          });
-
-          if (response.body) {
-            const reader = response.body.getReader();
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(value);
-            }
-          }
-          res.end();
-        } catch (error) {
-          console.error("Error handling request:", error);
-          res.statusCode = 500;
-          res.end("Internal Server Error");
-        }
-      },
-    );
-
-    this.server.listen(config.port, config.hostname || "0.0.0.0");
-  }
-
-  stop(): void {
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-    }
-  }
-}
-
 // =============================================================================
 // SECTION: Core Framework
 // =============================================================================
@@ -616,7 +499,7 @@ export function createPlugin(plugin: Plugin): Plugin {
  * Main application class for the Raven framework.
  */
 export class Raven implements RavenInstance {
-  private adapter: ServerAdapter | null = null;
+  private server: ReturnType<typeof Bun.serve> | null = null;
   private router: RadixRouter<RouteData>;
   private prefix: string;
   public readonly parent: Raven | null;
@@ -732,16 +615,14 @@ export class Raven implements RavenInstance {
    * @param config Server configuration including port.
    */
   async listen(config: ServerConfig): Promise<void> {
-    if (this.adapter || this.parent?.adapter) {
+    if (this.server || this.parent?.server) {
       throw RavenError.ERR_SERVER_ALREADY_RUNNING();
     }
 
-    // @ts-ignore
-    const isBun = typeof Bun !== "undefined";
-    this.adapter = isBun ? new BunAdapter() : new NodeAdapter();
-
-    await this.adapter.listen(config, (request) => {
-      return this.handleRequest(request);
+    this.server = Bun.serve({
+      port: config.port,
+      hostname: config.hostname,
+      fetch: (request) => this.handleRequest(request),
     });
   }
 
@@ -749,9 +630,9 @@ export class Raven implements RavenInstance {
    * Stops the running server.
    */
   async stop(): Promise<void> {
-    if (this.adapter) {
-      await this.adapter.stop();
-      this.adapter = null;
+    if (this.server) {
+      this.server.stop();
+      this.server = null;
     }
   }
 

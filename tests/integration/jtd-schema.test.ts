@@ -1,4 +1,4 @@
-import { describe, it, expect } from "@ravenjs/testing";
+import { describe, it, expect } from "bun:test";
 import { J } from "../../modules/jtd-validator";
 
 describe("JTD Schema DSL", () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile, copyFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, writeFile, copyFile } from "fs/promises";
+import { join } from "path";
 
 interface Target {
   os: string;

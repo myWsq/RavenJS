@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "@ravenjs/testing";
+import { afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtemp, rm, readFile, access } from "fs/promises";
 import { tmpdir } from "os";
 import { join, resolve } from "path";

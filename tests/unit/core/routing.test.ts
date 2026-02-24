@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "@ravenjs/testing";
+import { describe, expect, it, mock } from "bun:test";
 import { Raven, RavenContext } from "../../../modules/core";
 
 describe("Routing System", () => {
 	it("should match simple GET route", async () => {
 		const raven = new Raven();
-		const handler = vi.fn(() => new Response("ok"));
+		const handler = mock(() => new Response("ok"));
 		raven.get("/hello", handler);
 
 		// @ts-ignore

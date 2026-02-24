@@ -1,4 +1,4 @@
-import { describe, it, expect } from "@ravenjs/testing";
+import { describe, it, expect } from "bun:test";
 import { Raven, BodyState, QueryState, ParamsState } from "../../modules/core";
 import { J, useBody, useQuery, useParams, useHeaders } from "../../modules/jtd-validator";
 

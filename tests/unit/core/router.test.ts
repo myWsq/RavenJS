@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@ravenjs/testing";
+import { describe, expect, it } from "bun:test";
 import { RadixRouter } from "../../../modules/core";
 
 describe("RadixRouter", () => {

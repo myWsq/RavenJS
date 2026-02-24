@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // @ts-nocheck
-import { mkdir, writeFile, chmod, copyFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, writeFile, chmod, copyFile } from "fs/promises";
+import { join } from "path";
 
 const args = process.argv.slice(2);
 const versionArg = args[0];
@@ -50,59 +50,48 @@ async function main() {
 
   await writeFile(join(packageDir, "package.json"), JSON.stringify(pkg, null, 2));
 
-  const wrapperScript = `#!/usr/bin/env node
-const { spawn } = require('child_process');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
+  const wrapperScript = `#!/usr/bin/env bun
+import { spawn } from "bun";
+import { existsSync } from "fs";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 
-const registryPath = path.resolve(__dirname, 'registry.json');
-if (!fs.existsSync(registryPath)) {
-  console.error('registry.json not found at ' + registryPath);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const registryPath = resolve(__dirname, "registry.json");
+if (!existsSync(registryPath)) {
+  console.error("registry.json not found at " + registryPath);
   process.exit(1);
 }
 
-const knownWindowsPackages = {
-  'win32 x64': '@raven.js/cli-windows-x64'
-};
-
+const knownWindowsPackages = { "win32 x64": "@raven.js/cli-windows-x64" };
 const knownUnixlikePackages = {
-  'linux x64': '@raven.js/cli-linux-x64',
-  'linux arm64': '@raven.js/cli-linux-arm64',
-  'darwin x64': '@raven.js/cli-darwin-x64',
-  'darwin arm64': '@raven.js/cli-darwin-arm64'
+  "linux x64": "@raven.js/cli-linux-x64",
+  "linux arm64": "@raven.js/cli-linux-arm64",
+  "darwin x64": "@raven.js/cli-darwin-x64",
+  "darwin arm64": "@raven.js/cli-darwin-arm64",
 };
 
 function pkgAndSubpathForCurrentPlatform() {
-  let pkg;
-  let subpath;
-  const platformKey = \`\${process.platform} \${os.arch()}\`;
-  
+  const platformKey = \`\${process.platform} \${process.arch}\`;
   if (platformKey in knownWindowsPackages) {
-    pkg = knownWindowsPackages[platformKey];
-    subpath = 'raven.exe';
-  } else if (platformKey in knownUnixlikePackages) {
-    pkg = knownUnixlikePackages[platformKey];
-    subpath = 'raven';
-  } else {
-    throw new Error(\`Unsupported platform: \${platformKey}\`);
+    return { pkg: knownWindowsPackages[platformKey], subpath: "raven.exe" };
   }
-  
-  return { pkg, subpath };
+  if (platformKey in knownUnixlikePackages) {
+    return { pkg: knownUnixlikePackages[platformKey], subpath: "raven" };
+  }
+  throw new Error(\`Unsupported platform: \${platformKey}\`);
 }
 
-function generateBinPath() {
-  const { pkg, subpath } = pkgAndSubpathForCurrentPlatform();
-  return require.resolve(\`\${pkg}/\${subpath}\`);
-}
+const { pkg, subpath } = pkgAndSubpathForCurrentPlatform();
+const resolved = await import.meta.resolve(\`\${pkg}/\${subpath}\`);
+const binaryPath = resolved.startsWith("file:") ? fileURLToPath(resolved) : resolved;
 
-const binaryPath = generateBinPath();
-
-const child = spawn(binaryPath, process.argv.slice(2), {
-  stdio: 'inherit',
-  env: { ...process.env, RAVEN_DEFAULT_REGISTRY_PATH: registryPath, RAVEN_CLI_VERSION: ${JSON.stringify(versionArg)} }
+const proc = spawn([binaryPath, ...process.argv.slice(2)], {
+  stdio: ["inherit", "inherit", "inherit"],
+  env: { ...process.env, RAVEN_DEFAULT_REGISTRY_PATH: registryPath, RAVEN_CLI_VERSION: ${JSON.stringify(versionArg)} },
 });
-child.on('exit', (code) => process.exit(code || 0));
+const exitCode = await proc.exited;
+process.exit(exitCode ?? 0);
 `;
 
   const binPath = join(packageDir, "raven");

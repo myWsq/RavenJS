@@ -1,4 +1,4 @@
-import { describe, test, expect } from "@ravenjs/testing";
+import { describe, test, expect } from "bun:test";
 import { Raven } from "../../../modules/core";
 
 describe("Raven Basic Server", () => {

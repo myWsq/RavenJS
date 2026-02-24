@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "@ravenjs/testing";
+import { describe, expect, it, mock } from "bun:test";
 import { Raven, createPlugin } from "../../../modules/core";
 
 describe("Plugin System", () => {
 	it("should register a simple sync plugin", async () => {
 		const raven = new Raven();
-		const plugin = vi.fn((instance: Raven) => {
+		const plugin = mock((instance: Raven) => {
 			instance.onRequest(() => {});
 		});
 

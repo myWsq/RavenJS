@@ -15,26 +15,12 @@
 
 ### Requirement: Unified Test Primitives
 
-该系统必须导出以下测试原语，以便在测试代码中使用：`describe`, `it`, `test`, `expect`, `beforeEach`, `afterEach`, `beforeAll`, `afterAll`。
+测试代码必须使用 Bun 内置的 `bun:test` 提供的测试原语：`describe`, `it`, `test`, `expect`, `beforeEach`, `afterEach`, `beforeAll`, `afterAll`, `mock`, `spyOn` 等。
 
 #### Scenario: 导入测试原语
 
-- **WHEN** 开发者从 `@ravenjs/testing` 导入 `describe` 和 `it`
-- **THEN** 导出的函数必须在当前运行环境下有效并能正常执行测试任务
-
-### Requirement: Runtime Adaptation
-
-系统必须能够自动检测当前的运行时环境（Bun 或 Node.js/Vitest），并动态切换到底层实现。
-
-#### Scenario: Bun 环境运行
-
-- **WHEN** 测试在 Bun 环境下执行
-- **THEN** 系统必须使用 `bun:test` 提供的实现
-
-#### Scenario: Vitest 环境运行
-
-- **WHEN** 测试在 Node.js 环境下由 Vitest 启动
-- **THEN** 系统必须使用 `vitest` 提供的实现
+- **WHEN** 开发者从 `bun:test` 导入 `describe`、`it`、`expect` 等
+- **THEN** 测试必须在 Bun 环境下正常执行
 
 ### Requirement: Type Safety
 
@@ -97,23 +83,18 @@ Tests SHALL use relative import paths to reference source modules from their new
 - **WHEN** a test file in `tests/unit/core/` imports from `@ravenjs/core`
 - **THEN** it SHALL use relative path `../../../modules/core/main`
 
-#### Scenario: Import from testing package
+#### Scenario: Import from bun:test
 
 - **WHEN** a test file imports test utilities
-- **THEN** it SHALL use relative path to `@ravenjs/testing` package
+- **THEN** it SHALL import from `bun:test` (e.g. `import { describe, it, expect } from "bun:test"`)
 
-### Requirement: Framework compatibility
+### Requirement: Bun Test Runner
 
-The test structure SHALL remain compatible with both Bun's built-in test runner and Vitest.
+The test structure SHALL use Bun's built-in test runner exclusively.
 
 #### Scenario: Run tests with Bun
 
 - **WHEN** developer runs `bun test tests/`
-- **THEN** all test files SHALL execute successfully
-
-#### Scenario: Run tests with Vitest
-
-- **WHEN** developer runs `vitest run tests/`
 - **THEN** all test files SHALL execute successfully
 
 ### Requirement: 可配置的拉取来源覆盖
