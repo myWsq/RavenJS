@@ -1,46 +1,162 @@
-# ravenjs
+# RavenJS
+
+RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**. The framework code is provided as reference for AI Agents to learn from and generate similar code, not as an npm dependency to import. Copy it, modify it, learn from it, and use it directly in your project.
+
+**Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
+
+---
+
+## Philosophy
+
+- **Reference code, not a package**: Framework code lives in your project. AI Agents evolve it as needed.
+- **Skill-first workflow**: Use AI skills to install, configure, learn, and write RavenJS code. The CLI is invoked via skills—not manually.
+- **Bun-only**: Uses Bun native APIs (e.g. `Bun.serve`). Node.js is not supported.
+
+---
 
 ## Installation
 
-### Using npm (Recommended)
+### Recommended: Project-local CLI
 
 ```bash
-npm install -g @raven.js/cli
+bun add -d @raven.js/cli
 ```
 
-## Usage
+Requires **Bun** (`>=1.0`). Invoke the CLI with `bunx raven <command>`.
+
+---
+
+## Quick Start
+
+### 1. Install the CLI
 
 ```bash
-raven --help
+bun add -d @raven.js/cli
 ```
+
+### 2. Initialize the project
+
+```bash
+bunx raven init
+```
+
+This creates `.claude/skills/` with RavenJS AI skills and the raven root (`raven/`, `raven.yaml`). **Core is not installed yet.**
+
+### 3. Complete setup via Agent
+
+Invoke the **raven-setup** skill (e.g. “use raven-setup” or “run raven-setup”). The Agent will:
+
+- Verify Bun and Raven CLI
+- Add the `core` module if missing
+- Learn the core architecture from the guide
+- Diagnose and fix project configuration (tsconfig, dependencies)
+- Run a minimal test to confirm the setup works
+
+---
+
+## AI Skills
+
+Skills are the primary way to work with RavenJS. They live in `.claude/skills/` after `raven init`.
+
+| Skill | When to use |
+|-------|-------------|
+| **raven-setup** | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime. |
+| **raven-add** | Add a new module (e.g. jtd-validator). Use when the project is already initialized. |
+| **raven-learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module. |
+| **raven-use** | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
+
+### Skill workflow
+
+- **raven-use** runs `raven status` first. If the project is not initialized, it tells the user to run `bunx raven init`, then use **raven-setup**.
+- **raven-add** requires an initialized project. If not, it suggests `bunx raven init` then **raven-setup**.
+- **raven-learn** requires the target module to be installed. If not, it suggests **raven-add** first.
+
+Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module names—everything comes from live `bunx raven status` output.
+
+---
+
+## Available Modules
+
+| Module | Description | Docs |
+|--------|-------------|------|
+| `core` | HTTP server, routing, lifecycle hooks, state management, plugin system. | [README](modules/core/README.md) |
+| `jtd-validator` | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
+
+---
+
+## CLI
+
+The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. If you need command details, options, or output format, see [packages/cli/README.md](packages/cli/README.md).
+
+---
 
 ## Updating
 
+TODO: Add update instructions.
+
+### CLI
+
 ```bash
-npm update -g @raven.js/cli
+bun add -d @raven.js/cli@latest
 ```
+
+---
+
+## Development
+
+### Prerequisites
+
+- [Bun](https://bun.sh) `>=1.0`
+
+### Setup
+
+```bash
+bun install
+```
+
+### Run CLI locally
+
+```bash
+bun run packages/cli/index.ts
+```
+
+### Tests
+
+```bash
+bun test
+bun run test:unit
+bun run test:integration
+bun run test:e2e
+```
+
+### Benchmarks
+
+```bash
+bun run benchmark
+bun run benchmark:micro
+bun run benchmark:e2e
+bun run benchmark:compare
+```
+
+### Local registry
+
+Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local `registry.json` instead of GitHub.
+
+---
 
 ## Release
 
-To release a new version:
+Push a version tag to trigger the release workflow. The CLI is built as a Bun-runnable JS bundle and published to npm as `@raven.js/cli`.
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-## Development
+Requires `NPM_TOKEN` in GitHub Secrets.
 
-To install dependencies:
+---
 
-```bash
-bun install
-```
+## License
 
-To run:
-
-```bash
-bun run packages/cli/index.ts
-```
-
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+See repository for license information.
