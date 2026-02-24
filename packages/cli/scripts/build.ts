@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
-import { $ } from "bun";
 
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
