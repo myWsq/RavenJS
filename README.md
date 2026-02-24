@@ -1,40 +1,24 @@
 # RavenJS
 
-RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**. The framework code is provided as reference for AI Agents to learn from and generate similar code, not as an npm dependency to import. Copy it, modify it, learn from it, and use it directly in your project.
+RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**. 
 
 **Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
----
-
 ## Philosophy
 
-- **Reference code, not a package**: Framework code lives in your project. AI Agents evolve it as needed.
-- **Skill-first workflow**: Use AI skills to install, configure, learn, and write RavenJS code. The CLI is invoked via skills—not manually.
+- **Reference code, not a package**: Code lives in your project as reference—AI Agents learn from it and generate similar code. Copy, modify, and use directly; do not import from npm.
+- **Skill-first workflow**: AI skills install, configure, learn, and write RavenJS code. The CLI is invoked via skills—not manually.
 - **Bun-only**: Uses Bun native APIs (e.g. `Bun.serve`). Node.js is not supported.
-
----
-
-## Installation
-
-### Recommended: Project-local CLI
-
-```bash
-bun add -d @raven.js/cli
-```
-
-Requires **Bun** (`>=1.0`). Invoke the CLI with `bunx raven <command>`.
-
----
 
 ## Quick Start
 
-### 1. Install the CLI
+Requires **Bun** (`>=1.0`). Use project-local CLI (recommended):
 
 ```bash
 bun add -d @raven.js/cli
 ```
 
-### 2. Initialize the project
+**1. Initialize the project**
 
 ```bash
 bunx raven init
@@ -42,17 +26,15 @@ bunx raven init
 
 This creates `.claude/skills/` with RavenJS AI skills and the raven root (`raven/`, `raven.yaml`). **Core is not installed yet.**
 
-### 3. Complete setup via Agent
+**2. Complete setup via Agent**
 
-Invoke the **raven-setup** skill (e.g. “use raven-setup” or “run raven-setup”). The Agent will:
+Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run /raven-setup"). The Agent will:
 
 - Verify Bun and Raven CLI
 - Add the `core` module if missing
 - Learn the core architecture from the guide
 - Diagnose and fix project configuration (tsconfig, dependencies)
 - Run a minimal test to confirm the setup works
-
----
 
 ## AI Skills
 
@@ -73,8 +55,6 @@ Skills are the primary way to work with RavenJS. They live in `.claude/skills/` 
 
 Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module names—everything comes from live `bunx raven status` output.
 
----
-
 ## Available Modules
 
 | Module | Description | Docs |
@@ -82,13 +62,9 @@ Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module nam
 | `core` | HTTP server, routing, lifecycle hooks, state management, plugin system. | [README](modules/core/README.md) |
 | `jtd-validator` | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
 
----
-
 ## CLI
 
 The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. If you need command details, options, or output format, see [packages/cli/README.md](packages/cli/README.md).
-
----
 
 ## Updating
 
@@ -99,8 +75,6 @@ TODO: Add update instructions.
 ```bash
 bun add -d @raven.js/cli@latest
 ```
-
----
 
 ## Development
 
@@ -142,8 +116,6 @@ bun run benchmark:compare
 
 Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local `registry.json` instead of GitHub.
 
----
-
 ## Release
 
 Push a version tag to trigger the release workflow. The CLI is built as a Bun-runnable JS bundle and published to npm as `@raven.js/cli`.
@@ -154,8 +126,6 @@ git push origin v1.0.0
 ```
 
 Requires `NPM_TOKEN` in GitHub Secrets.
-
----
 
 ## License
 

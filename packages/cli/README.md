@@ -2,8 +2,6 @@
 
 The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, raven-add, raven-learn, raven-use) invoke it via `bunx raven`. Humans typically run only `bunx raven init`; all other workflows go through skills.
 
----
-
 ## Commands
 
 | Command | Description |
@@ -13,8 +11,6 @@ The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, r
 | `bunx raven status` | Installation status for all modules. Output is JSON for Agent consumption. |
 | `bunx raven guide <module>` | Output README and source for a module. Used by raven-learn. |
 
----
-
 ## Options
 
 | Option | Description |
@@ -23,8 +19,6 @@ The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, r
 | `--source <path>` | Local module source path instead of GitHub. Overridable via `RAVEN_SOURCE`. |
 | `--registry <path>` | Path to registry JSON (default: bundled with CLI). Overridable via `RAVEN_DEFAULT_REGISTRY_PATH`. |
 | `--verbose, -v` | Verbose output. |
-
----
 
 ## Agent-facing output
 
