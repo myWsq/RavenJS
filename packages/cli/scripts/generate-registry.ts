@@ -62,6 +62,7 @@ interface ModuleInfo {
   files: string[];
   dependencies: Record<string, string>;
   dependsOn: string[];
+  description?: string;
 }
 
 interface Registry {
@@ -95,6 +96,7 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
         files: pkg.files,
         dependencies: pkg.dependencies || {},
         dependsOn,
+        description: pkg.description,
       };
     } catch (e) {
       console.warn(`Warning: Could not read package.json for ${entry.name}`);
