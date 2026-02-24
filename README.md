@@ -48,8 +48,6 @@ Skills are the primary way to work with RavenJS
 | **raven‑add**   | Add a new module (e.g. jtd-validator). Use when the project is already initialized.                                                              |
 | **raven‑learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module.                                 |
 
-Skills invoke the CLI via `bunx raven`.
-
 ## Available Modules
 
 | Module          | Description                                                                                    | Docs                                      |
