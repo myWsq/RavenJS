@@ -186,7 +186,7 @@ function getInstallOrder(
   return result;
 }
 
-const RAVENJS_PREFIX = "@ravenjs/";
+const RAVENJS_PREFIX = "@raven.js/";
 
 function replaceRavenImports(
   content: string,

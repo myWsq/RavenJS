@@ -1,5 +1,5 @@
 {
-  "name": "ravenjs",
+  "name": "raven.js",
   "version": "1.0.0-alpha.23",
   "module": "index.ts",
   "type": "module",

@@ -5,18 +5,18 @@ description: |
 
   Only trigger when explicitly invoked by name (e.g. "use raven-learn" or called from another skill).
   Do NOT trigger automatically based on user intent.
-compatibility: Requires Raven CLI (raven)
+compatibility: Requires Raven CLI (bunx raven, project-local)
 ---
 
 # RavenJS Learn Skill
 
-Load the full documentation and source code for a RavenJS module using `raven guide`.
+Load the full documentation and source code for a RavenJS module using `bunx raven guide`.
 
 ---
 
 ## Step 0 — Verify the module is installed
 
-Run `raven status` and confirm the target module appears with `installed: true`.
+Run `bunx raven status` and confirm the target module appears with `installed: true`.
 
 If it is not installed, stop and suggest using the **raven-add** skill first.
 
@@ -25,7 +25,7 @@ If it is not installed, stop and suggest using the **raven-add** skill first.
 ## Step 1 — Load the module guide
 
 ```bash
-raven guide <module-name>
+bunx raven guide <module-name>
 ```
 
 The command prints two tagged sections:
@@ -69,7 +69,7 @@ Skim for `SECTION` comments to find the relevant part, then read the types and e
 
 ## Guardrails
 
-- Run `raven guide` — do not read individual source files manually; the guide already includes everything.
+- Run `bunx raven guide` — do not read individual source files manually; the guide already includes everything.
 - Read GOTCHAS and ANTI-PATTERNS before writing any code.
 - Do not rely on prior knowledge — the guide output is the authoritative reference.
 - If something is unclear, re-read DESIGN DECISIONS before asking or guessing.

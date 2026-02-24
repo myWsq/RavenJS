@@ -243,14 +243,14 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
 		});
 
-		it("should replace @ravenjs/core with relative path in copied files", async () => {
+		it("should replace @raven.js/core with relative path in copied files", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--source", repoRoot], cwd);
 			await runCli(["add", "jtd-validator", "--source", repoRoot], cwd);
 
 			const mainTs = await readFile(join(cwd, "raven", "jtd-validator", "index.ts"), "utf-8");
 			expect(mainTs).toContain('from "../core"');
-			expect(mainTs).not.toContain("@ravenjs/core");
+			expect(mainTs).not.toContain("@raven.js/core");
 		});
 
 		it("should fail when project not initialized", async () => {

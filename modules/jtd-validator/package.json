@@ -1,5 +1,5 @@
 {
-  "name": "@ravenjs/jtd-validator",
+  "name": "@raven.js/jtd-validator",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,6 +9,6 @@
     "ajv": "^8.18.0"
   },
   "devDependencies": {
-    "@ravenjs/core": "workspace:*"
+    "@raven.js/core": "workspace:*"
   }
 }

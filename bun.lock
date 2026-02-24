@@ -18,17 +18,17 @@
       },
     },
     "modules/core": {
-      "name": "@ravenjs/core",
+      "name": "@raven.js/core",
       "version": "0.0.1",
     },
     "modules/jtd-validator": {
-      "name": "@ravenjs/jtd-validator",
+      "name": "@raven.js/jtd-validator",
       "version": "0.0.1",
       "dependencies": {
         "ajv": "^8.18.0",
       },
       "devDependencies": {
-        "@ravenjs/core": "workspace:*",
+        "@raven.js/core": "workspace:*",
       },
     },
     "packages/ai": {
@@ -36,7 +36,7 @@
       "version": "1.0.0",
     },
     "packages/cli": {
-      "name": "cli",
+      "name": "@raven.js/cli",
       "version": "0.0.1",
       "dependencies": {
         "@clack/prompts": "^1.0.1",
@@ -72,11 +72,13 @@
 
     "@clack/prompts": ["@clack/prompts@1.0.1", "", { "dependencies": { "@clack/core": "1.0.1", "picocolors": "^1.0.0", "sisteransi": "^1.0.5" } }, "sha512-/42G73JkuYdyWZ6m8d/CJtBrGl1Hegyc7Fy78m5Ob+jF85TOUmLR5XLce/U3LxYAw0kJ8CT5aI99RIvPHcGp/Q=="],
 
+    "@raven.js/cli": ["@raven.js/cli@workspace:packages/cli"],
+
+    "@raven.js/core": ["@raven.js/core@workspace:modules/core"],
+
+    "@raven.js/jtd-validator": ["@raven.js/jtd-validator@workspace:modules/jtd-validator"],
+
     "@ravenjs/ai": ["@ravenjs/ai@workspace:packages/ai"],
-
-    "@ravenjs/core": ["@ravenjs/core@workspace:modules/core"],
-
-    "@ravenjs/jtd-validator": ["@ravenjs/jtd-validator@workspace:modules/jtd-validator"],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.48", "", {}, "sha512-kKJTNuK3AQOrgjjotVxMrCn1sUJwM76wMszfq1kdU4uYVJjvEWuFQ6HgvLt4Xz3fSmZlTOxJ/Ie13KnIcWQXFA=="],
 
@@ -93,8 +95,6 @@
     "bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "cac": ["cac@6.7.14", "", {}, "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="],
-
-    "cli": ["cli@workspace:packages/cli"],
 
     "cookie": ["cookie@1.1.1", "", {}, "sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ=="],
 

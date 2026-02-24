@@ -12,7 +12,7 @@ description: |
   - Use any RavenJS module or API
 
   This skill does NOT handle installation, upgrades, or project setup — those are separate tasks.
-compatibility: Requires Raven CLI (raven)
+compatibility: Requires Raven CLI (bunx raven, project-local)
 ---
 
 # RavenJS Use Skill
@@ -25,22 +25,22 @@ A workflow for writing correct RavenJS code: check project state, identify neede
 
 Run:
 ```bash
-raven status
+bunx raven status
 ```
 
 Handle the result:
 
 - **Command not found** → **stop** and tell the user:
-  > Raven CLI is required to use this skill. Please install it first.
+  > Raven CLI is required. Install it in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
 - **`ravenDir` missing or `initialized: false`** → **stop** and tell the user:
-  > This project has not been initialized. Run `raven init` to get started.
+  > This project has not been initialized. Run `bunx raven init` to get started.
 - **Otherwise** → continue with the `modules` data from this response.
 
 ---
 
 ## Step 1 — Identify required modules
 
-From the `raven status` output, read the `modules` array. Each entry contains:
+From the `bunx raven status` output, read the `modules` array. Each entry contains:
 - `name` — module identifier
 - `description` — what the module does
 - `installed` — whether it is present in the project
@@ -60,7 +60,7 @@ Select all modules that are relevant. Note which ones are already installed and 
 
 If any required module is not installed, use the **AskUserQuestion tool** to ask the user whether to add it. If the user confirms, follow the **raven-add** skill.
 
-After adding, re-run `raven status` to confirm the module appears as installed before continuing.
+After adding, re-run `bunx raven status` to confirm the module appears as installed before continuing.
 
 ---
 
@@ -80,8 +80,8 @@ Apply the patterns from the guide output. The guide is the single source of trut
 
 ## Guardrails
 
-- Run `raven status` at the start of **every invocation** — never assume project state from a previous run.
-- Do not hardcode module names or capabilities — always derive them from the live `raven status` output.
+- Run `bunx raven status` at the start of **every invocation** — never assume project state from a previous run.
+- Do not hardcode module names or capabilities — always derive them from the live `bunx raven status` output.
 - Do not inline the add/guide instructions here — reference the docs above.
 - Do not suggest npm packages for functionality that a Raven module already covers.
 - Do not write code until Step 3 (learn the module) is complete for all required modules.
