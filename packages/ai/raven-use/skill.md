@@ -1,18 +1,7 @@
 ---
 name: raven-use
-description: |
-  Use when writing code with the RavenJS framework.
-
-  Trigger automatically when the user wants to:
-  - Create an HTTP server or REST API
-  - Define routes or request handlers
-  - Add middleware, lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
-  - Validate request data (body, query params, path params, headers)
-  - Manage application or request-scoped state
-  - Use any RavenJS module or API
-
-  This skill does NOT handle installation, upgrades, or project setup — those are separate tasks.
-compatibility: Requires Raven CLI (project-local: bunx raven)
+description: Workflow for writing correct RavenJS code — verify state, identify modules, learn APIs, then implement. Use when creating servers, routes, hooks, validation, or using Raven modules.
+compatibility: Requires Raven CLI
 ---
 
 # RavenJS Use Skill
@@ -68,7 +57,7 @@ After adding, re-run `bunx raven status` to confirm the module appears as instal
 
 For each module you will use, follow the **raven-learn** skill to load and study the guide output before writing any code.
 
-Read the full README section (architecture, core concepts, design decisions, gotchas, anti-patterns) and the source code. This is the authoritative reference — do not rely on prior knowledge.
+Read the full guide output and the files it references (README, source). This is the authoritative reference — do not rely on prior knowledge.
 
 ---
 

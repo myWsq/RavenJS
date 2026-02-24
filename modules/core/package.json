@@ -3,11 +3,5 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles.",
-  "files": [
-    "index.ts",
-    "router.ts",
-    "standard-schema.ts",
-    "README.md"
-  ]
+  "description": "RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles."
 }

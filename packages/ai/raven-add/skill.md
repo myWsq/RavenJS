@@ -1,10 +1,6 @@
 ---
 name: raven-add
-description: |
-  Install a new module into an initialized RavenJS project.
-
-  Only trigger when explicitly invoked by name (e.g. "use raven-add" or called from another skill).
-  Do NOT trigger automatically based on user intent.
+description: Install a new module into an initialized RavenJS project.Only trigger when explicitly invoked by name (e.g. "use raven-add" or called from another skill).
 compatibility: Requires Raven CLI
 ---
 
@@ -43,6 +39,7 @@ bunx raven add <module-name>
 `bunx raven add` resolves dependencies automatically — for example, adding `jtd-validator` will install `core` first if not already present.
 
 On success, the command returns JSON with:
+
 - `modifiedFiles` — every file created or updated
 - `dependencies` — npm packages the module requires
 

@@ -266,7 +266,7 @@ describe("CLI E2E", () => {
 
 
 	describe("Guide Command", () => {
-		it("should output readme and code for installed module", async () => {
+		it("should output GUIDE.md content for installed module", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--source", repoRoot], cwd);
 			await runCli(["add", "core", "--source", repoRoot], cwd);
@@ -274,10 +274,8 @@ describe("CLI E2E", () => {
 			const result = await runCli(["guide", "core"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("<readme>");
-			expect(result.stdout).toContain("</readme>");
-			expect(result.stdout).toContain("<code>");
-			expect(result.stdout).toContain("</code>");
+			expect(result.stdout).toContain("RavenJS Core");
+			expect(result.stdout).toContain("Key Concepts");
 		});
 
 		it("should fail when module not found", async () => {
@@ -360,8 +358,8 @@ describe("CLI E2E", () => {
 
 			const guideResult = await runCli(["guide", "core"], cwd);
 			expect(guideResult.exitCode).toBe(0);
-			expect(guideResult.stdout).toContain("<readme>");
-			expect(guideResult.stdout).toContain("index.ts");
+			expect(guideResult.stdout).toContain("RavenJS Core");
+			expect(guideResult.stdout).toContain("Key Concepts");
 		});
 	});
 

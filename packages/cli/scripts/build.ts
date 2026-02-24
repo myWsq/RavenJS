@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { join, dirname } from "path";
+import { join, dirname, relative } from "path";
 
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
@@ -11,6 +11,9 @@ const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
 const REGISTRY_IN_CLI = join(CLI_DIR, "registry.json");
 
 const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
+
+/** Module files excluded from registry (paths relative to module dir) */
+const EXCLUDED_MODULE_FILES = new Set(["package.json"]);
 
 function extractDependsOn(pkg: {
   dependencies?: Record<string, string>;
@@ -80,6 +83,21 @@ interface Registry {
   ai: { claude: Record<string, string> };
 }
 
+async function getGitTrackedFiles(moduleDir: string): Promise<string[]> {
+  const { $ } = await import("bun");
+  const relPath = relative(ROOT_DIR, moduleDir);
+  const proc = $`git ls-files ${relPath}`.cwd(ROOT_DIR);
+  const output = await proc.text();
+  const prefix = relPath + "/";
+  return output
+    .trim()
+    .split("\n")
+    .filter((f) => f)
+    .map((f) => (f.startsWith(prefix) ? f.slice(prefix.length) : f))
+    .filter((f) => f && !EXCLUDED_MODULE_FILES.has(f))
+    .sort();
+}
+
 async function scanModules(): Promise<Record<string, ModuleInfo>> {
   const modules: Record<string, ModuleInfo> = {};
   const entries = await readdir(MODULES_DIR, { withFileTypes: true });
@@ -94,14 +112,22 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
       const content = await readFile(packageJsonPath, "utf-8");
       const pkg = JSON.parse(content);
 
-      if (!pkg.files) {
-        console.warn(`Warning: ${entry.name} has no files field, skipping`);
+      const files = await getGitTrackedFiles(moduleDir);
+      if (files.length === 0) {
+        console.warn(`Warning: ${entry.name} has no git-tracked files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`);
         continue;
+      }
+
+      const guidePath = join(moduleDir, "GUIDE.md");
+      const guideExists = await Bun.file(guidePath).exists();
+      if (!guideExists) {
+        console.error(`Error: Module '${entry.name}' is missing GUIDE.md. Each registry module must provide GUIDE.md.`);
+        process.exit(1);
       }
 
       const dependsOn = extractDependsOn(pkg);
       modules[entry.name] = {
-        files: pkg.files,
+        files,
         dependencies: pkg.dependencies || {},
         dependsOn,
         description: pkg.description,

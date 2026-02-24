@@ -1,10 +1,7 @@
 ---
 name: raven-learn
-description: |
-  Load and study a RavenJS module's API, architecture, and design decisions.
-
-  Only trigger when explicitly invoked by name (e.g. "use raven-learn" or called from another skill).
-  Do NOT trigger automatically based on user intent.
+description: Load and study a RavenJS module's API, architecture, and design decisions.Only trigger when explicitly invoked by name (e.g. "use raven-learn" or called from another skill).
+  
 compatibility: Requires Raven CLI
 ---
 
@@ -28,48 +25,29 @@ If it is not installed, stop and suggest using the **raven-add** skill first.
 bunx raven guide <module-name>
 ```
 
-The command prints two tagged sections:
+The command outputs the module's GUIDE.md — a markdown document that tells you how to learn the module. It typically includes:
 
-```
-<readme>
-Full content of the module's README.md
-</readme>
-
-<code>
-File: path/to/file.ts
-\`\`\`
-// Full source code
-\`\`\`
-</code>
-```
+- **What to Read** — files to read and the order (e.g. README.md, index.ts)
+- **Key Concepts** — main types, classes, and APIs
+- **GOTCHAS** — common mistakes to avoid
+- **USAGE EXAMPLES** — copy-paste starting points
 
 ---
 
-## Step 2 — Read the README
+## Step 2 — Follow the guide structure
 
-The README is the primary reference. Read these sections in order:
-
-| Section | What to look for |
-|---|---|
-| **OVERVIEW** | What the module does; the philosophy behind it |
-| **ARCHITECTURE** | File layout and request lifecycle diagram |
-| **CORE CONCEPTS** | The key types, classes, and functions |
-| **DESIGN DECISIONS** | *Why* things work the way they do — read before writing code |
-| **GOTCHAS** | Common mistakes to avoid — read every item |
-| **ANTI-PATTERNS** | What not to do |
-| **USAGE EXAMPLES** | Copy-paste starting points |
+Read the guide output and follow its sections in order. If it says "Read README.md first", read that file. If it lists Key Concepts or GOTCHAS, study them before writing code.
 
 ---
 
-## Step 3 — Read the source code
+## Step 3 — Read the referenced files
 
-Skim for `SECTION` comments to find the relevant part, then read the types and exports. Cross-reference with the README's ARCHITECTURE section.
+The guide points you to the files that matter. Read those files (README, source) as directed. Skim for `SECTION` comments in source to find relevant parts.
 
 ---
 
 ## Guardrails
 
-- Run `bunx raven guide` — do not read individual source files manually; the guide already includes everything.
-- Read GOTCHAS and ANTI-PATTERNS before writing any code.
-- Do not rely on prior knowledge — the guide output is the authoritative reference.
-- If something is unclear, re-read DESIGN DECISIONS before asking or guessing.
+- Run `bunx raven guide` — the guide output is the authoritative learning path for the module.
+- Do not rely on prior knowledge — follow the guide structure.
+- If something is unclear, re-read the guide and referenced files before asking or guessing.

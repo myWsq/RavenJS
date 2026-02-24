@@ -15,7 +15,7 @@ bun add -d @raven.js/cli
 | `bunx raven init` | Initialize AI skills and raven root. Run once before using raven-setup. |
 | `bunx raven add <module>` | Add a module. Installs dependencies (`dependsOn`) in topological order, copies files, and rewrites `@ravenjs/*` imports to relative paths. |
 | `bunx raven status` | Installation status for all modules. Output is JSON for Agent consumption. |
-| `bunx raven guide <module>` | Output README and source for a module. Used by raven-learn. |
+| `bunx raven guide <module>` | Output module GUIDE.md. Used by raven-learn. |
 
 ## Options
 

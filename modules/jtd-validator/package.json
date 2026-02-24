@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "description": "JTD (JSON Type Definition) data validator. Used for validating request parameters, bodies, and other user input to ensure data conforms to the expected format.",
-  "files": ["index.ts", "README.md"],
   "dependencies": {
     "ajv": "^8.18.0"
   },

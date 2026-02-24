@@ -1,10 +1,6 @@
 ---
 name: raven-setup
-description: |
-  Configure a RavenJS project so the core module runs correctly in the user's environment.
-
-  Only trigger when explicitly invoked by name (e.g. "use raven-setup" or called from another skill).
-  Do NOT trigger automatically based on user intent.
+description: Configure a RavenJS project so the core module runs correctly in the user's environment.Only trigger when explicitly invoked by name (e.g. "use raven-setup" or called from another skill).
 compatibility: Requires Raven CLI
 ---
 
@@ -48,7 +44,7 @@ From the `bunx raven status` output, check whether `core` appears in `modules` w
 
 Follow the **raven-learn** skill for the `core` module.
 
-Read the full guide output (README + source). Pay attention to:
+Read the full guide output (GUIDE.md). The guide tells you what to read; follow it. Pay attention to:
 
 - **USAGE EXAMPLES** — you will base the minimal test on these.
 - **GOTCHAS / ANTI-PATTERNS** — avoid common mistakes in the test file.
@@ -104,8 +100,8 @@ If the project has a linter or formatter configured (ESLint, Biome, Prettier, et
 
 Create a temporary file at the project root named `_raven_setup_test.ts`.
 
-Use the USAGE EXAMPLES from the `bunx raven guide core` output as the basis. The file must:
-- Import only from the `core` module paths shown in the guide.
+Use the USAGE EXAMPLES or Minimal Example from the `bunx raven guide core` output as the basis. The file must:
+- Import only from the `core` module paths shown in the guide (or from the installed raven path, e.g. `./raven/core`).
 - Define a minimal server (one route is enough).
 - **Not** call `.listen()` or start a long-running process — just confirm the app object constructs without throwing.
 - Exit with code 0 on success, non-zero on failure.

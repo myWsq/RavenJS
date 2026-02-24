@@ -55,10 +55,16 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function loadRegistry(options?: { registry?: string }): Promise<Registry> {
+async function loadRegistry(options?: {
+  registry?: string;
+}): Promise<Registry> {
   const candidates: string[] = [];
   if (options?.registry) {
-    candidates.push(isAbsolute(options.registry) ? options.registry : resolve(cwd(), options.registry));
+    candidates.push(
+      isAbsolute(options.registry)
+        ? options.registry
+        : resolve(cwd(), options.registry),
+    );
   }
   if (process.env.RAVEN_DEFAULT_REGISTRY_PATH) {
     const p = process.env.RAVEN_DEFAULT_REGISTRY_PATH;
@@ -144,7 +150,9 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function ensureRavenInstalled(options: CLIOptions): Promise<{ ravenDir: string; version: string }> {
+async function ensureRavenInstalled(
+  options: CLIOptions,
+): Promise<{ ravenDir: string; version: string }> {
   const targetDir = cwd();
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
@@ -227,8 +235,14 @@ function replaceRavenImports(
     const pkg = `${RAVENJS_PREFIX}${modName}`;
     const rel = prefix + modName;
 
-    const dq = new RegExp(`from\\s+"${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`, "g");
-    const sq = new RegExp(`from\\s+'${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`, "g");
+    const dq = new RegExp(
+      `from\\s+"${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
+      "g",
+    );
+    const sq = new RegExp(
+      `from\\s+'${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`,
+      "g",
+    );
     out = out.replace(dq, `from "${rel}"`).replace(sq, `from '${rel}'`);
   }
   return out;
@@ -308,7 +322,8 @@ async function downloadModule(
     } else {
       const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to download ${url}: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Failed to download ${url}: ${response.status}`);
       content = await response.text();
     }
 
@@ -388,7 +403,12 @@ async function cmdInit(options: CLIOptions) {
 
     const dotClaudeDir = join(targetDir, ".claude");
     await ensureDir(dotClaudeDir);
-    const aiFiles = await downloadAiResources(registry, version, targetDir, options);
+    const aiFiles = await downloadAiResources(
+      registry,
+      version,
+      targetDir,
+      options,
+    );
     modifiedFiles.push(...aiFiles);
   };
 
@@ -423,7 +443,10 @@ async function createRavenYaml(destDir: string, version: string) {
   await writeFile(join(destDir, "raven.yaml"), content);
 }
 
-async function getInstalledModules(ravenDir: string, registry: Registry): Promise<Set<string>> {
+async function getInstalledModules(
+  ravenDir: string,
+  registry: Registry,
+): Promise<Set<string>> {
   const installed = new Set<string>();
   for (const name of getModuleNames(registry)) {
     const modDir = join(ravenDir, name);
@@ -437,7 +460,9 @@ async function getInstalledModules(ravenDir: string, registry: Registry): Promis
 async function cmdAdd(moduleName: string, options: CLIOptions) {
   const registry = await loadRegistry(options);
   if (!moduleName) {
-    error(`Please specify a module to add. Available: ${getModuleNames(registry).join(", ")}`);
+    error(
+      `Please specify a module to add. Available: ${getModuleNames(registry).join(", ")}`,
+    );
   }
 
   const available = getModuleNames(registry);
@@ -455,7 +480,13 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     const modifiedFiles: string[] = [];
     const allDependencies: Record<string, string> = {};
     for (const name of order) {
-      const files = await downloadModule(registry, name, version, ravenDir, options);
+      const files = await downloadModule(
+        registry,
+        name,
+        version,
+        ravenDir,
+        options,
+      );
       modifiedFiles.push(...files);
       const mod = registry.modules[name];
       if (mod?.dependencies) {
@@ -463,7 +494,14 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
       }
     }
 
-    console.log(JSON.stringify({ success: true, moduleName, modifiedFiles, dependencies: allDependencies }));
+    console.log(
+      JSON.stringify({
+        success: true,
+        moduleName,
+        modifiedFiles,
+        dependencies: allDependencies,
+      }),
+    );
   } catch (e: any) {
     error(e.message);
   }
@@ -471,14 +509,14 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
 
 // === SECTION: Status ===
 
-interface ModuleStatus {
+interface ModuleInfo {
   name: string;
   installed: boolean;
   description?: string;
 }
 
 interface StatusResult {
-  modules: ModuleStatus[];
+  modules: ModuleInfo[];
   version?: string;
   latestVersion?: string;
   modifiedFiles?: string[];
@@ -490,7 +528,10 @@ async function computeFileHash(filePath: string): Promise<string> {
   return createHash("sha256").update(content).digest("hex");
 }
 
-async function getStatus(registry: Registry, options: CLIOptions): Promise<StatusResult> {
+async function getStatus(
+  registry: Registry,
+  options: CLIOptions,
+): Promise<StatusResult> {
   const targetDir = cwd();
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
@@ -500,7 +541,7 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
   const fileHashes: Record<string, string> = {};
 
   const knownModules = getModuleNames(registry).sort();
-  const moduleStatus: ModuleStatus[] = [];
+  const moduleStatus: ModuleInfo[] = [];
 
   if (await pathExists(ravenDir)) {
     const yamlPath = join(ravenDir, "raven.yaml");
@@ -519,8 +560,8 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
       const installed =
         (await pathExists(modDir)) && !(await isDirEmpty(modDir));
       const mod = registry.modules[name];
-      moduleStatus.push({ 
-        name, 
+      moduleStatus.push({
+        name,
         installed,
         description: mod?.description,
       });
@@ -560,7 +601,11 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
   if (moduleStatus.length === 0) {
     for (const name of knownModules) {
       const mod = registry.modules[name];
-      moduleStatus.push({ name, installed: false, description: mod?.description });
+      moduleStatus.push({
+        name,
+        installed: false,
+        description: mod?.description,
+      });
     }
   }
 
@@ -603,50 +648,20 @@ async function cmdGuide(moduleName: string, options: CLIOptions) {
     );
   }
 
-  const output: string[] = [];
-
-  const readmePath = join(moduleDir, "README.md");
-  if (await pathExists(readmePath)) {
-    const readmeContent = await readFile(readmePath, "utf-8");
-    output.push("<readme>");
-    output.push(readmeContent);
-    output.push("</readme>");
-    output.push("");
+  const guidePath = join(moduleDir, "GUIDE.md");
+  if (!(await pathExists(guidePath))) {
+    error(`Module '${moduleName}' has no GUIDE.md. Cannot show guide.`);
   }
 
-  async function collectCodeFiles(dir: string, baseDir: string) {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await collectCodeFiles(fullPath, baseDir);
-      } else if (entry.isFile()) {
-        const relPath = fullPath.slice(baseDir.length + 1);
-        const content = await readFile(fullPath, "utf-8");
-        output.push(`<code>`);
-        output.push(`File: ${relPath}`);
-        output.push(`\`\`\``);
-        output.push(content);
-        output.push("```");
-        output.push("</code>");
-        output.push("");
-      }
-    }
-  }
-
-  await collectCodeFiles(moduleDir, moduleDir);
-
-  console.log(output.join("\n"));
+  const guideContent = await readFile(guidePath, "utf-8");
+  console.log(guideContent);
 }
 
 const cli = cac("raven");
 cli.version(loadCliVersion()).help();
 
 cli
-  .option(
-    "--registry <path>",
-    "Registry json path (default: same dir as CLI)",
-  )
+  .option("--registry <path>", "Registry json path (default: same dir as CLI)")
   .option("--root <dir>", "RavenJS root directory (default: raven)")
   .option("--source <path>", "Local module source path (default: github)")
   .option("--verbose, -v", "Verbose output");
@@ -659,14 +674,15 @@ cli
   .command("add <module>", "Add a module (e.g., jtd-validator)")
   .action((module, options) => cmdAdd(module, options as CLIOptions));
 
-
 cli
   .command("status", "Show RavenJS installation status (core, modules)")
   .action((options) => cmdStatus(options as StatusCLIOptions));
 
-
 cli
-  .command("guide <module>", "Get guide for a specific module (outputs README and source code)")
+  .command(
+    "guide <module>",
+    "Get guide for a specific module (outputs module GUIDE.md)",
+  )
   .action((moduleName, options) => cmdGuide(moduleName, options as CLIOptions));
 
 cli.parse();
