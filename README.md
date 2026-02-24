@@ -36,6 +36,10 @@ Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run raven-setup"). The
 - Diagnose and fix project configuration (tsconfig, dependencies)
 - Run a minimal test to confirm the setup works
 
+**3. Write code via Agent**
+
+Invoke the **raven-use** skill when you want to build with RavenJS—e.g. "create an HTTP server with a /hello route" or "add JTD validation for the login endpoint". The Agent will generate and integrate RavenJS code into your project.
+
 ## AI Agent Skills
 
 Skills are the primary way to work with RavenJS. They live in `.claude/skills/` after `raven init`.
@@ -52,6 +56,8 @@ Skills are the primary way to work with RavenJS. They live in `.claude/skills/` 
 - **raven-use** runs `raven status` first. If the project is not initialized, it tells the user to run `bunx raven init`, then use **raven-setup**.
 - **raven-add** requires an initialized project. If not, it suggests `bunx raven init` then **raven-setup**.
 - **raven-learn** requires the target module to be installed. If not, it suggests **raven-add** first.
+
+> **Tip**: If a skill does not trigger automatically, invoke it explicitly—e.g. `/raven-use create an HTTP server with a /hello route`.
 
 Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module names—everything comes from live `bunx raven status` output.
 
