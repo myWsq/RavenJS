@@ -71,4 +71,3 @@ Follow the **raven-learn** skill to study the module before writing any code.
 - Only add modules listed in the `modules` array from `bunx raven status` — do not invent module names.
 - Do not skip Step 4 — missing npm dependencies will cause runtime errors.
 - Do not write code until Step 5 (learn) is complete.
-- Parse all paths and module lists from CLI JSON output; do not hardcode them.

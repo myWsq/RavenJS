@@ -42,14 +42,7 @@ From the `bunx raven status` output, check whether `core` appears in `modules` w
 
 ## Step 2 — Learn the `core` module
 
-Follow the **raven-learn** skill for the `core` module.
-
-Read the full guide output (GUIDE.md). The guide tells you what to read; follow it. Pay attention to:
-
-- **USAGE EXAMPLES** — you will base the minimal test on these.
-- **GOTCHAS / ANTI-PATTERNS** — avoid common mistakes in the test file.
-
-Do not skip this step — the guide is the authoritative reference for what a valid minimal example looks like.
+Follow the **raven-learn** skill for the `core` module. Do not skip this step — the guide is the authoritative reference for what a valid minimal example looks like.
 
 ---
 

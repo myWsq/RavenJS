@@ -1,53 +1,44 @@
 ---
 name: raven-learn
 description: Load and study a RavenJS module's API, architecture, and design decisions.Only trigger when explicitly invoked by name (e.g. "use raven-learn" or called from another skill).
-  
+
 compatibility: Requires Raven CLI
 ---
 
 # RavenJS Learn Skill
 
-Load the full documentation and source code for a RavenJS module using `bunx raven guide`.
+Load the full documentation and source code for a RavenJS module by reading its GUIDE.md and referenced files directly.
 
 ---
 
-## Step 0 — Verify the module is installed
+## Step 0 — Get module info from status
 
-Run `bunx raven status` and confirm the target module appears with `installed: true`.
+Run `bunx raven status` and parse the JSON output. Find the target module in `status.modules` where `installed: true`.
 
-If it is not installed, stop and suggest using the **raven-add** skill first.
-
----
-
-## Step 1 — Load the module guide
-
-```bash
-bunx raven guide <module-name>
-```
-
-The command outputs the module's GUIDE.md — a markdown document that tells you how to learn the module. It typically includes:
-
-- **What to Read** — files to read and the order (e.g. README.md, index.ts)
-- **Key Concepts** — main types, classes, and APIs
-- **GOTCHAS** — common mistakes to avoid
-- **USAGE EXAMPLES** — copy-paste starting points
+- If the module is not installed, stop and suggest using the **raven-add** skill first.
+- If installed, use the module's `installDir` field as the module directory path (absolute path).
 
 ---
 
-## Step 2 — Follow the guide structure
+## Step 1 — Read the module's GUIDE.md
 
-Read the guide output and follow its sections in order. If it says "Read README.md first", read that file. If it lists Key Concepts or GOTCHAS, study them before writing code.
+Read the module's GUIDE.md from the directory obtained in Step 0:
+
+**Path**: `{installDir}/GUIDE.md` (where `installDir` comes from the status output's `modules[].installDir`)
+
+GUIDE.md is a markdown document that tells you how to learn the module.
+
 
 ---
 
-## Step 3 — Read the referenced files
+## Read the referenced files
 
-The guide points you to the files that matter. Read those files (README, source) as directed. Skim for `SECTION` comments in source to find relevant parts.
+The guide points you to the files that matter. It often references other docs or files (e.g. README.md, source files). If the guide uses relative paths, resolve them from `installDir` first — look for the file under the module directory before searching elsewhere. 
 
 ---
 
 ## Guardrails
 
-- Run `bunx raven guide` — the guide output is the authoritative learning path for the module.
+- GUIDE.md is the authoritative learning path for the module — read it directly from the installed module directory.
 - Do not rely on prior knowledge — follow the guide structure.
 - If something is unclear, re-read the guide and referenced files before asking or guessing.
