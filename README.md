@@ -1,6 +1,12 @@
+<div align="center">
+
 # RavenJS
 
+![RavenJS Logo](./docs/logo.webp)
+
 RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**.
+
+</div>
 
 **Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
