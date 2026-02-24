@@ -1,6 +1,6 @@
 # RavenJS
 
-RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**. 
+RavenJS is an **Agent teaching tool**—a lightweight, high-performance web framework reference implementation for **Bun**.
 
 **Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
 
@@ -28,7 +28,7 @@ This creates `.claude/skills/` with RavenJS AI skills and the raven root (`raven
 
 **2. Complete setup via Agent**
 
-Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run /raven-setup"). The Agent will:
+Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run raven-setup"). The Agent will:
 
 - Verify Bun and Raven CLI
 - Add the `core` module if missing
@@ -36,16 +36,16 @@ Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run /raven-setup"). Th
 - Diagnose and fix project configuration (tsconfig, dependencies)
 - Run a minimal test to confirm the setup works
 
-## AI Skills
+## AI Agent Skills
 
 Skills are the primary way to work with RavenJS. They live in `.claude/skills/` after `raven init`.
 
 | Skill | When to use |
-|-------|-------------|
-| **raven-setup** | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime. |
-| **raven-add** | Add a new module (e.g. jtd-validator). Use when the project is already initialized. |
-| **raven-learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module. |
-| **raven-use** | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
+| :---- | ----------- |
+| <span style="white-space: nowrap">**raven-setup**</span> | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime. |
+| <span style="white-space: nowrap">**raven-add**</span> | Add a new module (e.g. jtd-validator). Use when the project is already initialized. |
+| <span style="white-space: nowrap">**raven-learn**</span> | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module. |
+| <span style="white-space: nowrap">**raven-use**</span> | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
 
 ### Skill workflow
 
@@ -58,9 +58,9 @@ Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module nam
 ## Available Modules
 
 | Module | Description | Docs |
-|--------|-------------|------|
-| `core` | HTTP server, routing, lifecycle hooks, state management, plugin system. | [README](modules/core/README.md) |
-| `jtd-validator` | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
+| :----- | ----------- | ---- |
+| <span style="white-space: nowrap">`core`</span> | HTTP server, routing, lifecycle hooks, state management, plugin system. | [README](modules/core/README.md) |
+| <span style="white-space: nowrap">`jtd-validator`</span> | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
 
 ## CLI
 
