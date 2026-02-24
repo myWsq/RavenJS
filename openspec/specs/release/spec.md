@@ -4,113 +4,75 @@
 > - `binary-release-workflow`
 > - `cross-platform-install-scripts`
 > - `cli-prebuild-release-trigger`
+>
+> **Update (cli-bun-release)**: Replaced cross-platform binary builds with single Bun bundle; single job workflow.
 
 ## Purpose
 
-定义 RavenJS 发布相关的所有规范，包括二进制构建、跨平台安装脚本、发布工作流等。
+定义 RavenJS 发布相关的所有规范，包括 CLI 构建、发布工作流等。CLI 使用 Bun 打包为单文件 JS，单一包发布到 npm。
 
 ## Requirements
 
 ### Requirement: Release tag triggers workflow
 
-GitHub Actions SHALL run release workflow when a tag matching @raven.js/cli@v<x.x.x> is pushed.
+GitHub Actions SHALL run release workflow when a tag matching v* (e.g., v1.2.3) is pushed.
 
 #### Scenario: Tag push triggers release
-- **WHEN** a tag @raven.js/cli@v1.2.3 is pushed to repository
+- **WHEN** a tag v1.2.3 is pushed to repository
 - **THEN** release workflow starts
 
 #### Scenario: Non-version tag does not trigger release
-- **WHEN** a tag not matching @raven.js/cli@v<x.x.x> is pushed
+- **WHEN** a tag not matching v*.*.* pattern is pushed
 - **THEN** release workflow does not start
 
-### Requirement: Prebuild version sourced from tag
+### Requirement: Build version sourced from tag
 
-The CLI prebuild step SHALL use release tag version as its build version.
+The CLI build step SHALL use release tag version as its build version.
 
-#### Scenario: Prebuild receives version from tag
-
+#### Scenario: Build receives version from tag
 - **WHEN** release workflow is triggered by tag v1.2.3
-- **THEN** CLI prebuild version is set to 1.2.3
+- **THEN** CLI build version is set to 1.2.3
 
 #### Scenario: Version propagation is consistent
+- **WHEN** workflow computes release version from tag
+- **THEN** same version value SHALL be passed to build and publish steps
 
-- **WHEN** workflow computes release version
-- **THEN** same version value is passed to all CLI prebuild steps
+### Requirement: Release workflow triggers on version tags
 
-### Requirement: Release workflow triggers on package-scoped version tags
+The system SHALL trigger the release workflow when a tag matching the pattern `v*.*.*` is pushed to the repository.
 
-The system SHALL trigger the release workflow when a tag matching the pattern `@raven.js/cli@v*.*.*` is pushed to the repository.
-
-#### Scenario: Push CLI version tag triggers release
-- **WHEN** a tag matching `@raven.js/cli@v1.0.0` pattern is pushed
+#### Scenario: Push version tag triggers release
+- **WHEN** a tag matching `v1.0.0` pattern is pushed
 - **THEN** the release workflow SHALL start automatically
 
-#### Scenario: Non-CLI package tag does not trigger CLI release
-- **WHEN** a tag for another package is pushed (e.g., `@raven.js/core@v1.0.0`)
-- **THEN** the CLI release workflow SHALL NOT start
-
 #### Scenario: Non-version tag does not trigger release
-- **WHEN** a tag not matching package version pattern is pushed (e.g., `beta`, `v1.0.0`)
+- **WHEN** a tag not matching version pattern is pushed (e.g., `beta`)
 - **THEN** the release workflow SHALL NOT start
 
-### Requirement: Cross-platform binary builds
+### Requirement: Build uses Bun bundle
 
-The system SHALL build CLI binaries for multiple target platforms: Linux (x64, ARM64), macOS (x64, ARM64), and Windows (x64).
+The system SHALL use `bun build` (without `--compile`) to generate a single JS bundle runnable by Bun runtime, instead of standalone binaries.
 
-#### Scenario: Build Linux x64 binary
-
+#### Scenario: Build produces JS bundle
 - **WHEN** release workflow runs
-- **THEN** a binary for linux-x64 platform SHALL be compiled
+- **THEN** output SHALL be a single JS file (e.g., dist/raven.js)
+- **AND** the file SHALL be executable via Bun (shebang `#!/usr/bin/env bun`)
+- **AND** the build SHALL use `--minify` and `--target=bun` for reduced file size
 
-#### Scenario: Build Linux ARM64 binary
-
+#### Scenario: No binary compilation
 - **WHEN** release workflow runs
-- **THEN** a binary for linux-arm64 platform SHALL be compiled
+- **THEN** the build SHALL NOT use `--compile`
+- **AND** no native binary files SHALL be produced
 
-#### Scenario: Build macOS x64 binary
+### Requirement: Single-platform release workflow
 
+The release workflow SHALL build and publish from a single runner (e.g., ubuntu-latest), without matrix strategy for multiple platforms.
+
+#### Scenario: Single job build
 - **WHEN** release workflow runs
-- **THEN** a binary for darwin-x64 platform SHALL be compiled
+- **THEN** build SHALL run on one platform only (e.g., ubuntu-latest)
+- **AND** no matrix for linux-x64, darwin-arm64, etc. SHALL be used
 
-#### Scenario: Build macOS ARM64 binary
-
-- **WHEN** release workflow runs
-- **THEN** a binary for darwin-arm64 platform SHALL be compiled
-
-#### Scenario: Build Windows x64 binary
-
-- **WHEN** release workflow runs
-- **THEN** a binary for windows-x64 platform SHALL be compiled with .exe extension
-
-### Requirement: Binary naming convention
-
-The system SHALL name binaries using the format `raven-{version}-{os}-{arch}[.exe]`.
-
-#### Scenario: Linux binary naming
-
-- **WHEN** building for linux-x64 with version 1.0.0
-- **THEN** the binary SHALL be named `raven-1.0.0-linux-x64`
-
-#### Scenario: macOS ARM64 binary naming
-
-- **WHEN** building for darwin-arm64 with version 1.0.0
-- **THEN** the binary SHALL be named `raven-1.0.0-darwin-arm64`
-
-#### Scenario: Windows binary naming with extension
-
-- **WHEN** building for windows-x64 with version 1.0.0
-- **THEN** the binary SHALL be named `raven-1.0.0-windows-x64.exe`
-
-### Requirement: Build uses Bun compile
-
-The system SHALL use `bun build --compile --minify` to generate standalone binaries.
-
-#### Scenario: Binary is standalone executable
-
-- **WHEN** binary is compiled
-- **THEN** it SHALL be a standalone executable with no external runtime dependencies
-
-#### Scenario: Binary is minified
-
-- **WHEN** binary is compiled
-- **THEN** the output SHALL be minified for reduced file size
+#### Scenario: Version propagation is consistent
+- **WHEN** workflow computes release version from tag
+- **THEN** same version value SHALL be passed to build and publish steps

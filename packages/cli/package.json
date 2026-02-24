@@ -1,10 +1,17 @@
 {
   "name": "@raven.js/cli",
-  "version": "0.0.1",
+  "version": "1.0.0-alpha.23",
   "description": "CLI tool for RavenJS framework",
   "type": "module",
   "scripts": {
-    "build": "bun build ./index.ts --compile --minify --outfile raven"
+    "build": "bun run scripts/build.ts"
+  },
+  "bin": {
+    "raven": "./dist/raven"
+  },
+  "files": ["dist"],
+  "engines": {
+    "bun": ">=1.0"
   },
   "dependencies": {
     "@clack/prompts": "^1.0.1",
@@ -13,12 +20,7 @@
     "semver": "^7.7.4",
     "yaml": "^2.6.0"
   },
-  "keywords": [
-    "ravenjs",
-    "cli",
-    "framework",
-    "typescript"
-  ],
+  "keywords": ["ravenjs", "cli", "framework", "typescript"],
   "repository": {
     "type": "git",
     "url": "https://github.com/myWsq/RavenJS.git"

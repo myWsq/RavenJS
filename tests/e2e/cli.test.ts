@@ -7,13 +7,7 @@ const isBun = typeof Bun !== "undefined";
 const repoRoot = resolve(import.meta.dir, "..", "..");
 const cliPath = join(repoRoot, "packages", "cli", "index.ts");
 const registryPath = join(repoRoot, "packages", "cli", "registry.json");
-const scriptPath = join(
-	repoRoot,
-	"packages",
-	"cli",
-	"scripts",
-	"generate-registry.ts",
-);
+const buildScriptPath = join(repoRoot, "packages", "cli", "scripts", "build.ts");
 
 async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
 	if (!isBun) {
@@ -36,7 +30,7 @@ async function ensureRegistry(version = "0.0.0") {
 	const exists = await Bun.file(registryPath).exists();
 	if (exists) return;
 	const result = await runCommand(
-		["bun", "run", scriptPath, version],
+		["bun", "run", buildScriptPath, version, "--registry-only"],
 		repoRoot,
 	);
 	if (result.exitCode !== 0) {
@@ -45,9 +39,7 @@ async function ensureRegistry(version = "0.0.0") {
 }
 
 async function runCli(args: string[], cwd: string) {
-	return runCommand(["bun", "run", cliPath, ...args], cwd, {
-		RAVEN_DEFAULT_REGISTRY_PATH: registryPath,
-	});
+	return runCommand(["bun", "run", cliPath, ...args], cwd);
 }
 
 async function createTempDir(tempDirs: string[]) {

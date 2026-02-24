@@ -120,16 +120,16 @@ async function checkGitStatus(): Promise<boolean> {
 
 async function updatePackageJson(version: string): Promise<void> {
 	const rootDir = join(import.meta.dir, "..");
-	const packageJsonPath = join(rootDir, "package.json");
-	const content = await readFile(packageJsonPath, "utf-8");
+	const cliPackageJsonPath = join(rootDir, "packages", "cli", "package.json");
+	const content = await readFile(cliPackageJsonPath, "utf-8");
 	const pkg = JSON.parse(content);
 	pkg.version = version;
-	await writeFile(packageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
+	await writeFile(cliPackageJsonPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
 async function commitAndTag(version: string): Promise<void> {
 	const tagName = `v${version}`;
-	await $`git add package.json`;
+	await $`git add packages/cli/package.json`;
 	await $`git commit -m "release: ${version}"`;
 	await $`git tag ${tagName}`;
 	await $`git push`;
@@ -147,8 +147,8 @@ async function main() {
 		}
 
 		const rootDir = join(import.meta.dir, "..");
-		const packageJsonPath = join(rootDir, "package.json");
-		const content = await readFile(packageJsonPath, "utf-8");
+		const cliPackageJsonPath = join(rootDir, "packages", "cli", "package.json");
+		const content = await readFile(cliPackageJsonPath, "utf-8");
 		const pkg = JSON.parse(content);
 		const currentVersion = pkg.version;
 
@@ -216,9 +216,9 @@ async function main() {
 
 		const s = spinner();
 
-		s.start("更新 package.json...");
+		s.start("更新 packages/cli/package.json...");
 		await updatePackageJson(selectedVersion);
-		s.stop("package.json 已更新");
+		s.stop("packages/cli/package.json 已更新");
 
 		s.start("提交代码并打标签...");
 		await commitAndTag(selectedVersion);

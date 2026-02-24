@@ -43,13 +43,24 @@ interface Registry {
 }
 
 async function loadRegistry(options?: { registry?: string }): Promise<Registry> {
-  const registryArg = options?.registry ?? process.env.RAVEN_DEFAULT_REGISTRY_PATH;
-  if (!registryArg) {
-    console.error("RAVEN_DEFAULT_REGISTRY_PATH is required (or use --registry)");
-    process.exit(1);
+  const candidates: string[] = [];
+  if (options?.registry) {
+    candidates.push(isAbsolute(options.registry) ? options.registry : resolve(cwd(), options.registry));
   }
-  const path = isAbsolute(registryArg) ? registryArg : resolve(cwd(), registryArg);
-  return (await Bun.file(path).json()) as Registry;
+  if (process.env.RAVEN_DEFAULT_REGISTRY_PATH) {
+    const p = process.env.RAVEN_DEFAULT_REGISTRY_PATH;
+    candidates.push(isAbsolute(p) ? p : resolve(cwd(), p));
+  }
+  candidates.push(join(import.meta.dir, "registry.json"));
+
+  for (const p of candidates) {
+    const exists = await Bun.file(p).exists();
+    if (exists) return (await Bun.file(p).json()) as Registry;
+  }
+  console.error(
+    "registry.json not found. Run 'bun run build' in packages/cli first, or use --registry <path>.",
+  );
+  process.exit(1);
 }
 
 function getRoot(options: CLIOptions): string {
@@ -621,7 +632,7 @@ cli.version(loadCliVersion()).help();
 cli
   .option(
     "--registry <path>",
-    "Registry json path (default: RAVEN_DEFAULT_REGISTRY_PATH)",
+    "Registry json path (default: same dir as CLI)",
   )
   .option("--root <dir>", "RavenJS root directory (default: raven)")
   .option("--source <path>", "Local module source path (default: github)")

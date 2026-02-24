@@ -1,20 +1,28 @@
-import { readdir, readFile, writeFile } from "fs/promises";
-import { join } from "path";
+#!/usr/bin/env bun
+import { readdir, readFile, writeFile, mkdir } from "fs/promises";
+import { join, dirname } from "path";
+import { $ } from "bun";
 
-const ROOT_DIR = join(import.meta.dir, "..", "..", "..");
+const CLI_DIR = join(import.meta.dir, "..");
+const ROOT_DIR = join(CLI_DIR, "..", "..");
 const MODULES_DIR = join(ROOT_DIR, "modules");
 const AI_PACKAGE_DIR = join(ROOT_DIR, "packages", "ai");
-const OUTPUT_DIR = join(ROOT_DIR, "packages", "cli");
-const OUTPUT_FILE = join(OUTPUT_DIR, "registry.json");
+const DIST_DIR = join(CLI_DIR, "dist");
+const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
+const REGISTRY_IN_CLI = join(CLI_DIR, "registry.json");
 
-const RAVENJS_PREFIX = "@ravenjs/";
+const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
 
-function extractDependsOn(pkg: { dependencies?: Record<string, string>; devDependencies?: Record<string, string> }): string[] {
+function extractDependsOn(pkg: {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}): string[] {
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   const dependsOn: string[] = [];
   for (const key of Object.keys(deps)) {
-    if (key.startsWith(RAVENJS_PREFIX)) {
-      const moduleName = key.slice(RAVENJS_PREFIX.length);
+    const prefix = RAVENJS_PREFIXES.find((p) => key.startsWith(p));
+    if (prefix) {
+      const moduleName = key.slice(prefix.length);
       if (moduleName && !dependsOn.includes(moduleName)) {
         dependsOn.push(moduleName);
       }
@@ -23,7 +31,9 @@ function extractDependsOn(pkg: { dependencies?: Record<string, string>; devDepen
   return dependsOn;
 }
 
-function detectCycle(modules: Record<string, { dependsOn: string[] }>): string[] | null {
+function detectCycle(
+  modules: Record<string, { dependsOn: string[] }>,
+): string[] | null {
   const visited = new Set<string>();
   const recStack = new Set<string>();
   const path: string[] = [];
@@ -73,7 +83,6 @@ interface Registry {
 
 async function scanModules(): Promise<Record<string, ModuleInfo>> {
   const modules: Record<string, ModuleInfo> = {};
-
   const entries = await readdir(MODULES_DIR, { withFileTypes: true });
 
   for (const entry of entries) {
@@ -98,7 +107,7 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
         dependsOn,
         description: pkg.description,
       };
-    } catch (e) {
+    } catch {
       console.warn(`Warning: Could not read package.json for ${entry.name}`);
     }
   }
@@ -119,21 +128,15 @@ async function scanAi(): Promise<{ claude: Record<string, string> }> {
   return { claude };
 }
 
-async function generateRegistry(): Promise<void> {
-  const args = process.argv.slice(2);
-  const argVersion = args[0];
-  const envVersion =
-    process.env.RAVEN_VERSION ||
-    process.env.RELEASE_VERSION ||
-    process.env.CLI_VERSION;
-  const version = argVersion || envVersion;
+async function getVersion(): Promise<string> {
+  const content = await Bun.file(join(CLI_DIR, "package.json")).text();
+  const pkg = JSON.parse(content) as { version?: string };
+  if (pkg.version) return pkg.version;
+  return "0.0.0";
+}
 
-  if (!version) {
-    console.error("Error: Version argument required");
-    console.error("Usage: bun run scripts/generate-registry.ts <version>");
-    process.exit(1);
-  }
-
+async function generateRegistry(outputPaths: string[]): Promise<void> {
+  const version = await getVersion();
   const [modules, ai] = await Promise.all([scanModules(), scanAi()]);
 
   const cycle = detectCycle(modules);
@@ -142,17 +145,41 @@ async function generateRegistry(): Promise<void> {
     process.exit(1);
   }
 
-  const registry: Registry = {
-    version,
-    modules,
-    ai,
-  };
+  const registry: Registry = { version, modules, ai };
+  const content = JSON.stringify(registry, null, 2);
 
-  await writeFile(OUTPUT_FILE, JSON.stringify(registry, null, 2));
-  console.log(`Registry generated at ${OUTPUT_FILE}`);
-  console.log(`Version: ${version}`);
-  console.log(`Modules: ${Object.keys(modules).join(", ")}`);
-  console.log(`AI: ${Object.keys(ai.claude).length} files (claude)`);
+  for (const p of outputPaths) {
+    await mkdir(dirname(p), { recursive: true });
+    await writeFile(p, content);
+  }
+
+  console.log(
+    `Registry generated (version: ${version}, modules: ${Object.keys(modules).join(", ")})`,
+  );
 }
 
-generateRegistry().catch(console.error);
+async function main() {
+  const registryOnly = process.argv.includes("--registry-only");
+
+  await generateRegistry([REGISTRY_IN_DIST, REGISTRY_IN_CLI]);
+
+  if (registryOnly) {
+    return;
+  }
+
+  await mkdir(DIST_DIR, { recursive: true });
+  await Bun.build({
+    entrypoints: [join(CLI_DIR, "index.ts")],
+    outdir: DIST_DIR,
+    target: "bun",
+    naming: "raven",
+    sourcemap: "linked",
+    packages: "external",
+  });
+  console.log("CLI built to dist/raven");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
