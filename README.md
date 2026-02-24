@@ -40,28 +40,12 @@ Invoke the **raven-setup** skill (e.g. "/raven-setup" or "run raven-setup"). The
 
 Skills are the primary way to work with RavenJS. They live in `.claude/skills/` after `raven init`.
 
-<table>
-<tr>
-<th style="white-space: nowrap">Skill</th>
-<th>When to use</th>
-</tr>
-<tr>
-<td style="white-space: nowrap"><strong>raven-setup</strong></td>
-<td>Project not yet configured for RavenJS. Run after <code>bunx raven init</code> to add core, fix config, and verify the runtime.</td>
-</tr>
-<tr>
-<td style="white-space: nowrap"><strong>raven-add</strong></td>
-<td>Add a new module (e.g. jtd-validator). Use when the project is already initialized.</td>
-</tr>
-<tr>
-<td style="white-space: nowrap"><strong>raven-learn</strong></td>
-<td>Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module.</td>
-</tr>
-<tr>
-<td style="white-space: nowrap"><strong>raven-use</strong></td>
-<td>Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs.</td>
-</tr>
-</table>
+| Skill | When to use |
+| ----- | ----------- |
+| **raven‑setup** | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime. |
+| **raven‑add** | Add a new module (e.g. jtd-validator). Use when the project is already initialized. |
+| **raven‑learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module. |
+| **raven‑use** | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
 
 ### Skill workflow
 
@@ -73,23 +57,10 @@ Skills invoke the CLI via `bunx raven`; they do not hardcode paths or module nam
 
 ## Available Modules
 
-<table>
-<tr>
-<th style="white-space: nowrap">Module</th>
-<th>Description</th>
-<th>Docs</th>
-</tr>
-<tr>
-<td style="white-space: nowrap"><code>core</code></td>
-<td>HTTP server, routing, lifecycle hooks, state management, plugin system.</td>
-<td><a href="modules/core/README.md">README</a></td>
-</tr>
-<tr>
-<td style="white-space: nowrap"><code>jtd-validator</code></td>
-<td>JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on <code>core</code>.</td>
-<td><a href="modules/jtd-validator/README.md">README</a></td>
-</tr>
-</table>
+| Module | Description | Docs |
+| ------ | ----------- | ---- |
+| `core` | HTTP server, routing, lifecycle hooks, state management, plugin system. | [README](modules/core/README.md) |
+| `jtd‑validator` | JTD (JSON Type Definition) validator for request bodies, params, and query. Depends on `core`. | [README](modules/jtd-validator/README.md) |
 
 ## CLI
 
