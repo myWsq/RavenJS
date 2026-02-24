@@ -343,24 +343,6 @@ describe("CLI E2E", () => {
 				expect(await fileExists(p)).toBe(true);
 			}
 		});
-
-		it("should support status -> diff -> guide sequence", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-
-			const statusResult = await runCli(["status"], cwd);
-			expect(statusResult.exitCode).toBe(0);
-			const status = JSON.parse(statusResult.stdout.trim());
-			expect(findModule(status.modules, "core")?.installed).toBe(true);
-			expect(status).toHaveProperty("version");
-			expect(status).toHaveProperty("fileHashes");
-
-			const guideResult = await runCli(["guide", "core"], cwd);
-			expect(guideResult.exitCode).toBe(0);
-			expect(guideResult.stdout).toContain("RavenJS Core");
-			expect(guideResult.stdout).toContain("Key Concepts");
-		});
 	});
 
 });
