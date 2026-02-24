@@ -631,37 +631,6 @@ async function cmdStatus(options: StatusCLIOptions) {
   console.log(JSON.stringify(status));
 }
 
-async function cmdGuide(moduleName: string, options: CLIOptions) {
-  const { ravenDir } = await ensureRavenInstalled(options);
-
-  const availableModules: string[] = [];
-  try {
-    const entries = await readdir(ravenDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory() && entry.name !== ".") {
-        availableModules.push(entry.name);
-      }
-    }
-  } catch (e) {
-    error(`Failed to list modules: ${e}`);
-  }
-
-  const moduleDir = join(ravenDir, moduleName);
-  if (!(await pathExists(moduleDir))) {
-    error(
-      `Module '${moduleName}' not found.${availableModules.length > 0 ? ` Available: ${availableModules.join(", ")}` : ""}`,
-    );
-  }
-
-  const guidePath = join(moduleDir, "GUIDE.md");
-  if (!(await pathExists(guidePath))) {
-    error(`Module '${moduleName}' has no GUIDE.md. Cannot show guide.`);
-  }
-
-  const guideContent = await readFile(guidePath, "utf-8");
-  console.log(guideContent);
-}
-
 const cli = cac("raven");
 cli.version(loadCliVersion()).help();
 
@@ -682,12 +651,5 @@ cli
 cli
   .command("status", "Show RavenJS installation status (core, modules)")
   .action((options) => cmdStatus(options as StatusCLIOptions));
-
-cli
-  .command(
-    "guide <module>",
-    "Get guide for a specific module (outputs module GUIDE.md)",
-  )
-  .action((moduleName, options) => cmdGuide(moduleName, options as CLIOptions));
 
 cli.parse();

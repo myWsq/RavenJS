@@ -264,39 +264,6 @@ describe("CLI E2E", () => {
 		});
 	});
 
-
-	describe("Guide Command", () => {
-		it("should output GUIDE.md content for installed module", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
-
-			const result = await runCli(["guide", "core"], cwd);
-
-			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("RavenJS Core");
-			expect(result.stdout).toContain("Key Concepts");
-		});
-
-		it("should fail when module not found", async () => {
-			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
-
-			const result = await runCli(["guide", "nonexistent-module"], cwd);
-
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not found");
-		});
-
-		it("should fail when project not installed", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["guide", "core"], cwd);
-
-			expect(result.exitCode).not.toBe(0);
-			expect(result.stderr).toContain("not installed");
-		});
-	});
-
 	describe("Error Handling", () => {
 		it("should show error for unknown option", async () => {
 			const cwd = await createTempDir(tempDirs);
@@ -330,19 +297,4 @@ describe("CLI E2E", () => {
 			expect(result.stdout).toContain("Using local source");
 		});
 	});
-
-	describe("SKILL workflow (check-update flow)", () => {
-		it("should have SKILL source files in packages/ai", async () => {
-			const skillPaths = [
-				join(repoRoot, "packages", "ai", "raven-learn", "skill.md"),
-				join(repoRoot, "packages", "ai", "raven-setup", "skill.md"),
-				join(repoRoot, "packages", "ai", "raven-add", "skill.md"),
-				join(repoRoot, "packages", "ai", "raven-use", "skill.md"),
-			];
-			for (const p of skillPaths) {
-				expect(await fileExists(p)).toBe(true);
-			}
-		});
-	});
-
 });
