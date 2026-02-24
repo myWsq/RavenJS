@@ -39,7 +39,7 @@ Invoke **raven-use** when building (e.g. `/raven-use` create an HTTP server with
 
 ## AI Agent Skills
 
-Skills are the primary way to work with RavenJS. They live in `.claude/skills/` after `raven init`.
+Skills are the primary way to work with RavenJS
 
 | Skill           | When to use                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
