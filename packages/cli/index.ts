@@ -511,8 +511,10 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
 
 interface ModuleInfo {
   name: string;
-  installed: boolean;
   description?: string;
+  installed: boolean;
+  /** 模块目录的绝对路径 */
+  installDir?: string;
 }
 
 interface StatusResult {
@@ -562,8 +564,9 @@ async function getStatus(
       const mod = registry.modules[name];
       moduleStatus.push({
         name,
-        installed,
         description: mod?.description,
+        installed,
+        installDir: resolve(modDir),
       });
     }
 
@@ -601,10 +604,12 @@ async function getStatus(
   if (moduleStatus.length === 0) {
     for (const name of knownModules) {
       const mod = registry.modules[name];
+      const modDir = join(ravenDir, name);
       moduleStatus.push({
         name,
-        installed: false,
         description: mod?.description,
+        installed: false,
+        installDir: resolve(modDir),
       });
     }
   }
