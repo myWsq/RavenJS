@@ -27,15 +27,23 @@ bun add -d @raven.js/cli
 bunx raven init
 ```
 
-This creates `.claude/skills/` with RavenJS AI skills and the raven root (`raven/`, `raven.yaml`).
+This creates `.claude/skills/` with RavenJS AI skills and raven project directory.
 
 **2. Complete setup via Agent**
 
-Invoke **raven-setup** (e.g. `/raven-setup`). The Agent adds core, fixes config, and verifies the setup.
+```
+/raven-setup
+```
+
+Agent will add core, fix config, and verify the setup.
 
 **3. Write code via Agent**
 
-Invoke **raven-use** when building (e.g. `/raven-use` create an HTTP server with /hello). The Agent generates and integrates RavenJS code.
+```
+/raven-use create an HTTP server with /hello
+```
+
+Agent will generate and integrate RavenJS code.
 
 ## AI Agent Skills
 
