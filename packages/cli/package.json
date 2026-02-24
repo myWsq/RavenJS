@@ -10,7 +10,8 @@
     "raven": "./dist/raven"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "engines": {
     "bun": ">=1.0"
