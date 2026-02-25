@@ -5,8 +5,6 @@ node_modules
 out
 dist
 *.tgz
-packages/cli/raven
-packages/cli/registry.json
 
 # code coverage
 coverage
