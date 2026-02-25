@@ -6,6 +6,9 @@
   "bin": {
     "install-raven": "./dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bun build main.ts --outfile=dist/cli.js --target=node && cp -r skills dist/"
   },
@@ -19,8 +22,8 @@
     "claude",
     "ai"
   ],
-  "license": "MIT",
-  "files": [
-    "dist"
-  ]
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/myWsq/RavenJS.git"
+  }
 }
