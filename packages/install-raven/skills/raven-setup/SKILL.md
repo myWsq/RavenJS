@@ -8,6 +8,8 @@ compatibility: Requires Raven CLI
 
 Configure the project environment so that the RavenJS `core` module executes correctly. This skill does **not** build a full application — it only ensures the runtime is properly set up.
 
+**When to use:** The user may have installed only the RavenJS skills (e.g. via `install-raven`) and not yet installed the CLI or run `raven init`. This skill handles that: when `bunx raven` is not available, install `@raven.js/cli` in the project, then run `raven init`, add core, and complete configuration. The user does **not** need to run the CLI manually before invoking raven-setup.
+
 ---
 
 ## Step 0 — Verify prerequisites
@@ -24,8 +26,10 @@ bun --version
 bunx raven status
 ```
 Handle the result:
-- **Command not found** → **stop** and tell the user:
-  > Raven CLI is required. Install in the project: `bun add -d @raven.js/cli`, then run `bunx raven status`.
+- **Command not found** → **do not stop**. Install the CLI in the current project, then continue:
+  1. Run `bun add -d @raven.js/cli` in the project.
+  2. Run `bunx raven init` to create the raven root and `raven.yaml`.
+  3. Continue with the rest of this skill (add core, configuration checks).
 - **`ravenDir` missing or `initialized: false`** → run `bunx raven init` to initialize the project, then continue.
 - **Otherwise** → note the `ravenDir` path and the `modules` array and continue.
 

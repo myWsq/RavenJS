@@ -99,7 +99,7 @@ describe("CLI E2E", () => {
 	describe("Init Command", () => {
 		it("should init with default root and create raven dir", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot], cwd);
+			const result = await runCli(["init"], cwd);
 
 			expect(result.exitCode).toBe(0);
 
@@ -110,7 +110,7 @@ describe("CLI E2E", () => {
 
 		it("should init with custom root directory", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--root", "my-raven", "--source", repoRoot], cwd);
+			const result = await runCli(["init", "--root", "my-raven"], cwd);
 
 			expect(result.exitCode).toBe(0);
 
@@ -119,13 +119,13 @@ describe("CLI E2E", () => {
 			expect(await fileExists(join(ravenDir, "raven.yaml"))).toBe(true);
 		});
 
-		it("should be idempotent when root exists (only updates AI resources)", async () => {
+		it("should be idempotent when root exists (does not modify raven root or raven.yaml)", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 			const yamlPath = join(cwd, "raven", "raven.yaml");
 			const before = await readFile(yamlPath, "utf-8");
 
-			const result = await runCli(["init", "--source", repoRoot], cwd);
+			const result = await runCli(["init"], cwd);
 			expect(result.exitCode).toBe(0);
 			const after = await readFile(yamlPath, "utf-8");
 			expect(after).toBe(before);
@@ -133,7 +133,7 @@ describe("CLI E2E", () => {
 
 		it("should create valid raven.yaml", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 
 			const yamlContent = await readFile(join(cwd, "raven", "raven.yaml"), "utf-8");
 			expect(yamlContent).toContain("version:");
@@ -141,10 +141,10 @@ describe("CLI E2E", () => {
 
 		it("should show verbose output with --verbose", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot, "--verbose"], cwd);
+			const result = await runCli(["init", "--verbose"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Using local source");
+			expect(result.stdout).toContain("Initializing RavenJS");
 		});
 	});
 
@@ -180,7 +180,7 @@ describe("CLI E2E", () => {
 
 		it("should show core installed after add core", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 			await runCli(["add", "core", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status"], cwd);
@@ -192,7 +192,7 @@ describe("CLI E2E", () => {
 
 		it("should show modules after add", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status"], cwd);
@@ -205,7 +205,7 @@ describe("CLI E2E", () => {
 
 		it("should respect --root option", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--root", "my-raven", "--source", repoRoot], cwd);
+			await runCli(["init", "--root", "my-raven"], cwd);
 			await runCli(["add", "core", "--root", "my-raven", "--source", repoRoot], cwd);
 
 			const result = await runCli(["status", "--root", "my-raven"], cwd);
@@ -219,7 +219,7 @@ describe("CLI E2E", () => {
 	describe("Add Command", () => {
 		it("should add a module and auto-install dependencies", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 
 			const result = await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
@@ -237,7 +237,7 @@ describe("CLI E2E", () => {
 
 		it("should replace @raven.js/core with relative path in copied files", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
 
 			const mainTs = await readFile(join(cwd, "raven", "schema-validator", "index.ts"), "utf-8");
@@ -255,7 +255,7 @@ describe("CLI E2E", () => {
 
 		it("should fail for unknown module", async () => {
 			const cwd = await createTempDir(tempDirs);
-			await runCli(["init", "--source", repoRoot], cwd);
+			await runCli(["init"], cwd);
 
 			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
 
@@ -276,13 +276,13 @@ describe("CLI E2E", () => {
 	describe("Global Options", () => {
 		it("should accept --root option with init", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["--root", "custom-root", "init", "--source", repoRoot], cwd);
+			const result = await runCli(["--root", "custom-root", "init"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			expect(await fileExists(join(cwd, "custom-root"))).toBe(true);
 		});
 
-		it("should accept --source option with init", async () => {
+		it("should accept --source option with init (option is global, used by add)", async () => {
 			const cwd = await createTempDir(tempDirs);
 			const result = await runCli(["init", "--source", repoRoot], cwd);
 
@@ -291,10 +291,10 @@ describe("CLI E2E", () => {
 
 		it("should accept -v as verbose shortcut", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot, "-v"], cwd);
+			const result = await runCli(["init", "-v"], cwd);
 
 			expect(result.exitCode).toBe(0);
-			expect(result.stdout).toContain("Using local source");
+			expect(result.stdout).toContain("Initializing RavenJS");
 		});
 	});
 });

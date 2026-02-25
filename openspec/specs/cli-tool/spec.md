@@ -53,7 +53,7 @@ RavenJS SHALL 提供一个可通过 npm 全局安装的 CLI 工具，用户安�
 
 ### Requirement: raven update Command
 
-The system SHALL update installed RavenJS modules AND AI resources when `raven update` is executed.
+The system SHALL update installed RavenJS modules when `raven update` is executed. The system SHALL NOT install or update AI resources (skills); skill installation and updates are handled by the install-raven CLI.
 
 #### Scenario: raven update updates framework modules
 
@@ -61,12 +61,11 @@ The system SHALL update installed RavenJS modules AND AI resources when `raven u
 - **THEN** all installed modules in `raven/` are updated
 - **AND** `raven.yaml` is updated with latest version
 
-#### Scenario: raven update updates AI resources
+#### Scenario: raven update when .claude exists
 
-- **WHEN** user runs `raven update` AND `.claude/` exists with AI resources
-- **THEN** AI skills in `.claude/skills/` are updated
-- **AND** success message includes both framework and AI resources
-- **AND** NO files are written to `.claude/commands/` (commands are deprecated)
+- **WHEN** user runs `raven update` AND `.claude/` exists
+- **THEN** only framework modules in `raven/` are updated
+- **AND** NO files in `.claude/skills/` are modified by the CLI
 
 #### Scenario: raven update when AI resources not installed
 
@@ -74,34 +73,34 @@ The system SHALL update installed RavenJS modules AND AI resources when `raven u
 - **THEN** only framework modules are updated
 - **AND** no error is raised about missing AI resources
 
-#### Scenario: raven update shows combined progress
+#### Scenario: raven update shows progress
 
 - **WHEN** user runs `raven update`
-- **THEN** progress indicator shows both framework and AI resource updates
-- **AND** final summary lists all modified files
+- **THEN** progress indicator shows framework module updates
+- **AND** final summary lists modified files (framework only)
 
 ### Requirement: raven init Command
 
-The system SHALL provide a `raven init` command that (1) installs AI resources to `.claude/` and (2) initializes the raven root directory (creates directory and `raven.yaml`). The command SHALL NOT install the core module. When re-run, if raven root already exists with `raven.yaml`, the root SHALL NOT be modified; only AI resources SHALL be updated.
+The system SHALL provide a `raven init` command that initializes the raven root directory (creates directory and `raven.yaml`). The command SHALL NOT install AI resources to `.claude/`; the command SHALL NOT install the core module. When re-run, if raven root already exists with `raven.yaml`, the root SHALL NOT be modified.
 
-#### Scenario: raven init in fresh directory creates both
+#### Scenario: raven init in fresh directory creates root only
 
 - **WHEN** user runs `raven init` in a directory with no raven installation
-- **THEN** `.claude/skills/` is populated with AI resources
-- **AND** `<root>/` directory is created
+- **THEN** `<root>/` directory is created
 - **AND** `<root>/raven.yaml` is created with version from registry
 - **AND** core module is NOT installed
+- **AND** `.claude/skills/` is NOT created or populated by the CLI
 
 #### Scenario: raven init idempotent when root already exists
 
 - **WHEN** user runs `raven init` AND raven root directory exists AND `raven.yaml` exists
 - **THEN** raven root directory and `raven.yaml` are NOT modified
-- **AND** only AI resources are updated (downloaded/copied)
+- **AND** the command exits successfully without writing to `.claude/`
 
 #### Scenario: raven init shows progress
 
 - **WHEN** user runs `raven init` without `--verbose`
-- **THEN** a spinner is displayed during installation
+- **THEN** a spinner is displayed during initialization
 - **AND** completion message shows created or modified files
 
 #### Scenario: raven init verbose output
@@ -113,18 +112,13 @@ The system SHALL provide a `raven init` command that (1) installs AI resources t
 #### Scenario: raven init creates directory structure
 
 - **WHEN** `raven init` runs
-- **THEN** `.claude/skills/` directory is created if missing
-- **AND** `<root>/` and `raven.yaml` are created if missing
+- **THEN** `<root>/` and `raven.yaml` are created if missing
+- **AND** `.claude/skills/` is NOT created by the CLI
 - **AND** `.claude/commands/` directory is NOT created (commands are deprecated)
 
 ### Requirement: raven init Command Options
 
-The system SHALL support standard CLI options for `raven init`.
-
-#### Scenario: raven init supports --source
-
-- **WHEN** user runs `raven init --source <path>`
-- **THEN** AI resources are loaded from local path instead of GitHub
+The system SHALL support standard CLI options for `raven init`. The option for loading AI resources from a local path (e.g. `--source`) is removed; AI resource installation is handled by install-raven.
 
 #### Scenario: raven init supports --verbose
 
@@ -157,40 +151,14 @@ The system SHALL document that AI skills (in packages/ai) use `raven status` to 
 - **THEN** skill instructs agent to run `raven status` to verify RavenJS is initialized before adding modules
 - **AND** skill does NOT hardcode "raven/ exists" check
 
-### Requirement: AI Skills Installation
-
-The system SHALL support installing AI skills to `.claude/skills/` directory.
-
-#### Scenario: Install AI skills via raven init
-
-- **WHEN** user runs `raven init`
-- **THEN** AI skills are copied to `.claude/skills/` directory
-- **AND** skills are immediately recognizable by Claude
-
-#### Scenario: Skills directory structure
-
-- **WHEN** `raven init` completes
-- **THEN** `.claude/skills/` contains one directory per skill
-- **AND** each skill directory contains a `SKILL.md` file
-
 ### Requirement: AI Resource Registry
 
-The system SHALL maintain a registry of available AI resources (skills only) under a top-level `ai` property, structured by agent.
+The registry MAY maintain an `ai` property for use by other tools (e.g. install-raven). The @raven.js/cli SHALL NOT use the registry's `ai` property when running `raven init` or `raven update`; the CLI SHALL NOT install or update AI resources.
 
-#### Scenario: Registry includes AI resources
+#### Scenario: CLI does not install from registry ai
 
-- **WHEN** `registry.json` is loaded
-- **THEN** AI skills are listed under `ai.claude` (or other agent keys)
-- **AND** each agent's value is a mapping `Record<sourcePath, destPath>` describing which files to install and their destinations
-- **AND** source paths are relative to `packages/ai/`, destination paths relative to project root
-
-#### Scenario: AI resources sourced from packages/ai
-
-- **WHEN** CLI downloads or copies AI resources for installation
-- **THEN** sources are resolved from `packages/ai/` (remote: `packages/ai/` in release; local: workspace `packages/ai/`)
-- **AND** the registry `ai.claude` mapping describes which files to install and their destinations
-- **AND** the CLI uses `ai.claude` by default (Claude agent)
-- **AND** only skill files (SKILL.md) are installed; no command files
+- **WHEN** user runs `raven init` or `raven update`
+- **THEN** the CLI does NOT read or use the registry's `ai` property to copy or update files under `.claude/skills/`
 
 ### Requirement: Skill Metadata Format
 
@@ -298,7 +266,7 @@ The CLI SHALL show a loading spinner during long-running operations (init, add, 
 #### Scenario: init shows spinner during initialization
 
 - **WHEN** user runs `raven init`
-- **THEN** a spinner is shown while AI resources and raven root are being created
+- **THEN** a spinner is shown while the raven root and `raven.yaml` are being created
 
 #### Scenario: add shows spinner during module download
 
@@ -403,8 +371,8 @@ The system SHALL provide a mechanism to install RavenJS modules from a registry 
 
 - **WHEN** user runs `raven init` in a directory
 - **THEN** the system creates `<root>/` directory and `raven.yaml` with version from registry
-- **AND** AI resources are copied to `.claude/skills/`
 - **AND** core is NOT installed (user runs `raven add core` separately)
+- **AND** the CLI does NOT copy AI resources to `.claude/skills/` (use install-raven for that)
 
 #### Scenario: Add module to existing project
 

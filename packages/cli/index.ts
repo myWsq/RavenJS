@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import { cac } from "cac";
 import { mkdir, readdir, stat, readFile, writeFile, access } from "fs/promises";
@@ -340,45 +340,6 @@ async function downloadModule(
   return modifiedFiles;
 }
 
-async function downloadAiResources(
-  registry: Registry,
-  version: string,
-  destDir: string,
-  options?: CLIOptions,
-): Promise<string[]> {
-  const ai = registry.ai;
-  if (!ai?.claude) {
-    throw new Error("AI resources not found in registry");
-  }
-
-  const mapping = ai.claude;
-  const entries = Object.entries(mapping);
-
-  const sourcePath = resolveSourcePath(getSource(options || {}));
-  if (sourcePath) {
-    verboseLog(`Using local source: ${sourcePath}`, options);
-  }
-  verboseLog("Downloading AI resources...", options);
-
-  const modifiedFiles: string[] = [];
-  const downloads = entries.map(async ([file, destRel]) => {
-    const destPath = join(destDir, destRel);
-    verboseLog(`  Downloading ${file}...`, options);
-
-    if (sourcePath) {
-      const sourceFile = join(sourcePath, "packages", "ai", file);
-      await copyLocalFile(sourceFile, destPath);
-    } else {
-      const url = `${GITHUB_RAW_URL}/v${version}/packages/ai/${file}`;
-      await downloadFile(url, destPath);
-    }
-    modifiedFiles.push(destPath);
-  });
-
-  await Promise.all(downloads);
-  return modifiedFiles;
-}
-
 async function cmdInit(options: CLIOptions) {
   const registry = await loadRegistry(options);
   const targetDir = cwd();
@@ -400,33 +361,23 @@ async function cmdInit(options: CLIOptions) {
       await createRavenYaml(ravenDir, version);
       modifiedFiles.push(ravenYamlPath);
     }
-
-    const dotClaudeDir = join(targetDir, ".claude");
-    await ensureDir(dotClaudeDir);
-    const aiFiles = await downloadAiResources(
-      registry,
-      version,
-      targetDir,
-      options,
-    );
-    modifiedFiles.push(...aiFiles);
   };
 
   if (options?.verbose) {
     await doInit();
   } else {
     const s = makeSpinner();
-    s.start("Initializing RavenJS...");
+    s.start("Initializing raven root...");
     try {
       await doInit();
     } catch (e: any) {
       s.stop("Initialization failed");
       error(e.message);
     }
-    s.stop("Initializing RavenJS...");
+    s.stop("Initializing raven root...");
   }
 
-  success("RavenJS initialized successfully!");
+  success("RavenJS raven root initialized. Install AI skills with: install-raven (or npx install-raven).");
 
   printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
@@ -641,7 +592,7 @@ cli
   .option("--verbose, -v", "Verbose output");
 
 cli
-  .command("init", "Initialize RavenJS AI resources")
+  .command("init", "Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.")
   .action((options) => cmdInit(options as CLIOptions));
 
 cli

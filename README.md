@@ -15,19 +15,15 @@ RavenJS is an **AI-native** Bun web framework. Lightweight and high-performance.
 
 ## Quick Start
 
-Requires **Bun** `>=1.0`. Use project-local CLI (recommended):
+Requires **Bun** `>=1.0`.
+
+**1. Install RavenJS skills**
 
 ```bash
-bun add -d @raven.js/cli
+npx install-raven
 ```
 
-**1. Initialize the project**
-
-```bash
-bunx raven init
-```
-
-This creates `.claude/skills/` with RavenJS AI skills and raven project directory.
+This installs AI skills into `.claude/skills/`. It does not install the CLI or create the raven directory.
 
 **2. Complete setup via Agent**
 
@@ -35,7 +31,9 @@ This creates `.claude/skills/` with RavenJS AI skills and raven project director
 /raven-setup
 ```
 
-Agent will add core, fix config, and verify the setup.
+Agent will add `@raven.js/cli` to the project, run `raven init`, add core, and verify the setup.
+
+**Alternative:** Install the CLI first, then init: `bun add -d @raven.js/cli` and `bunx raven init`. Install skills with `npx install-raven` if you need them.
 
 **3. Write code via Agent**
 
@@ -51,7 +49,7 @@ Skills are the primary way to work with RavenJS
 
 | Skill           | When to use                                                                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **raven‑setup** | Project not yet configured for RavenJS. Run after `bunx raven init` to add core, fix config, and verify the runtime.                             |
+| **raven‑setup** | Project not yet configured for RavenJS. Run after installing skills (e.g. `npx install-raven`) to add CLI, init, core, and verify the runtime.   |
 | **raven‑use**   | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
 | **raven‑add**   | Add a new module (e.g. core). Use when the project is already initialized.                                                              |
 | **raven‑learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module.                                 |

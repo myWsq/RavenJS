@@ -1,0 +1,19 @@
+{
+  "name": "install-raven",
+  "version": "0.0.1",
+  "description": "Install RavenJS AI skills into your project",
+  "type": "module",
+  "bin": {
+    "install-raven": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build main.ts --outfile=dist/cli.js --target=node && cp -r skills dist/"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.0.1",
+    "commander": "^12.0.0"
+  },
+  "keywords": ["ravenjs", "skills", "claude", "ai"],
+  "license": "MIT",
+  "files": ["dist"]
+}

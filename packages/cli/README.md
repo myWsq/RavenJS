@@ -1,6 +1,6 @@
 # RavenJS CLI
 
-The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, raven-add, raven-learn, raven-use) invoke it via `bunx raven`. Humans typically run only `bunx raven init`; all other workflows go through skills.
+The RavenJS CLI is designed for **Agent consumption**. AI skills (raven-setup, raven-add, raven-learn, raven-use) invoke it via `bunx raven`. To get skills into your project, use **install-raven** (e.g. `npx install-raven`); then run `bunx raven init` to create the raven root, or let raven-setup do it.
 
 **Install**: Project-local (recommended). Requires Bun `>=1.0`:
 
@@ -12,7 +12,7 @@ bun add -d @raven.js/cli
 
 | Command | Description |
 |---------|-------------|
-| `bunx raven init` | Initialize AI skills and raven root. Run once before using raven-setup. |
+| `bunx raven init` | Initialize raven root. |
 | `bunx raven add <module>` | Add a module. Installs dependencies (`dependsOn`) in topological order, copies files, and rewrites `@ravenjs/*` imports to relative paths. |
 | `bunx raven status` | Installation status for all modules. Output is JSON for Agent consumption. |
 
