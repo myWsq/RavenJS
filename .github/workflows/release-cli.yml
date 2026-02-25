@@ -50,6 +50,14 @@ jobs:
         working-directory: packages/cli
         run: bun run build
 
-      - name: Publish to npm
+      - name: Build install-raven
+        working-directory: packages/install-raven
+        run: bun run build
+
+      - name: Publish CLI to npm
         working-directory: packages/cli
+        run: npm publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
+
+      - name: Publish install-raven to npm
+        working-directory: packages/install-raven
         run: npm publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
