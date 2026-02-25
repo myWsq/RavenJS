@@ -21,6 +21,12 @@ jobs:
         with:
           bun-version: "1.2.2"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
       - name: Extract version from tag
         id: version
         shell: bash
@@ -47,8 +53,8 @@ jobs:
 
       - name: Publish CLI to npm
         working-directory: packages/cli
-        run: bun publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
+        run: npm publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
 
       - name: Publish install-raven to npm
         working-directory: packages/install-raven
-        run: bun publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
+        run: npm publish --access public ${{ steps.version.outputs.npm_tag }} --provenance
