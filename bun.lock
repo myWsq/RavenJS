@@ -11,6 +11,7 @@
         "ajv": "^8.18.0",
         "elysia": "^1.4.25",
         "hono": "^4.12.0",
+        "husky": "^9.1.7",
         "mitata": "^1.0.34",
         "typescript": "^5",
         "zod": "^4.3.6",
@@ -40,7 +41,7 @@
     },
     "packages/cli": {
       "name": "@raven.js/cli",
-      "version": "1.1.0-alpha.2",
+      "version": "1.1.0",
       "dependencies": {
         "@clack/prompts": "^1.0.1",
         "cac": "^6.7.14",
@@ -118,6 +119,8 @@
     "file-type": ["file-type@21.3.0", "", { "dependencies": { "@tokenizer/inflate": "^0.4.1", "strtok3": "^10.3.4", "token-types": "^6.1.1", "uint8array-extras": "^1.4.0" } }, "sha512-8kPJMIGz1Yt/aPEwOsrR97ZyZaD1Iqm8PClb1nYFclUCkBi0Ma5IsYNQzvSFS9ib51lWyIw5mIT9rWzI/xjpzA=="],
 
     "hono": ["hono@4.12.0", "", {}, "sha512-NekXntS5M94pUfiVZ8oXXK/kkri+5WpX2/Ik+LVsl+uvw+soj4roXIsPqO+XsWrAw20mOzaXOZf3Q7PfB9A/IA=="],
+
+    "husky": ["husky@9.1.7", "", { "bin": { "husky": "bin.js" } }, "sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA=="],
 
     "ieee754": ["ieee754@1.2.1", "", {}, "sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA=="],
 
