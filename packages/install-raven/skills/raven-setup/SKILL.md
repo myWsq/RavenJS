@@ -28,9 +28,9 @@ bunx raven status
 Handle the result:
 - **Command not found** → **do not stop**. Install the CLI in the current project, then continue:
   1. Run `bun add -d @raven.js/cli` in the project.
-  2. Run `bunx raven init` to create the raven root and `raven.yaml`.
+  2. Run `bunx raven init` to create the raven root and `raven.yaml`. The command will print the status JSON at the end — use that as the initial status.
   3. Continue with the rest of this skill (add core, configuration checks).
-- **`ravenDir` missing or `initialized: false`** → run `bunx raven init` to initialize the project, then continue.
+- **`ravenDir` missing or `initialized: false`** → run `bunx raven init` to initialize the project. The command will print the status JSON at the end — use that; no need to re-run `bunx raven status`.
 - **Otherwise** → note the `ravenDir` path and the `modules` array and continue.
 
 ---
@@ -40,7 +40,7 @@ Handle the result:
 From the `bunx raven status` output, check whether `core` appears in `modules` with `installed: true`.
 
 - **Already installed** → continue to Step 2.
-- **Not installed** → follow the **raven-add** skill to add `core`, re-run `bunx raven status` to confirm it appears with `installed: true`, then continue to Step 2.
+- **Not installed** → follow the **raven-add** skill to add `core`. The `raven add` command prints a status JSON at the end — use that to confirm `core` appears with `installed: true`, then continue to Step 2.
 
 ---
 

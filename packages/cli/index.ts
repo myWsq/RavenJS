@@ -331,6 +331,10 @@ async function cmdInit(options: CLIOptions) {
   for (const file of modifiedFiles) {
     printListItem(file);
   }
+
+  printSectionHeader("Status");
+  const status = await getStatus(registry, options);
+  console.log(JSON.stringify(status));
 }
 
 interface RavenYamlConfig {
@@ -400,6 +404,10 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
         dependencies: allDependencies,
       }),
     );
+
+    printSectionHeader("Status");
+    const status = await getStatus(registry, options);
+    console.log(JSON.stringify(status));
   } catch (e: any) {
     error(e.message);
   }

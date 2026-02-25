@@ -48,7 +48,7 @@ Select all modules that are relevant. Note which ones are already installed and 
 
 If any required module is not installed, use the **AskUserQuestion tool** to ask the user whether to add it. If the user confirms, follow the **raven-add** skill.
 
-After adding, re-run `bunx raven status` to confirm the module appears as installed before continuing.
+After adding, verify from the status JSON printed by `raven add` that the module appears as installed — no need to re-run `bunx raven status`.
 
 ---
 

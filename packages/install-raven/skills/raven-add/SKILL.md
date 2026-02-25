@@ -38,16 +38,18 @@ bunx raven add <module-name>
 
 `bunx raven add` resolves dependencies automatically — for example, adding a module will install its dependencies first if not already present.
 
-On success, the command returns JSON with:
+On success, the command outputs two JSON blocks:
 
-- `modifiedFiles` — every file created or updated
-- `dependencies` — npm packages the module requires
+1. The add result with:
+   - `modifiedFiles` — every file created or updated
+   - `dependencies` — npm packages the module requires
+2. The current status (same format as `bunx raven status`).
 
 ---
 
 ## Step 3 — Confirm installation
 
-Run `bunx raven status` and verify the module appears with `installed: true`.
+Read the status JSON printed by `bunx raven add` and verify the module appears with `installed: true`. No need to re-run `bunx raven status`.
 
 ---
 
