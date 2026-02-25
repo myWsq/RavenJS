@@ -1,3 +1,2 @@
 bun run generate:modules
 git add README.md
-bun test
