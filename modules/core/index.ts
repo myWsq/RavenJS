@@ -71,6 +71,12 @@ export type BeforeResponseHook = (
  */
 export type OnErrorHook = (error: Error) => Response | Promise<Response> | void | Promise<void>;
 
+/**
+ * Hook executed after application plugins are fully loaded.
+ * Runs once before the app starts serving requests.
+ */
+export type OnLoadedHook = (app: Raven) => void | Promise<void>;
+
 /** Internal route data structure. */
 interface RouteData {
   handler: Handler;
@@ -356,7 +362,10 @@ export class Raven implements RavenInstance {
     beforeHandle: [] as BeforeHandleHook[],
     beforeResponse: [] as BeforeResponseHook[],
     onError: [] as OnErrorHook[],
+    onLoaded: [] as OnLoadedHook[],
   };
+  private hasRunOnLoadedHooks = false;
+  private onLoadedRunPromise: Promise<void> | null = null;
 
   /**
    * Initializes a new Raven application instance.
@@ -443,12 +452,48 @@ export class Raven implements RavenInstance {
     return this;
   }
 
+  /** Adds an OnLoaded hook. */
+  onLoaded(hook: OnLoadedHook): this {
+    this.hooks.onLoaded.push(hook);
+    return this;
+  }
+
+  /**
+   * Runs onLoaded hooks exactly once, in registration order.
+   * If any hook throws, the error is propagated and later hooks are skipped.
+   */
+  private async runOnLoadedHooksOnce(): Promise<void> {
+    if (this.hasRunOnLoadedHooks) {
+      return;
+    }
+    if (this.onLoadedRunPromise) {
+      await this.onLoadedRunPromise;
+      return;
+    }
+
+    const runPromise = currentAppStorage.run(this, async () => {
+      for (const hook of this.hooks.onLoaded) {
+        await hook(this);
+      }
+      this.hasRunOnLoadedHooks = true;
+    });
+
+    this.onLoadedRunPromise = runPromise;
+    try {
+      await runPromise;
+    } finally {
+      this.onLoadedRunPromise = null;
+    }
+  }
+
   /**
    * Main request processing entrypoint (FetchHandler).
    * Evaluates hooks, matches routes, and handles responses/errors.
    * Use with HTTP server
    */
   public async handle(request: Request): Promise<Response> {
+    // Ensure app-level initialization hooks complete before serving requests.
+    await this.runOnLoadedHooksOnce();
     return currentAppStorage.run(this, () => {
       return requestStorage.run(new Map(), async () => {
         try {

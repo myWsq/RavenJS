@@ -86,4 +86,75 @@ describe("Plugin System", () => {
 
 		await raven.register(myPlugin({ foo: "bar" }));
 	});
+
+	it("should run onLoaded hooks once after plugins are registered", async () => {
+		const raven = new Raven();
+		const executionOrder: string[] = [];
+
+		await raven.register(
+			definePlugin({
+				name: "plugin-a",
+				states: [],
+				load() {
+					executionOrder.push("plugin-a:load");
+				},
+			}),
+		);
+		await raven.register(
+			definePlugin({
+				name: "plugin-b",
+				states: [],
+				load() {
+					executionOrder.push("plugin-b:load");
+				},
+			}),
+		);
+
+		raven.onLoaded(async (app) => {
+			expect(app).toBe(raven);
+			executionOrder.push("onLoaded:1");
+			await new Promise((resolve) => setTimeout(resolve, 5));
+		});
+		raven.onLoaded(() => {
+			executionOrder.push("onLoaded:2");
+		});
+		raven.get("/", () => new Response("ok"));
+
+		await raven.handle(new Request("http://localhost/"));
+		await raven.handle(new Request("http://localhost/"));
+
+		expect(executionOrder).toEqual([
+			"plugin-a:load",
+			"plugin-b:load",
+			"onLoaded:1",
+			"onLoaded:2",
+		]);
+	});
+
+	it("should stop onLoaded chain and propagate errors", async () => {
+		const raven = new Raven();
+		const executionOrder: string[] = [];
+
+		await raven.register(
+			definePlugin({
+				name: "plugin-a",
+				states: [],
+				load() {},
+			}),
+		);
+
+		raven.onLoaded(() => {
+			executionOrder.push("onLoaded:1");
+			throw new Error("onLoaded failed");
+		});
+		raven.onLoaded(() => {
+			executionOrder.push("onLoaded:2");
+		});
+		raven.get("/", () => new Response("ok"));
+
+		await expect(
+			raven.handle(new Request("http://localhost/")),
+		).rejects.toThrow("onLoaded failed");
+		expect(executionOrder).toEqual(["onLoaded:1"]);
+	});
 });

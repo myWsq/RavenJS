@@ -6,17 +6,30 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 - Logic layer: `app.handle` (FetchHandler)
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
-- Lifecycle hooks (onRequest, beforeHandle, beforeResponse, onError)
+- Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
 
 ---
 
 # ARCHITECTURE
 
-**Full request lifecycle**:
+**Lifecycle overview**:
 
 ```
-incoming request
+app startup / first handle()
+      │
+      ▼
+[plugin register/load]   ← `await app.register(plugin)`; plugin hooks/states are installed here.
+      │
+      ▼
+[onLoaded hooks]       ← app-level init; runs once before the first request lifecycle.
+      │
+      ▼
+app ready
+```
+
+```
+incoming request (each request)
       │
       ▼
 [onRequest hooks]     ← global; receives raw Request. Returning a Response short-circuits.
@@ -91,6 +104,8 @@ console.log(ctx.params); // { id: "42" }
 ## Plugin
 
 A plugin is a **named object** with a `load(app)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration. `app.register()` returns a `Promise` resolving to the plugin's `states` tuple — always `await` it.
+
+For post-registration initialization, use `app.onLoaded(hook)`. `onLoaded` hooks run in registration order, are awaited serially, and execute once before the first request is processed.
 
 → **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
 
@@ -235,6 +250,23 @@ app.beforeHandle(() => {
 Bun.serve({ fetch: app.handle });
 
 // ✓ Correct: wrap in an arrow function (or use app.handle.bind(app))
+Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
+```
+
+## 8. Register `onLoaded` before serving traffic
+
+`onLoaded` is triggered once, right before the first successful request lifecycle starts. Register all plugins and `onLoaded` hooks before calling `handle()` from live traffic.
+
+```typescript
+const app = new Raven();
+
+await app.register(authPlugin());
+await app.register(dbPlugin());
+
+app.onLoaded(async () => {
+  await warmupCaches();
+});
+
 Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
 ```
 

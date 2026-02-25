@@ -21,6 +21,8 @@ await app.register(myPlugin({ prefix: "/api" }));
 
 **`definePlugin`** is a type helper — it ensures TypeScript infers `states` as a tuple rather than an array, which makes the return type of `register()` precise. It has no runtime effect.
 
+Use `app.onLoaded(hook)` for one-time app initialization that should happen after plugin registration and before requests are served.
+
 ---
 
 # STATE PATTERNS
@@ -193,6 +195,24 @@ await app.register(loggerPlugin());  // onRequest hook added second
 
 app.get("/", handler);               // both hooks apply to this route
 ```
+
+## `onLoaded` runs once before the first request
+
+`onLoaded` is app-level (not request-level). Hooks run in registration order, are awaited serially, and execute once before the first request lifecycle.
+
+```typescript
+await app.register(authPlugin());
+await app.register(loggerPlugin());
+
+app.onLoaded(async () => {
+  await initMetrics();
+});
+
+// onLoaded executes once on the first request
+await app.handle(new Request("http://localhost/"));
+```
+
+If an `onLoaded` hook throws, remaining `onLoaded` hooks are skipped and the error is propagated.
 
 ## `load()` errors are attributed to the plugin
 
