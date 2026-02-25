@@ -20,7 +20,7 @@ Requires **Bun** `>=1.0`.
 **1. Install AI skills**
 
 ```bash
-npx install-raven
+bunx install-raven
 ```
 
 **2. Complete setup via Agent**
