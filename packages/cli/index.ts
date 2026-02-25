@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { cac } from "cac";
+import { Command } from "commander";
 import { mkdir, readdir, stat, readFile, writeFile, access } from "fs/promises";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { cwd } from "process";
@@ -521,24 +521,27 @@ async function cmdStatus(options: StatusCLIOptions) {
   console.log(JSON.stringify(status));
 }
 
-const cli = cac("raven");
-cli.version(loadCliVersion()).help();
+const program = new Command("raven");
+program.version(loadCliVersion());
 
-cli
+program
   .option("--registry <path>", "Registry json path (default: same dir as CLI)")
   .option("--root <dir>", "RavenJS root directory (default: raven)")
-  .option("--verbose, -v", "Verbose output");
+  .option("-v, --verbose", "Verbose output");
 
-cli
-  .command("init", "Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.")
-  .action((options) => cmdInit(options as CLIOptions));
+program
+  .command("init")
+  .description("Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.")
+  .action(() => cmdInit(program.opts() as CLIOptions));
 
-cli
-  .command("add <module>", "Add a module (e.g., core)")
-  .action((module, options) => cmdAdd(module, options as CLIOptions));
+program
+  .command("add <module>")
+  .description("Add a module (e.g., core)")
+  .action((module: string) => cmdAdd(module, program.opts() as CLIOptions));
 
-cli
-  .command("status", "Show RavenJS installation status (core, modules)")
-  .action((options) => cmdStatus(options as StatusCLIOptions));
+program
+  .command("status")
+  .description("Show RavenJS installation status (core, modules)")
+  .action(() => cmdStatus(program.opts() as StatusCLIOptions));
 
-cli.parse();
+program.parse();
