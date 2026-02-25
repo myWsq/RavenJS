@@ -5,9 +5,10 @@ import { join, resolve } from "path";
 
 const isBun = typeof Bun !== "undefined";
 const repoRoot = resolve(import.meta.dir, "..", "..");
-const cliPath = join(repoRoot, "packages", "cli", "index.ts");
-const registryPath = join(repoRoot, "packages", "cli", "registry.json");
-const sourcePath = join(repoRoot, "packages", "cli", "source");
+const cliDistDir = join(repoRoot, "packages", "cli", "dist");
+const cliPath = join(cliDistDir, "raven");
+const registryPath = join(cliDistDir, "registry.json");
+const sourcePath = join(cliDistDir, "source");
 const buildScriptPath = join(repoRoot, "packages", "cli", "scripts", "build.ts");
 
 async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
@@ -32,8 +33,8 @@ async function ensureBuilt() {
 	const sourceExists = await Bun.file(join(sourcePath, "core")).exists();
 	if (registryExists && sourceExists) return;
 	const result = await runCommand(
-		["bun", "run", buildScriptPath, "--registry-only"],
-		repoRoot,
+		["bun", "run", buildScriptPath],
+		join(repoRoot, "packages", "cli"),
 	);
 	if (result.exitCode !== 0) {
 		throw new Error(result.stderr || result.stdout);
@@ -41,7 +42,7 @@ async function ensureBuilt() {
 }
 
 async function runCli(args: string[], cwd: string) {
-	return runCommand(["bun", "run", cliPath, ...args], cwd);
+	return runCommand(["bun", cliPath, ...args], cwd);
 }
 
 async function createTempDir(tempDirs: string[]) {
