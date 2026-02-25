@@ -77,9 +77,17 @@ interface RouteData {
 }
 
 /**
- * Plugin function type for extending the Raven instance.
+ * Plugin object type for extending the Raven instance.
+ * @template S Tuple of ScopedState instances declared by this plugin.
  */
-export type Plugin = (instance: Raven) => void | Promise<void>;
+export interface Plugin<S extends readonly ScopedState<any>[] = readonly []> {
+  /** Plugin name, shown in error messages for attribution. */
+  name: string;
+  /** States created inside this plugin factory (returned by register()). */
+  states: S;
+  /** Called during registration to set up routes, hooks, etc. */
+  load(app: Raven): void | Promise<void>;
+}
 
 // =============================================================================
 // SECTION: Error Handling
@@ -326,11 +334,13 @@ export { RadixRouter, type RouteMatch } from "./router.ts";
 // =============================================================================
 
 /**
- * Utility function to define a plugin.
- * @param plugin The plugin function.
- * @returns The unchanged plugin function, useful for type inference.
+ * Utility function to define a plugin with correct tuple type inference for states.
+ * Without this helper, TypeScript infers `states` as `ScopedState<any>[]` (array).
+ * With this helper, it infers the precise tuple type, enabling typed register() returns.
  */
-export function createPlugin(plugin: Plugin): Plugin {
+export function definePlugin<S extends readonly ScopedState<any>[]>(
+  plugin: Plugin<S>,
+): Plugin<S> {
   return plugin;
 }
 
@@ -340,7 +350,6 @@ export function createPlugin(plugin: Plugin): Plugin {
 export class Raven implements RavenInstance {
   private router: RadixRouter<RouteData>;
   public readonly internalStateMap = new Map<symbol, any>();
-  private plugins: Plugin[] = [];
   
   private hooks = {
     onRequest: [] as OnRequestHook[],
@@ -358,12 +367,21 @@ export class Raven implements RavenInstance {
 
   /**
    * Registers a plugin with the application instance.
-   * @param plugin The plugin to register.
+   * @param plugin The plugin object to register.
+   * @returns The plugin's declared states tuple, for per-registration state access.
    */
-  async register(plugin: Plugin): Promise<this> {
-    this.plugins.push(plugin);
-    await currentAppStorage.run(this, () => plugin(this));
-    return this;
+  async register<S extends readonly ScopedState<any>[]>(
+    plugin: Plugin<S>,
+  ): Promise<S> {
+    try {
+      await currentAppStorage.run(this, () => plugin.load(this));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`[${plugin.name}] Plugin load failed: ${message}`, {
+        cause: err,
+      });
+    }
+    return plugin.states;
   }
 
   /** Internal helper to register a route handler. */

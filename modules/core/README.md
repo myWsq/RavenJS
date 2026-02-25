@@ -90,7 +90,9 @@ console.log(ctx.params); // { id: "42" }
 
 ## Plugin
 
-A function that extends a `Raven` instance, registered via `app.register()`. Calling `AppState.set()` is safe inside a plugin callback.
+A plugin is a **named object** with a `load(app)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration. `app.register()` returns a `Promise` resolving to the plugin's `states` tuple — always `await` it.
+
+→ **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
 
 ---
 
@@ -144,19 +146,24 @@ Reason: `addRoute()` snapshots all current hooks at call time.
 
 ## 2. `register()` is async — always await it
 
+`register()` returns `Promise<states>`, not `Promise<app>`. Always await and destructure the returned states if needed.
+
 ```typescript
 // ❌ Wrong: plugin may not have run yet
-app.register(plugin);
+app.register(myPlugin());
 
-// ✓ Correct
-await app.register(plugin);
+// ✓ Correct: await it
+await app.register(myPlugin());
+
+// ✓ Correct: destructure states when plugin declares them
+const [configState] = await app.register(configPlugin({ dsn: "..." }));
 ```
 
 ## 3. `AppState.set()` only works inside an AppStorage context
 
 `AppState.set()` depends on `currentAppStorage`. It is only valid inside:
 
-- a `register()` plugin callback
+- a plugin's `load(app)` callback
 - a request handler (after `handle` establishes the context)
 
 Calling it outside these locations throws `ERR_STATE_CANNOT_SET`.
@@ -167,10 +174,14 @@ const dbState = createAppState<DB>({ name: "db" });
 // ❌ Wrong: called outside AppStorage context
 dbState.set(db);
 
-// ✓ Correct: called inside register()
-await app.register((instance) => {
-  dbState.set(db);
-});
+// ✓ Correct: called inside plugin load()
+await app.register(definePlugin({
+  name: "db",
+  states: [],
+  load(app) {
+    dbState.set(db);
+  },
+}));
 ```
 
 ## 4. `BodyState` only parses JSON
@@ -340,31 +351,6 @@ app.beforeHandle(async () => {
 app.get("/profile", () => {
   const user = currentUser.getOrFailed();
   return Response.json({ id: user.id });
-});
-```
-
-## App-level state via plugin
-
-```typescript
-import { Raven, createAppState, createPlugin } from "./index.ts";
-
-interface DB {
-  query: (sql: string) => Promise<unknown[]>;
-}
-const dbState = createAppState<DB>({ name: "db" });
-
-const dbPlugin = createPlugin(async (app) => {
-  const db = await connectDatabase();
-  dbState.set(db); // ✓ inside register(), AppStorage context is active
-});
-
-const app = new Raven();
-await app.register(dbPlugin);
-
-app.get("/users", async () => {
-  const db = dbState.getOrFailed();
-  const users = await db.query("SELECT * FROM users");
-  return Response.json(users);
 });
 ```
 

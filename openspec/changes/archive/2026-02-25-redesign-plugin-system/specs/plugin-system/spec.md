@@ -1,14 +1,4 @@
-# Plugin System Specification
-
-> **Migration Note**: This spec consolidates the following original specs:
-> - `plugin-system`
-> - `vite-style-plugin-system`
-
-## Purpose
-
-定义 RavenJS 的插件系统，支持对象式插件定义、结构化注册方法、per-registration 独立状态，以及提供插件包结构标准。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 对象式插件定义 (Object Plugin Definition)
 
@@ -67,20 +57,16 @@
 - **WHEN** 插件在 `load(app)` 中调用 `app.onRequest(hook)`
 - **THEN** 该钩子 SHALL 被成功注册到框架全局生命周期中
 
-### Requirement: 插件包结构 (Plugin Package Structure)
+## REMOVED Requirements
 
-在 `packages/` 目录下必须存在 `plugins/` 文件夹，该文件夹作为一个独立的工作区成员管理。
+### Requirement: 工厂函数式插件定义 (Factory Pattern Plugin Definition)
 
-#### Scenario: 验证目录存在
+**Reason**: 替换为对象式插件定义（Object Plugin Definition）。Plugin 从函数类型改为对象类型，`load(app)` 方法承担原函数的职责。
 
-- **WHEN** 检查项目根目录下的 `packages/` 文件夹
-- **THEN** 应当存在 `plugins/` 目录
+**Migration**: 将 `(instance) => { ... }` 改为 `{ name: 'x', states: [], load(app) { ... } }`
 
-### Requirement: 基础构建配置 (Base Build Configuration)
+### Requirement: createPlugin 辅助函数
 
-`plugins/` 目录必须包含标准的 TypeScript 项目配置，允许各个子插件共享或独立构建。
+**Reason**: 替换为 `definePlugin`，新辅助函数支持 TypeScript 元组类型推断。
 
-#### Scenario: 验证 package.json
-
-- **WHEN** 检查 `packages/plugins/package.json`
-- **THEN** 应当定义为一个 `monorepo` 工作区包，或者作为核心库的对等依赖包
+**Migration**: 将 `createPlugin(fn)` 替换为 `definePlugin({ name, states, load })`
