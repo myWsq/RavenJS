@@ -17,23 +17,21 @@ RavenJS is an **AI-native** Bun web framework. Lightweight and high-performance.
 
 Requires **Bun** `>=1.0`.
 
-**1. Install RavenJS skills**
+**1. Install AI skills**
 
 ```bash
 npx install-raven
 ```
 
-This installs AI skills into `.claude/skills/`. It does not install the CLI or create the raven directory.
-
 **2. Complete setup via Agent**
+
+In your Agent, run:
 
 ```
 /raven-setup
 ```
 
-Agent will add `@raven.js/cli` to the project, run `raven init`, add core, and verify the setup.
-
-**Alternative:** Install the CLI first, then init: `bun add -d @raven.js/cli` and `bunx raven init`. Install skills with `npx install-raven` if you need them.
+The Agent will install the CLI (if missing), initialize the raven root, add core, and verify the setup. No need to run the CLI or init yourself first.
 
 **3. Write code via Agent**
 
@@ -41,18 +39,18 @@ Agent will add `@raven.js/cli` to the project, run `raven init`, add core, and v
 /raven-use create an HTTP server with /hello
 ```
 
-Agent will generate and integrate RavenJS code.
+The Agent will generate and integrate RavenJS code using the installed modules.
 
-## AI Agent Skills
+## AI Skills
 
-Skills are the primary way to work with RavenJS
+Work with RavenJS primarily through skills.
 
-| Skill           | When to use                                                                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **raven‑setup** | Project not yet configured for RavenJS. Run after installing skills (e.g. `npx install-raven`) to add CLI, init, core, and verify the runtime.   |
-| **raven‑use**   | Write code with RavenJS (routes, handlers, hooks, validation, state). Triggered when the user wants to build an HTTP server or use RavenJS APIs. |
-| **raven‑add**   | Add a new module (e.g. core). Use when the project is already initialized.                                                              |
-| **raven‑learn** | Load and study a module's API, architecture, and design decisions. Run before writing code that uses the module.                                 |
+| Skill           | When to use                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **raven‑setup** | Project not yet set up for RavenJS.                                                                                                                    |
+| **raven‑use**   | Write application code with RavenJS (routes, handlers, hooks, validation, state). Use when the user wants to build an HTTP server or use RavenJS APIs. |
+| **raven‑add**   | Add a module (e.g. core) to an already initialized project. Use only after `raven init` has been run.                                                  |
+| **raven‑learn** | Learn a module’s API, architecture, and design. Run before writing code that depends on that module.                                                   |
 
 ## Available Modules
 
@@ -64,17 +62,18 @@ Skills are the primary way to work with RavenJS
 
 ## CLI
 
-The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. If you need command details, options, or output format, see [packages/cli/README.md](packages/cli/README.md).
+The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For command details, options, and output format see [packages/cli/README.md](packages/cli/README.md). Modules are installed from the CLI’s embedded source; no network fetch is required.
 
 ## Updating
 
-TODO: Add update instructions.
-
-### CLI
-
-```bash
-bun add -d @raven.js/cli@latest
-```
+- **CLI**: Upgrade to the latest in your project:
+  ```bash
+  bun add -d @raven.js/cli@latest
+  ```
+- **AI skills**: Re-run to overwrite with the latest skill content:
+  ```bash
+  npx install-raven
+  ```
 
 ## Development
 
@@ -114,7 +113,7 @@ bun run benchmark:compare
 
 ### Local registry
 
-Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local `registry.json` instead of GitHub.
+Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local `registry.json`.
 
 ## Release
 

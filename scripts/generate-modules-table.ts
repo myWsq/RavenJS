@@ -45,15 +45,19 @@ function main(): void {
   const readme = readFileSync(README_PATH, "utf-8");
   const table = generateTable();
 
-  const markerStart = "| Module          | Description";
-  const markerEnd = "## CLI";
-  const startIdx = readme.indexOf(markerStart);
-  const endIdx = readme.indexOf(markerEnd);
+  const lines = readme.split("\n");
+  const tableStartLineIdx = lines.findIndex(
+    (l) => l.includes("| Module") && l.includes("| Description"),
+  );
+  const cliLineIdx = lines.findIndex((l) => l.trim() === "## CLI");
 
-  if (startIdx === -1 || endIdx === -1) {
+  if (tableStartLineIdx === -1 || cliLineIdx === -1) {
     console.error("README: could not find Available Modules table or ## CLI");
     process.exit(1);
   }
+
+  const startIdx = readme.indexOf(lines[tableStartLineIdx]);
+  const endIdx = readme.indexOf(lines[cliLineIdx]);
 
   const before = readme.slice(0, startIdx);
   const after = readme.slice(endIdx);
