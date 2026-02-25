@@ -396,6 +396,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
       }
     }
 
+    // Two JSON lines for Agent: add result + status in one call to save tokens.
     console.log(
       JSON.stringify({
         success: true,
@@ -404,8 +405,6 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
         dependencies: allDependencies,
       }),
     );
-
-    printSectionHeader("Status");
     const status = await getStatus(registry, options);
     console.log(JSON.stringify(status));
   } catch (e: any) {
