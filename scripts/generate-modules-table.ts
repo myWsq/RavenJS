@@ -56,8 +56,14 @@ function main(): void {
     process.exit(1);
   }
 
-  const startIdx = readme.indexOf(lines[tableStartLineIdx]);
-  const endIdx = readme.indexOf(lines[cliLineIdx]);
+  const tableStartLine = lines[tableStartLineIdx];
+  const cliLine = lines[cliLineIdx];
+  if (tableStartLine === undefined || cliLine === undefined) {
+    console.error("README: could not find Available Modules table or ## CLI");
+    process.exit(1);
+  }
+  const startIdx = readme.indexOf(tableStartLine);
+  const endIdx = readme.indexOf(cliLine);
 
   const before = readme.slice(0, startIdx);
   const after = readme.slice(endIdx);
