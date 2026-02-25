@@ -8,17 +8,13 @@ const ROOT = join(import.meta.dir, "..");
 const MODULES_DIR = join(ROOT, "modules");
 const README_PATH = join(ROOT, "README.md");
 
-const MAX_DESC_LENGTH = 85;
-
 function getModuleDescription(moduleName: string): string {
   const pkgPath = join(MODULES_DIR, moduleName, "package.json");
   try {
     const content = readFileSync(pkgPath, "utf-8");
     const pkg = JSON.parse(content) as { description?: string };
     const desc = typeof pkg.description === "string" ? pkg.description.trim() : "";
-    if (!desc) return "—";
-    if (desc.length <= MAX_DESC_LENGTH) return desc;
-    return desc.slice(0, MAX_DESC_LENGTH - 1) + "…";
+    return desc || "—";
   } catch {
     return "—";
   }

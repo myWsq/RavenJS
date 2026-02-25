@@ -60,9 +60,9 @@ Skills are the primary way to work with RavenJS
 
 | Module          | Description                                                                                    | Docs                                      |
 | --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `core` | RavenJS core framework providing HTTP services, routing, hooks, and state management… | [README](modules/core/README.md) |
-| `schema‑validator` | Validation helper based on Standard Schema. Use this module when you need to validat… | [README](modules/schema-validator/README.md) |
-| `sql` | RavenJS SQL module providing SQL database integration. Use this module when you need… | [README](modules/sql/README.md) |
+| `core` | RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles. | [README](modules/core/README.md) |
+| `schema‑validator` | Validation helper based on Standard Schema. Use this module when you need to validate request data (body, query, params, headers) using Zod, Valibot, or ArkType, and want type-safe context in handlers. | [README](modules/schema-validator/README.md) |
+| `sql` | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database. | [README](modules/sql/README.md) |
 
 ## CLI
 
