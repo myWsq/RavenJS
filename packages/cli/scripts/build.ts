@@ -7,9 +7,7 @@ const ROOT_DIR = join(CLI_DIR, "..", "..");
 const MODULES_DIR = join(ROOT_DIR, "modules");
 const DIST_DIR = join(CLI_DIR, "dist");
 const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
-const REGISTRY_IN_CLI = join(CLI_DIR, "registry.json");
 const SOURCE_IN_DIST = join(DIST_DIR, "source");
-const SOURCE_IN_CLI = join(CLI_DIR, "source");
 
 const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
 
@@ -208,8 +206,8 @@ async function copyModuleSources(
 async function main() {
   const registryOnly = process.argv.includes("--registry-only");
 
-  const modules = await generateRegistry([REGISTRY_IN_DIST, REGISTRY_IN_CLI]);
-  await copyModuleSources(modules, [SOURCE_IN_DIST, SOURCE_IN_CLI]);
+  const modules = await generateRegistry([REGISTRY_IN_DIST]);
+  await copyModuleSources(modules, [SOURCE_IN_DIST]);
 
   if (registryOnly) {
     return;
