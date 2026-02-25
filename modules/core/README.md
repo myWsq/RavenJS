@@ -54,7 +54,7 @@ Raven is a **logic layer**—it exposes `handle(request) => Promise<Response>`:
 ```typescript
 const app = new Raven();
 app.get("/", () => new Response("Hello"));
-Bun.serve({ fetch: app.handle });
+Bun.serve({ fetch: (req) => app.handle(req) });
 ```
 
 ## Context
@@ -226,14 +226,16 @@ app.beforeHandle(() => {
 });
 ```
 
-## 7. Use full paths for route registration
+## 7. Do not pass `app.handle` directly to `Bun.serve`
 
-Routes must use complete paths. There is no `group()` or prefix stacking—concatenate paths in code if needed.
+`handle` is a class method. Passing `app.handle` as the `fetch` callback loses the `this` context when Bun calls it, so `handle`'s internal use of `this` (e.g. for `currentAppStorage.run(this, ...)`) will break.
 
 ```typescript
-const apiPrefix = "/api/v1";
-app.get(`${apiPrefix}/users`, handler);
-app.get(`${apiPrefix}/items`, handler);
+// ❌ Wrong: this is lost when Bun invokes the callback
+Bun.serve({ fetch: app.handle });
+
+// ✓ Correct: wrap in an arrow function (or use app.handle.bind(app))
+Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
 ```
 
 ---
@@ -299,7 +301,7 @@ const app = new Raven();
 
 app.get("/", () => new Response("Hello, World!"));
 
-Bun.serve({ fetch: app.handle, port: 3000 });
+Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
 ```
 
 ## Path parameters

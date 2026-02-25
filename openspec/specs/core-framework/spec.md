@@ -26,12 +26,12 @@ RavenJS SHALL be positioned as an Agent teaching tool rather than a traditional 
 
 ### Requirement: Bun-only 运行时
 
-Raven 框架 SHALL 定位为 Bun-only 框架。用户需使用 `Bun.serve({ fetch: app.handle })` 启动 HTTP 服务。文档 SHALL 明确声明 RavenJS 仅支持 Bun 运行时。
+Raven 框架 SHALL 定位为 Bun-only 框架。用户需使用 `Bun.serve({ fetch: (req) => app.handle(req) })` 启动 HTTP 服务。文档 SHALL 明确声明 RavenJS 仅支持 Bun 运行时。
 
 #### Scenario: 在 Bun 下使用 Raven
 
 - **WHEN** 用户需要启动 HTTP 服务
-- **THEN** 用户 SHALL 使用 Bun 运行并调用 `Bun.serve({ fetch: app.handle, port, hostname })` 自行启动
+- **THEN** 用户 SHALL 使用 Bun 运行并调用 `Bun.serve({ fetch: (req) => app.handle(req), port, hostname })` 自行启动
 - **AND** Raven 的 `handle` 方法作为 fetch 回调正常工作
 
 #### Scenario: Bun-only 声明
@@ -53,8 +53,8 @@ Raven 框架 SHALL 作为纯逻辑层，不包含 HTTP 服务器启动能力。R
 #### Scenario: handle 作为 Bun.serve 的 fetch 回调
 
 - **WHEN** 用户需要在 Bun 下启动 HTTP 服务
-- **THEN** 可将 `app.handle` 直接作为 fetch 回调传入 `Bun.serve`
-- **AND** 例如 `Bun.serve({ fetch: app.handle })` 即可启动 HTTP 服务
+- **THEN** 可将 `(req) => app.handle(req)` 作为 fetch 回调传入 `Bun.serve`（避免直接传 `app.handle` 导致 this 丢失）
+- **AND** 例如 `Bun.serve({ fetch: (req) => app.handle(req) })` 即可启动 HTTP 服务
 
 ### Requirement: Raven handle 方法处理 HTTP 请求
 
