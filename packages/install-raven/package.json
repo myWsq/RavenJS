@@ -1,6 +1,6 @@
 {
   "name": "install-raven",
-  "version": "1.2.0-alpha.1",
+  "version": "1.2.0",
   "description": "Install RavenJS AI skills into your project",
   "type": "module",
   "bin": {
