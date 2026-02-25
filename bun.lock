@@ -27,13 +27,20 @@
         "@raven.js/core": "workspace:*",
       },
     },
+    "modules/sql": {
+      "name": "@raven.js/sql",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@raven.js/core": "workspace:*",
+      },
+    },
     "packages/ai": {
       "name": "@ravenjs/ai",
       "version": "1.0.0",
     },
     "packages/cli": {
       "name": "@raven.js/cli",
-      "version": "1.1.0-alpha",
+      "version": "1.1.0-alpha.2",
       "dependencies": {
         "@clack/prompts": "^1.0.1",
         "cac": "^6.7.14",
@@ -73,6 +80,8 @@
     "@raven.js/core": ["@raven.js/core@workspace:modules/core"],
 
     "@raven.js/schema-validator": ["@raven.js/schema-validator@workspace:modules/schema-validator"],
+
+    "@raven.js/sql": ["@raven.js/sql@workspace:modules/sql"],
 
     "@ravenjs/ai": ["@ravenjs/ai@workspace:packages/ai"],
 

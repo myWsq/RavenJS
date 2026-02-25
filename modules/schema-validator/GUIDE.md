@@ -5,7 +5,7 @@
 | [README.md](./README.md) | Quick start, understand basic usage                   |
 | [index.ts](./index.ts)   | Understand core API (`withSchema`, `ValidationError`) |
 
-## OPTIONAL READING
+# OPTIONAL READING
 
 | File                                       | When to Read                                                         |
 | ------------------------------------------ | -------------------------------------------------------------------- |
