@@ -1,6 +1,6 @@
 {
   "name": "@raven.js/cli",
-  "version": "1.1.2",
+  "version": "1.2.0-alpha",
   "description": "CLI tool for RavenJS framework",
   "type": "module",
   "scripts": {
