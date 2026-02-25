@@ -1,18 +1,19 @@
 #!/usr/bin/env bun
-import { readdir, readFile, writeFile, mkdir } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, copyFile } from "fs/promises";
 import { join, dirname, relative } from "path";
 
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
 const MODULES_DIR = join(ROOT_DIR, "modules");
-const AI_PACKAGE_DIR = join(ROOT_DIR, "packages", "ai");
 const DIST_DIR = join(CLI_DIR, "dist");
 const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
 const REGISTRY_IN_CLI = join(CLI_DIR, "registry.json");
+const SOURCE_IN_DIST = join(DIST_DIR, "source");
+const SOURCE_IN_CLI = join(CLI_DIR, "source");
 
 const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
 
-/** Module files excluded from registry (paths relative to module dir) */
+/** Module files excluded from registry and source copy (paths relative to module dir) */
 const EXCLUDED_MODULE_FILES = new Set(["package.json"]);
 
 function extractDependsOn(pkg: {
@@ -80,7 +81,6 @@ interface ModuleInfo {
 interface Registry {
   version: string;
   modules: Record<string, ModuleInfo>;
-  ai: { claude: Record<string, string> };
 }
 
 async function getGitTrackedFiles(moduleDir: string): Promise<string[]> {
@@ -140,19 +140,6 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
   return modules;
 }
 
-async function scanAi(): Promise<{ claude: Record<string, string> }> {
-  const packageJsonPath = join(AI_PACKAGE_DIR, "package.json");
-  const content = await readFile(packageJsonPath, "utf-8");
-  const pkg = JSON.parse(content);
-
-  const claude = pkg.claude;
-  if (!claude || typeof claude !== "object") {
-    throw new Error("packages/ai/package.json must have a 'claude' mapping");
-  }
-
-  return { claude };
-}
-
 async function getVersion(): Promise<string> {
   const content = await readFile(join(CLI_DIR, "package.json"), "utf-8");
   const pkg = JSON.parse(content) as { version?: string };
@@ -160,9 +147,9 @@ async function getVersion(): Promise<string> {
   return "0.0.0";
 }
 
-async function generateRegistry(outputPaths: string[]): Promise<void> {
+async function generateRegistry(outputPaths: string[]): Promise<Record<string, ModuleInfo>> {
   const version = await getVersion();
-  const [modules, ai] = await Promise.all([scanModules(), scanAi()]);
+  const modules = await scanModules();
 
   const cycle = detectCycle(modules);
   if (cycle) {
@@ -170,7 +157,7 @@ async function generateRegistry(outputPaths: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const registry: Registry = { version, modules, ai };
+  const registry: Registry = { version, modules };
   const content = JSON.stringify(registry, null, 2);
 
   for (const p of outputPaths) {
@@ -181,12 +168,48 @@ async function generateRegistry(outputPaths: string[]): Promise<void> {
   console.log(
     `Registry generated (version: ${version}, modules: ${Object.keys(modules).join(", ")})`,
   );
+
+  return modules;
+}
+
+async function copyModuleSources(
+  modules: Record<string, ModuleInfo>,
+  outputDirs: string[],
+): Promise<void> {
+  for (const outDir of outputDirs) {
+    await mkdir(outDir, { recursive: true });
+  }
+
+  const copies: Promise<void>[] = [];
+
+  for (const [moduleName, moduleInfo] of Object.entries(modules)) {
+    const srcModuleDir = join(MODULES_DIR, moduleName);
+
+    for (const file of moduleInfo.files) {
+      const srcPath = join(srcModuleDir, file);
+
+      for (const outDir of outputDirs) {
+        const destPath = join(outDir, moduleName, file);
+        copies.push(
+          mkdir(dirname(destPath), { recursive: true }).then(() =>
+            copyFile(srcPath, destPath),
+          ),
+        );
+      }
+    }
+  }
+
+  await Promise.all(copies);
+
+  const totalFiles = Object.values(modules).reduce((sum, m) => sum + m.files.length, 0);
+  console.log(`Module sources copied (${Object.keys(modules).length} modules, ${totalFiles} files)`);
 }
 
 async function main() {
   const registryOnly = process.argv.includes("--registry-only");
 
-  await generateRegistry([REGISTRY_IN_DIST, REGISTRY_IN_CLI]);
+  const modules = await generateRegistry([REGISTRY_IN_DIST, REGISTRY_IN_CLI]);
+  await copyModuleSources(modules, [SOURCE_IN_DIST, SOURCE_IN_CLI]);
 
   if (registryOnly) {
     return;

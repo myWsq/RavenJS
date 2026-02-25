@@ -7,6 +7,7 @@ const isBun = typeof Bun !== "undefined";
 const repoRoot = resolve(import.meta.dir, "..", "..");
 const cliPath = join(repoRoot, "packages", "cli", "index.ts");
 const registryPath = join(repoRoot, "packages", "cli", "registry.json");
+const sourcePath = join(repoRoot, "packages", "cli", "source");
 const buildScriptPath = join(repoRoot, "packages", "cli", "scripts", "build.ts");
 
 async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
@@ -26,11 +27,12 @@ async function runCommand(cmd: string[], cwd: string, env?: Record<string, strin
 	return { exitCode, stdout, stderr };
 }
 
-async function ensureRegistry(version = "0.0.0") {
-	const exists = await Bun.file(registryPath).exists();
-	if (exists) return;
+async function ensureBuilt() {
+	const registryExists = await Bun.file(registryPath).exists();
+	const sourceExists = await Bun.file(join(sourcePath, "core")).exists();
+	if (registryExists && sourceExists) return;
 	const result = await runCommand(
-		["bun", "run", buildScriptPath, version, "--registry-only"],
+		["bun", "run", buildScriptPath, "--registry-only"],
 		repoRoot,
 	);
 	if (result.exitCode !== 0) {
@@ -61,7 +63,7 @@ describe("CLI E2E", () => {
 	let tempDirs: string[] = [];
 
 	beforeAll(async () => {
-		await ensureRegistry();
+		await ensureBuilt();
 	});
 
 	afterEach(async () => {
@@ -181,7 +183,7 @@ describe("CLI E2E", () => {
 		it("should show core installed after add core", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init"], cwd);
-			await runCli(["add", "core", "--source", repoRoot], cwd);
+			await runCli(["add", "core"], cwd);
 
 			const result = await runCli(["status"], cwd);
 
@@ -193,7 +195,7 @@ describe("CLI E2E", () => {
 		it("should show modules after add", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init"], cwd);
-			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
+			await runCli(["add", "schema-validator"], cwd);
 
 			const result = await runCli(["status"], cwd);
 
@@ -206,7 +208,7 @@ describe("CLI E2E", () => {
 		it("should respect --root option", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init", "--root", "my-raven"], cwd);
-			await runCli(["add", "core", "--root", "my-raven", "--source", repoRoot], cwd);
+			await runCli(["add", "core", "--root", "my-raven"], cwd);
 
 			const result = await runCli(["status", "--root", "my-raven"], cwd);
 
@@ -221,7 +223,7 @@ describe("CLI E2E", () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init"], cwd);
 
-			const result = await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
+			const result = await runCli(["add", "schema-validator"], cwd);
 
 			expect(result.exitCode).toBe(0);
 			const out = JSON.parse(result.stdout.trim());
@@ -238,7 +240,7 @@ describe("CLI E2E", () => {
 		it("should replace @raven.js/core with relative path in copied files", async () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init"], cwd);
-			await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
+			await runCli(["add", "schema-validator"], cwd);
 
 			const mainTs = await readFile(join(cwd, "raven", "schema-validator", "index.ts"), "utf-8");
 			expect(mainTs).toContain('from "../core"');
@@ -247,7 +249,7 @@ describe("CLI E2E", () => {
 
 		it("should fail when project not initialized", async () => {
 			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["add", "schema-validator", "--source", repoRoot], cwd);
+			const result = await runCli(["add", "schema-validator"], cwd);
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stderr).toContain("raven init");
@@ -257,7 +259,7 @@ describe("CLI E2E", () => {
 			const cwd = await createTempDir(tempDirs);
 			await runCli(["init"], cwd);
 
-			const result = await runCli(["add", "unknown-module", "--source", repoRoot], cwd);
+			const result = await runCli(["add", "unknown-module"], cwd);
 
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stderr).toContain("Unknown module");
@@ -280,13 +282,6 @@ describe("CLI E2E", () => {
 
 			expect(result.exitCode).toBe(0);
 			expect(await fileExists(join(cwd, "custom-root"))).toBe(true);
-		});
-
-		it("should accept --source option with init (option is global, used by add)", async () => {
-			const cwd = await createTempDir(tempDirs);
-			const result = await runCli(["init", "--source", repoRoot], cwd);
-
-			expect(result.exitCode).toBe(0);
 		});
 
 		it("should accept -v as verbose shortcut", async () => {

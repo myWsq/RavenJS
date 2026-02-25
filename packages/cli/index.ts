@@ -16,14 +16,11 @@ function loadCliVersion(): string {
   return process.env.RAVEN_CLI_VERSION ?? "0.0.0";
 }
 
-const GITHUB_REPO = "myWsq/RavenJS";
-const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}`;
 const DEFAULT_ROOT = "raven";
 
 interface CLIOptions {
   verbose?: boolean;
   root?: string;
-  source?: string;
   prerelease?: boolean;
   registry?: string;
 }
@@ -36,14 +33,9 @@ interface RegistryModule {
   description?: string;
 }
 
-interface RegistryAi {
-  claude: Record<string, string>;
-}
-
 interface Registry {
   version: string;
   modules: Record<string, RegistryModule>;
-  ai: RegistryAi;
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -79,22 +71,13 @@ async function loadRegistry(options?: {
     }
   }
   console.error(
-    "registry.json not found. Run 'bun run build' in packages/cli first, or use --registry <path>.",
+    "registry.json not found. Run 'bun run build' in packages/cli first.",
   );
   process.exit(1);
 }
 
 function getRoot(options: CLIOptions): string {
   return options.root || process.env.RAVEN_ROOT || DEFAULT_ROOT;
-}
-
-function getSource(options: CLIOptions): string | undefined {
-  return options.source || process.env.RAVEN_SOURCE;
-}
-
-function resolveSourcePath(source?: string): string | undefined {
-  if (!source || source === "github") return undefined;
-  return isAbsolute(source) ? source : resolve(cwd(), source);
 }
 
 async function verboseLog(message: string, options?: CLIOptions) {
@@ -248,35 +231,15 @@ function replaceRavenImports(
   return out;
 }
 
-async function downloadFile(url: string, destPath: string): Promise<void> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download ${url}: ${response.status}`);
-  }
-  const content = await response.text();
-  await ensureDir(dirname(destPath));
-  await writeFile(destPath, content);
-}
-
-async function copyLocalFile(srcPath: string, destPath: string): Promise<void> {
-  if (!(await fileExists(srcPath))) {
-    throw new Error(`Missing local file: ${srcPath}`);
-  }
-  await ensureDir(dirname(destPath));
-  const content = await readFile(srcPath);
-  await writeFile(destPath, content);
-}
-
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];
 
 function isSourceFile(file: string): boolean {
   return SOURCE_EXTENSIONS.some((ext) => file.endsWith(ext));
 }
 
-async function downloadModule(
+async function installModule(
   registry: Registry,
   moduleName: string,
-  version: string,
   destDir: string,
   options?: CLIOptions,
   targetSubdir?: string,
@@ -286,19 +249,16 @@ async function downloadModule(
     throw new Error(`Module ${moduleName} not found in registry`);
   }
 
-  const sourcePath = resolveSourcePath(getSource(options || {}));
-  if (sourcePath) {
-    verboseLog(`Using local source: ${sourcePath}`, options);
-  }
-  verboseLog(`Downloading ${moduleName} files...`, options);
+  verboseLog(`Installing ${moduleName} files...`, options);
 
+  const embeddedSourceDir = join(__dirname, "source");
   const fromModuleDir = targetSubdir ?? moduleName;
 
   const modifiedFiles: string[] = [];
-  const downloads = module.files.map(async (file: string) => {
+  const copies = module.files.map(async (file: string) => {
     let destPath: string;
 
-    if (module.fileMapping && module.fileMapping[file]) {
+    if (module.fileMapping?.[file]) {
       destPath = join(destDir, module.fileMapping[file]);
     } else if (targetSubdir) {
       destPath = join(destDir, targetSubdir, file);
@@ -306,26 +266,14 @@ async function downloadModule(
       destPath = join(destDir, moduleName, file);
     }
 
-    verboseLog(`  Downloading ${file}...`, options);
+    verboseLog(`  Copying ${file}...`, options);
 
-    let content: string;
-    if (sourcePath) {
-      const primaryPath = join(sourcePath, "modules", moduleName, file);
-      const fallbackPath = join(sourcePath, moduleName, file);
-      const src = (await fileExists(primaryPath))
-        ? primaryPath
-        : (await fileExists(fallbackPath))
-          ? fallbackPath
-          : "";
-      if (!src) throw new Error(`Missing local file: ${primaryPath}`);
-      content = await readFile(src, "utf-8");
-    } else {
-      const url = `${GITHUB_RAW_URL}/v${version}/modules/${moduleName}/${file}`;
-      const response = await fetch(url);
-      if (!response.ok)
-        throw new Error(`Failed to download ${url}: ${response.status}`);
-      content = await response.text();
+    const srcPath = join(embeddedSourceDir, moduleName, file);
+    if (!(await fileExists(srcPath))) {
+      throw new Error(`Missing embedded source file: ${srcPath}`);
     }
+
+    let content = await readFile(srcPath, "utf-8");
 
     if (isSourceFile(file)) {
       content = replaceRavenImports(content, fromModuleDir, registry);
@@ -336,7 +284,7 @@ async function downloadModule(
     modifiedFiles.push(destPath);
   });
 
-  await Promise.all(downloads);
+  await Promise.all(copies);
   return modifiedFiles;
 }
 
@@ -422,7 +370,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     error(`Unknown module: ${moduleName}`);
   }
 
-  const { ravenDir, version } = await ensureRavenInstalled(options);
+  const { ravenDir } = await ensureRavenInstalled(options);
 
   const installed = await getInstalledModules(ravenDir, registry);
   const order = getInstallOrder(moduleName, registry, installed);
@@ -431,10 +379,9 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     const modifiedFiles: string[] = [];
     const allDependencies: Record<string, string> = {};
     for (const name of order) {
-      const files = await downloadModule(
+      const files = await installModule(
         registry,
         name,
-        version,
         ravenDir,
         options,
       );
@@ -471,7 +418,6 @@ interface ModuleInfo {
 interface StatusResult {
   modules: ModuleInfo[];
   version?: string;
-  latestVersion?: string;
   modifiedFiles?: string[];
   fileHashes?: Record<string, string>;
 }
@@ -538,20 +484,6 @@ async function getStatus(
     await traverseDir(ravenDir, ravenDir);
   }
 
-  // Try to get latest version from GitHub
-  let latestVersion: string | undefined;
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
-    );
-    if (response.ok) {
-      const data = await response.json();
-      latestVersion = data.tag_name.replace(/^v/, "");
-    }
-  } catch (e) {
-    // ignore if can't fetch latest version
-  }
-
   if (moduleStatus.length === 0) {
     for (const name of knownModules) {
       const mod = registry.modules[name];
@@ -568,7 +500,6 @@ async function getStatus(
   return {
     modules: moduleStatus,
     version: currentVersion,
-    latestVersion,
     modifiedFiles,
     fileHashes,
   };
@@ -588,7 +519,6 @@ cli.version(loadCliVersion()).help();
 cli
   .option("--registry <path>", "Registry json path (default: same dir as CLI)")
   .option("--root <dir>", "RavenJS root directory (default: raven)")
-  .option("--source <path>", "Local module source path (default: github)")
   .option("--verbose, -v", "Verbose output");
 
 cli

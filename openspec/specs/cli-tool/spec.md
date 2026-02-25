@@ -28,7 +28,7 @@ RavenJS SHALL 提供一个可通过 npm 全局安装的 CLI 工具，用户安�
 
 ### Requirement: add 命令添加功能模块
 
-`raven add <module>` SHALL copy the specified module's code to the project. Before installing the target module, the system SHALL install any uninstalled dependencies listed in the registry's dependsOn for that module. Dependencies SHALL be installed in topological order. When copying module files, the system SHALL replace `@ravenjs/<module>` import paths with the correct relative path (e.g., `../core`) before writing.
+`raven add <module>` SHALL copy the specified module's code to the project from the embedded source (`dist/source/<module>/`). Before installing the target module, the system SHALL install any uninstalled dependencies listed in the registry's dependsOn for that module. Dependencies SHALL be installed in topological order. When copying module files, the system SHALL replace `@ravenjs/<module>` import paths with the correct relative path (e.g., `../core`) before writing.
 
 #### Scenario: 添加 core 模块
 
@@ -151,15 +151,6 @@ The system SHALL document that AI skills (in packages/ai) use `raven status` to 
 - **THEN** skill instructs agent to run `raven status` to verify RavenJS is initialized before adding modules
 - **AND** skill does NOT hardcode "raven/ exists" check
 
-### Requirement: AI Resource Registry
-
-The registry MAY maintain an `ai` property for use by other tools (e.g. install-raven). The @raven.js/cli SHALL NOT use the registry's `ai` property when running `raven init` or `raven update`; the CLI SHALL NOT install or update AI resources.
-
-#### Scenario: CLI does not install from registry ai
-
-- **WHEN** user runs `raven init` or `raven update`
-- **THEN** the CLI does NOT read or use the registry's `ai` property to copy or update files under `.claude/skills/`
-
 ### Requirement: Skill Metadata Format
 
 The system SHALL provide skills in Claude-compatible SKILL.md format.
@@ -198,31 +189,6 @@ The system SHALL provide a dedicated `packages/ai` package containing AI skills 
 - **WHEN** root `package.json` workspaces are loaded
 - **THEN** `packages/ai` is included in the workspace packages
 - **AND** the package can be resolved by the monorepo toolchain
-
-### Requirement: Registry AI Agent-Based Structure
-
-The registry SHALL structure the top-level `ai` property by agent, with each agent containing a source-to-destination mapping (no separate `files` array).
-
-#### Scenario: Registry ai structure by agent
-
-- **WHEN** `registry.json` is loaded
-- **THEN** the `ai` object contains agent keys (e.g. `claude`, `cursor`)
-- **AND** each agent key maps to `Record<sourcePath, destPath>` where sourcePath is relative to `packages/ai/` and destPath is relative to project root
-
-#### Scenario: Claude agent mapping
-
-- **WHEN** registry `ai.claude` is inspected
-- **THEN** it is a plain object with source paths as keys
-- **AND** values are install destination paths (e.g. `.claude/skills/raven-install/SKILL.md`, `.claude/skills/raven-add/SKILL.md`)
-- **AND** the list of source files is derived from `Object.keys(ai.claude)` (no separate `files` array)
-- **AND** mapping SHALL NOT include paths to `.claude/commands/`
-
-#### Scenario: No redundant files array
-
-- **WHEN** registry `ai` is inspected
-- **THEN** it SHALL NOT contain a top-level `files` array
-- **AND** it SHALL NOT contain a top-level `fileMapping` object
-- **AND** file lists are derived from each agent's mapping keys
 
 ### Requirement: Colorized output via a standard colors library
 
@@ -365,7 +331,7 @@ The system SHALL allow users to update the CLI itself to the latest version by d
 
 ### Requirement: Registry-Based Module Installation
 
-The system SHALL provide a mechanism to install RavenJS modules from a registry that describes module files, external dependencies, and module dependencies (dependsOn). Core is a module like others; it is installed via `raven add core` after `raven init`.
+The system SHALL provide a mechanism to install RavenJS modules from a registry that describes module files, external dependencies, and module dependencies (dependsOn). Core is a module like others; it is installed via `raven add core` after `raven init`. Module files are read from the embedded source directory (`dist/source/`) rather than downloaded from a network source.
 
 #### Scenario: Initialize new project
 
@@ -378,7 +344,7 @@ The system SHALL provide a mechanism to install RavenJS modules from a registry 
 
 - **WHEN** user runs `raven add <module-name>` with a valid module name
 - **THEN** the system installs any uninstalled dependsOn modules first
-- **AND** downloads module files to `raven/<module-name>/`
+- **AND** copies module files from `dist/source/<module-name>/` to `raven/<module-name>/`
 - **AND** replaces `@ravenjs/*` imports with relative paths in copied files
 - **AND** installs external npm dependencies if any
 
@@ -411,20 +377,20 @@ The generate-registry script SHALL parse each module's package.json and extract 
 - **THEN** the script SHALL exit with an error
 - **AND** the error message SHALL identify the cycle
 
-### Requirement: Parallel File Download
+### Requirement: Parallel File Copy from Embedded Source
 
-The system SHALL download multiple files concurrently when installing modules.
+CLI SHALL 在安装模块时并发地从内嵌 `dist/source/` 目录复制多个文件，以保持安装性能。
 
-#### Scenario: Download multiple files
+#### Scenario: Copy multiple files concurrently
 
-- **WHEN** the system needs to download 10 files for a module
-- **THEN** the system SHALL download files in parallel (not sequentially)
+- **WHEN** 系统需要为一个模块安装 10 个文件
+- **THEN** 系统 SHALL 并发复制文件（而非顺序逐一）
 
-#### Scenario: Download failure
+#### Scenario: Copy failure
 
-- **WHEN** any file download fails
-- **THEN** the system displays an error with the failed file URL
-- **AND** the system does not leave partial files
+- **WHEN** 任何文件在 `dist/source/` 中不存在
+- **THEN** 系统报错显示缺失的文件路径
+- **AND** 系统不留下不完整的安装文件
 
 ### Requirement: All CLI outputs in JSON format (Agent-facing)
 
