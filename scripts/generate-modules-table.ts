@@ -30,9 +30,12 @@ function generateTable(): string {
     .map((d) => d.name)
     .sort();
 
+  // Non-breaking hyphen (U+2011) so the module column doesn't wrap at "-"
+  const NBHYPHEN = "\u2011";
   const rows = dirs.map((name) => {
+    const displayName = name.replace(/-/g, NBHYPHEN);
     const desc = getModuleDescription(name);
-    return `| \`${name}\` | ${desc} | [README](modules/${name}/README.md) |`;
+    return `| \`${displayName}\` | ${desc} | [README](modules/${name}/README.md) |`;
   });
 
   return [
