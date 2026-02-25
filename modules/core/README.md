@@ -3,6 +3,7 @@
 RavenJS Core is a lightweight, high-performance Web framework reference implementation for Bun.
 
 **Features**:
+
 - Logic layer: `app.handle` (FetchHandler)
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
@@ -68,6 +69,24 @@ Raven is a **logic layer**—it exposes `handle(request) => Promise<Response>`:
 const app = new Raven();
 app.get("/", () => new Response("Hello"));
 Bun.serve({ fetch: (req) => app.handle(req) });
+```
+
+Because Raven is a logic layer, you can combine it with [Bun's Fullstack Dev Server](https://bun.com/docs/bundler/fullstack.md) to serve HTML routes and bundled frontend assets alongside API routes:
+
+```typescript
+import { Raven } from "@raven.js/core";
+import homepage from "./index.html";
+
+const app = new Raven();
+
+app.get("/api/hello", () => Response.json({ message: "Hello" }));
+
+Bun.serve({
+  routes: {
+    "/": homepage,
+    "/api/*": (req) => app.handle(req),
+  },
+});
 ```
 
 ## Context
@@ -190,13 +209,15 @@ const dbState = createAppState<DB>({ name: "db" });
 dbState.set(db);
 
 // ✓ Correct: called inside plugin load()
-await app.register(definePlugin({
-  name: "db",
-  states: [],
-  load(app) {
-    dbState.set(db);
-  },
-}));
+await app.register(
+  definePlugin({
+    name: "db",
+    states: [],
+    load(app) {
+      dbState.set(db);
+    },
+  }),
+);
 ```
 
 ## 4. `BodyState` only parses JSON
