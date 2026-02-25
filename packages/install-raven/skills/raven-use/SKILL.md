@@ -13,6 +13,7 @@ A workflow for writing correct RavenJS code: check project state, identify neede
 ## Step 0 — Verify prerequisites
 
 Run:
+
 ```bash
 bunx raven status
 ```
@@ -30,15 +31,17 @@ Handle the result:
 ## Step 1 — Identify required modules
 
 From the `bunx raven status` output, read the `modules` array. Each entry contains:
+
 - `name` — module identifier
 - `description` — what the module does
 - `installed` — whether it is present in the project
+- `language` — the language the Agent should use to communicate with the user
 
 Match the user's task against module descriptions. Do **not** hardcode mappings — always use the descriptions from the live status output. Common patterns:
 
-| User wants to… | Likely module |
-|---|---|
-| Create a server, define routes, add hooks | `core` |
+| User wants to…                            | Likely module |
+| ----------------------------------------- | ------------- |
+| Create a server, define routes, add hooks | `core`        |
 
 Select all modules that are relevant. Note which ones are already installed and which need to be added.
 

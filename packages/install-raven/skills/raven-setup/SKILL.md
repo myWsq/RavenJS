@@ -12,45 +12,62 @@ Configure the project environment so that the RavenJS `core` module executes cor
 
 ---
 
-## Step 0 — Verify prerequisites
+## Step 0 — Confirm interaction language
+
+**Before any other steps**, use the **AskUserQuestion** tool to ask the user:
+
+> What language would you like to use when interacting with the Agent? (e.g. English, Chinese)
+
+Once the user responds, **use that language for all subsequent communication** with the user throughout this skill.
+
+Remember the selected language for use in Step 1 when running `bunx raven init`.
+
+---
+
+## Step 1 — Verify prerequisites
 
 **Runtime:** This skill uses `bunx raven` and runs tests with `bun`. Ensure Bun is installed:
+
 ```bash
 bun --version
 ```
+
 - **Command not found** → **stop** and tell the user:
   > Bun is required. Please install: https://bun.sh
 
 **Raven CLI:** Use project-local CLI:
+
 ```bash
 bunx raven status
 ```
+
 Handle the result:
+
 - **Command not found** → **do not stop**. Install the CLI in the current project, then continue:
   1. Run `bun add -d @raven.js/cli` in the project.
-  2. Run `bunx raven init` to create the raven root and `raven.yaml`. The command will print the status JSON at the end — use that as the initial status.
+  2. Run `bunx raven init --language <Language>` to create the raven root and `raven.yaml`. Use the language from Step 0: English → `--language English`, 中文 → `--language Chinese`. The command will print the status JSON at the end — use that as the initial status.
   3. Continue with the rest of this skill (add core, configuration checks).
-- **`ravenDir` missing or `initialized: false`** → run `bunx raven init` to initialize the project. The command will print the status JSON at the end — use that; no need to re-run `bunx raven status`.
+- **`ravenDir` missing or `initialized: false`** → run `bunx raven init --language <Language>` to initialize the project. Use the language from Step 0: English → `--language English`, 中文 → `--language Chinese`. The command will print the status JSON at the end — use that; no need to re-run `bunx raven status`.
 - **Otherwise** → note the `ravenDir` path and the `modules` array and continue.
 
 ---
 
-## Step 1 — Ensure `core` is installed
+## Step 2 — Ensure `core` is installed
 
 From the `bunx raven status` output, check whether `core` appears in `modules` with `installed: true`.
 
-- **Already installed** → continue to Step 2.
-- **Not installed** → follow the **raven-add** skill to add `core`. The `raven add` command prints a status JSON at the end — use that to confirm `core` appears with `installed: true`, then continue to Step 2.
+- **Already installed** → continue to Step 3.
+- **Not installed** → follow the **raven-add** skill to add `core`. The `raven add` command prints a status JSON at the end — use that to confirm `core` appears with `installed: true`, then continue to Step 3.
 
 ---
 
-## Step 2 — Learn the `core` module
+## Step 3 — Learn the `core` module
 
 Follow the **raven-learn** skill for the `core` module. Do not skip this step — the guide is the authoritative reference for what a valid minimal example looks like.
 
 ---
 
-## Step 3 — Inspect the project environment
+## Step 4 — Inspect the project environment
 
 Gather the information needed to judge whether the project can execute the `core` module:
 
@@ -61,27 +78,28 @@ Gather the information needed to judge whether the project can execute the `core
 
 ---
 
-## Step 4 — Diagnose potential issues
+## Step 5 — Diagnose potential issues
 
-Based on what you found in Step 3, identify which of the following problems apply. **Do not assume problems that are not evidenced** — only flag what you actually observe.
+Based on what you found in Step 4, identify which of the following problems apply. **Do not assume problems that are not evidenced** — only flag what you actually observe.
 
-| Problem | Evidence to look for |
-|---|---|
-| Bun not installed or version too old | `bun --version` fails or < 1.0 |
-| Missing or incomplete `tsconfig.json` | File absent, or missing `target` / `moduleResolution` |
+| Problem                                     | Evidence to look for                                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Bun not installed or version too old        | `bun --version` fails or < 1.0                                                                                                 |
+| Missing or incomplete `tsconfig.json`       | File absent, or missing `target` / `moduleResolution`                                                                          |
 | `@raven.js` path not pointing to `ravenDir` | `tsconfig.json` lacks `compilerOptions.paths["@raven.js/*"]` or it points to a different directory than the derived `ravenDir` |
-| Package dependencies missing | `bunx raven add` listed packages not present in `node_modules` |
-| Incompatible `moduleResolution` | `node` instead of `bundler` or `node16`/`nodenext` |
+| Package dependencies missing                | `bunx raven add` listed packages not present in `node_modules`                                                                 |
+| Incompatible `moduleResolution`             | `node` instead of `bundler` or `node16`/`nodenext`                                                                             |
 
 List the diagnosed problems before fixing anything.
 
 ---
 
-## Step 5 — Fix configuration issues
+## Step 6 — Fix configuration issues
 
-Fix only the issues identified in Step 4. Apply the **minimum change** needed — do not refactor or improve unrelated config.
+Fix only the issues identified in Step 5. Apply the **minimum change** needed — do not refactor or improve unrelated config.
 
 **What to fix (project-level configuration):**
+
 - Install missing packages using the project's package manager (`bun install`, `npm install`, etc.).
 - Add or correct `tsconfig.json` settings for TypeScript.
 - Ensure `@raven.js` path alias points to `ravenDir` — see below.
@@ -96,6 +114,7 @@ TypeScript requires both `baseUrl` and `paths` in `compilerOptions` to resolve `
    - Custom root (e.g. `--root my-raven`): use `"./my-raven/*"`
 
 Example (default root):
+
 ```json
 {
   "compilerOptions": {
@@ -110,6 +129,7 @@ Example (default root):
 If the project already has `paths`, **merge** `"@raven.js/*": ["./raven/*"]` into the existing object — do not overwrite other aliases.
 
 **What NOT to touch:**
+
 - Files inside `ravenDir` (the raven root directory) — **do not modify framework code** unless you are certain beyond reasonable doubt that the file itself contains a bug. Configuration problems in the project almost always explain runtime errors.
 - `package.json` scripts unrelated to TypeScript execution.
 - Any files the user has not asked you to change.
@@ -119,22 +139,25 @@ If the project has a linter or formatter configured (ESLint, Biome, Prettier, et
 
 ---
 
-## Step 6 — Write and run a minimal test
+## Step 7 — Write and run a minimal test
 
 Create a temporary file at the project root named `_raven_setup_test.ts`.
 
 Use the USAGE EXAMPLES or Minimal Example from the `bunx raven guide core` output as the basis. The file must:
+
 - Import only from the `core` module paths shown in the guide (or from the installed raven path, e.g. `./raven/core`, or `@raven.js/core` when `tsconfig.json` paths map `@raven.js` to `ravenDir`).
 - Define a minimal server (one route is enough).
 - **Not** call `.listen()` or start a long-running process — just confirm the app object constructs without throwing.
 - Exit with code 0 on success, non-zero on failure.
 
 Run the file with Bun:
+
 ```bash
 bun run _raven_setup_test.ts
 ```
 
 **If the run fails:**
+
 1. Read the error message carefully.
 2. If it points to a **configuration problem** (import resolution, missing module, tsconfig option) → fix the configuration and re-run. Repeat until resolved or you reach a dead end.
 3. If it points to a **framework code problem** (and you are certain after reading the relevant source) → describe the issue to the user and ask for guidance before touching any file in `ravenDir`.
@@ -142,15 +165,16 @@ bun run _raven_setup_test.ts
 
 ---
 
-## Step 7 — Clean up
+## Step 8 — Clean up
 
 Delete `_raven_setup_test.ts`.
 
 ---
 
-## Step 8 — Report
+## Step 9 — Report
 
 Tell the user:
+
 - Which issues were found and fixed (if any).
 - That the project is ready to use RavenJS `core`.
 

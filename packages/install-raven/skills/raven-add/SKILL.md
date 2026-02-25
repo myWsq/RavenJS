@@ -16,6 +16,8 @@ Run `bunx raven status` and confirm the project is initialized (raven root direc
 
 If not initialized, stop and tell the user to run `bunx raven init` first, then use the **raven-setup** skill.
 
+Use the `language` field to determine the language the Agent should use to communicate with the user.
+
 ---
 
 ## Step 1 — Identify the module to add

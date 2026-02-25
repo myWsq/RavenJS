@@ -159,6 +159,18 @@ describe("CLI E2E", () => {
       expect(yamlContent).toContain("version:");
     });
 
+    it("should write --language to raven.yaml", async () => {
+      const cwd = await createTempDir(tempDirs);
+      const result = await runCli(["init", "--language", "Chinese"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      const yamlContent = await readFile(
+        join(cwd, "raven", "raven.yaml"),
+        "utf-8",
+      );
+      expect(yamlContent).toContain("language: Chinese");
+    });
+
     it("should show verbose output with --verbose", async () => {
       const cwd = await createTempDir(tempDirs);
       const result = await runCli(["init", "--verbose"], cwd);
@@ -183,8 +195,20 @@ describe("CLI E2E", () => {
       expect(result.exitCode).toBe(0);
       const out = JSON.parse(result.stdout.trim());
       expect(Array.isArray(out.modules)).toBe(true);
+      expect(out).toHaveProperty("language");
+      expect(out.language).toBe("English (default)");
       const coreMod = findModule(out.modules, "core");
       expect(coreMod?.installed).toBe(false);
+    });
+
+    it("should output JSON with language field", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init", "--language", "English"], cwd);
+      const result = await runCli(["status"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      const json = JSON.parse(result.stdout.trim());
+      expect(json).toHaveProperty("language", "English");
     });
 
     it("should output JSON with valid structure (modules with name and installed)", async () => {

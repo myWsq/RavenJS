@@ -23,6 +23,7 @@ interface CLIOptions {
   root?: string;
   prerelease?: boolean;
   registry?: string;
+  language?: string;
 }
 
 interface RegistryModule {
@@ -306,7 +307,7 @@ async function cmdInit(options: CLIOptions) {
   const doInit = async () => {
     if (!ravenRootExists || !ravenYamlExists) {
       await ensureDir(ravenDir);
-      await createRavenYaml(ravenDir, version);
+      await createRavenYaml(ravenDir, version, options?.language);
       modifiedFiles.push(ravenYamlPath);
     }
   };
@@ -339,10 +340,19 @@ async function cmdInit(options: CLIOptions) {
 
 interface RavenYamlConfig {
   version: string;
+  language?: string;
 }
 
-async function createRavenYaml(destDir: string, version: string) {
-  const content = stringify({ version });
+async function createRavenYaml(
+  destDir: string,
+  version: string,
+  language?: string,
+) {
+  const data: RavenYamlConfig = { version };
+  if (language !== undefined) {
+    data.language = language;
+  }
+  const content = stringify(data);
   await writeFile(join(destDir, "raven.yaml"), content);
 }
 
@@ -425,6 +435,7 @@ interface ModuleInfo {
 interface StatusResult {
   modules: ModuleInfo[];
   version?: string;
+  language?: string;
   modifiedFiles?: string[];
   fileHashes?: Record<string, string>;
 }
@@ -448,6 +459,7 @@ async function getStatus(
 
   const knownModules = getModuleNames(registry).sort();
   const moduleStatus: ModuleInfo[] = [];
+  let language: string | undefined;
 
   if (await pathExists(ravenDir)) {
     const yamlPath = join(ravenDir, "raven.yaml");
@@ -456,6 +468,9 @@ async function getStatus(
       const config = parse(content) as RavenYamlConfig;
       if (config?.version) {
         currentVersion = config.version;
+      }
+      if (config?.language !== undefined) {
+        language = config.language;
       }
     } catch (_e) {
       // raven.yaml missing or invalid
@@ -507,6 +522,7 @@ async function getStatus(
   return {
     modules: moduleStatus,
     version: currentVersion,
+    language: language ?? "English (default)",
     modifiedFiles,
     fileHashes,
   };
@@ -531,7 +547,11 @@ program
 program
   .command("init")
   .description("Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.")
-  .action(() => cmdInit(program.opts() as CLIOptions));
+  .option("--language <lang>", "Language (stored in raven.yaml)")
+  .action(function (this: { opts: () => CLIOptions }) {
+    const opts = this.opts();
+    cmdInit({ ...program.opts(), language: opts.language } as CLIOptions);
+  });
 
 program
   .command("add <module>")
