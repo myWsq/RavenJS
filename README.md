@@ -15,7 +15,9 @@ RavenJS is an **AI-native** Bun web framework. Lightweight and high-performance.
 
 ## Quick Start
 
-Requires **Bun** `>=1.0`.
+Requires **Bun** `>=1.0`. Raven installs in your **project directory**—framework code is copied in as reference for AI agents to learn from.
+
+**New project?** Use [bun init](https://bun.com/docs/runtime/templating/init) first. RavenJS supports **server-only** (`bun init -y`) or [Full Stack Dev Server](https://bun.sh/docs/bundler/fullstack) (`bun init --react`, `bun init --react=tailwind`, etc.).
 
 **1. Install AI skills**
 
@@ -25,21 +27,17 @@ bunx install-raven
 
 **2. Complete setup via Agent**
 
-In your Agent, run:
-
 ```
 /raven-setup
 ```
 
-The Agent will install the CLI (if missing), initialize the raven root, add core, and verify the setup. No need to run the CLI or init yourself first.
+The Agent will install the CLI (if missing), initialize the raven root, add core, and verify the setup.
 
 **3. Write code via Agent**
 
 ```
 /raven-use create an HTTP server with /hello
 ```
-
-The Agent will generate and integrate RavenJS code using the installed modules.
 
 ## AI Skills
 
@@ -54,11 +52,11 @@ Work with RavenJS primarily through skills.
 
 ## Available Modules
 
-| Module          | Description                                                                                    | Docs                                      |
-| --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `core` | RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles. | [README](modules/core/README.md) |
+| Module             | Description                                                                                                                                                                                               | Docs                                         |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `core`             | RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles.                                            | [README](modules/core/README.md)             |
 | `schema‑validator` | Validation helper based on Standard Schema. Use this module when you need to validate request data (body, query, params, headers) using Zod, Valibot, or ArkType, and want type-safe context in handlers. | [README](modules/schema-validator/README.md) |
-| `sql` | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database. | [README](modules/sql/README.md) |
+| `sql`              | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database.                                                                                     | [README](modules/sql/README.md)              |
 
 ## CLI
 
