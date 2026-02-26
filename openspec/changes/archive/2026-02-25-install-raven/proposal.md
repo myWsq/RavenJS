@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `install-raven`: 独立 CLI，仅负责将 RavenJS 的 AI Skill 安装到项目的约定目录（如 `.claude/skills/`），不安装 @raven.js/cli、不创建 raven 根目录；安装完成后用户可在 Agent 中执行 raven-setup，由 raven-setup 在项目中安装 @raven.js/cli 并完成后续流程。
 
 ### Modified Capabilities
+
 - `cli-tool`: `raven init` 不再安装 AI resources，仅创建 raven 根目录与 `raven.yaml`；`raven update` 不再更新 AI resources；移除与「CLI 安装/更新 Skill」相关的需求与选项（如 `raven init --source` 用于 AI 资源）；Skill 安装能力由 install-raven 提供。
 
 ## Impact

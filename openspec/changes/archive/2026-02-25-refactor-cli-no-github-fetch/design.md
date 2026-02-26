@@ -1,6 +1,7 @@
 ## Context
 
 当前 CLI 有两种模块安装模式：
+
 1. **默认模式**：从 GitHub raw URL 拉取文件 (`https://raw.githubusercontent.com/myWsq/RavenJS/v<version>/modules/<name>/<file>`)
 2. **本地模式**：通过 `--source <path>` 指定本地目录读取文件
 
@@ -9,6 +10,7 @@
 构建脚本 `packages/cli/scripts/build.ts` 在生成 registry 时会同时 `scanModules()` 和 `scanAi()`，混合了两个无关的职责。
 
 **问题**：
+
 - 运行时依赖网络，离线环境无法正常工作
 - registry.json 的 `ai` 字段与 CLI 模块安装职责无关，增加了维护负担
 - `--source` 选项本意是绑过 GitHub 用于开发/测试，实际上是对"GitHub 是唯一来源"这一设计缺陷的补丁
@@ -16,12 +18,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 构建时将所有模块源码内嵌至 `dist/source/`，CLI 离线可用
 - `registry.json` 只包含 `version` 和 `modules`，不再包含 `ai`
 - 移除运行时 GitHub 网络请求，模块安装完全读取本地内嵌文件
 - build.ts 职责单一：生成 registry + 复制源码 + 编译 CLI
 
 **Non-Goals:**
+
 - 不修改 CLI 命令的对外 API（`init`、`add`、`update`、`status`、`self-update`、`guide` 行为不变）
 - 不修改模块目录结构和 registry modules 字段格式
 - 不影响 `packages/ai` 的内容和 `install-raven` 工具
@@ -33,6 +37,7 @@
 **选择**：构建时将 `modules/` 下所有模块文件复制到 `dist/source/<module-name>/`，CLI 通过 `join(__dirname, "source", moduleName, file)` 读取。
 
 **备选方案**：
+
 - 继续 GitHub 下载，但固化到当前版本 tag → 仍有网络依赖，无法离线
 - 将模块代码直接打包进 JS bundle → 需要特殊打包处理，且 Bun.build 不适合原样保留源文件文本
 
@@ -57,6 +62,7 @@
 ### 决策 4：build.ts 新增 `copyModuleSources()` 步骤
 
 **实现顺序**：
+
 1. `generateRegistry()` → 生成 `dist/registry.json` 和 `registry.json`
 2. `copyModuleSources()` → 将 `modules/` 复制到 `dist/source/`（仅复制 git tracked 文件，排除 `package.json`）
 3. `Bun.build()` → 编译 CLI

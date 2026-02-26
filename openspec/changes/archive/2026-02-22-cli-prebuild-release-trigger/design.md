@@ -5,11 +5,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 以 v{x.x.x} 标签作为 Release 触发条件
 - CLI prebuild 版本号从 Release tag 获取，避免硬编码
 - 发布流程中版本保持一致、可追踪
 
 **Non-Goals:**
+
 - 不调整 CLI 产物格式或分发渠道
 - 不更改现有版本号规则或语义版本策略
 - 不引入新的发布平台或外部依赖

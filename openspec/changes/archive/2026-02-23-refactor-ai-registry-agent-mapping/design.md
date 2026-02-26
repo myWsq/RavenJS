@@ -5,11 +5,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 移除 `ai.files`，仅保留 mapping，源文件列表从 `Object.keys(mapping)` 推导
 - 支持多 agent：`ai.claude`、`ai.cursor` 等，各 agent 下为 `{ sourcePath: destPath }`
 - CLI 默认使用 `ai.claude`，保持现有 `.claude/` 安装行为不变
 
 **Non-Goals:**
+
 - 不增加 `raven init --agent cursor` 等运行时选择（本次只做结构预留）
 - 不修改 raven init/update 的对外 CLI 接口
 - 不实现 Cursor 的 mapping 与安装逻辑（仅保留扩展点）
@@ -19,7 +21,7 @@
 1. **Registry `ai` 新结构**
    - `ai`: `{ claude: Record<sourcePath, destPath>, cursor?: Record<...>, ... }`
    - 每个 agent 的 key 为 packages/ai 内的相对路径，value 为安装目标相对路径（相对项目根）
-   - Alternative: 保留 `ai.files` 作为全局列表 + agent 各自 mapping —  rejected，增加复杂度
+   - Alternative: 保留 `ai.files` 作为全局列表 + agent 各自 mapping — rejected，增加复杂度
 
 2. **packages/ai/package.json 结构**
    - 移除顶层 `files`，改为 `agents: { claude: Record<sourcePath, destPath> }` 或等价结构

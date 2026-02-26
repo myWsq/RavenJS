@@ -5,11 +5,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将 scoped-token 相关功能移入 `packages/main/utils/scoped-token.ts`
 - 保持现有功能不变，只做代码迁移
 - 更新相关导入路径
 
 **Non-Goals:**
+
 - 不修改 scoped-token 的功能逻辑
 - 不改变 API 接口
 - `ContextToken` 继续保留在 `index.ts` 中

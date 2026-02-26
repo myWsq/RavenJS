@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `plugin-system`: 提供核心的插件注册和初始化机制，支持 `Raven.register()` API。
 
 ### Modified Capabilities
+
 - `lifecycle-hooks`: 扩展生命周期钩子，使其能够与插件系统集成。
 
 ## Impact

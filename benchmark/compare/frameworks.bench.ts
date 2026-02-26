@@ -108,7 +108,7 @@ group("Router Scaling - 100 routes", () => {
   for (let i = 0; i < 100; i++) {
     raven100.get(`/route${i}`, () => new Response(`Route ${i}`));
   }
-  
+
   let hono100: any = null;
   if (Hono) {
     hono100 = new Hono();
@@ -116,7 +116,7 @@ group("Router Scaling - 100 routes", () => {
       hono100.get(`/route${i}`, (c: any) => c.text(`Route ${i}`));
     }
   }
-  
+
   let elysia100: any = null;
   if (Elysia) {
     elysia100 = new Elysia();
@@ -124,7 +124,7 @@ group("Router Scaling - 100 routes", () => {
       elysia100.get(`/route${i}`, () => `Route ${i}`);
     }
   }
-  
+
   const req50 = new Request("http://localhost/route50");
   const req99 = new Request("http://localhost/route99");
 

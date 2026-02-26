@@ -2,8 +2,8 @@
   "name": "@raven.js/sql",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
   "description": "RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database.",
+  "type": "module",
   "devDependencies": {
     "@raven.js/core": "workspace:*"
   }

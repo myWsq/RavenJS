@@ -32,9 +32,7 @@ function extractDependsOn(pkg: {
   return dependsOn;
 }
 
-function detectCycle(
-  modules: Record<string, { dependsOn: string[] }>,
-): string[] | null {
+function detectCycle(modules: Record<string, { dependsOn: string[] }>): string[] | null {
   const visited = new Set<string>();
   const recStack = new Set<string>();
   const path: string[] = [];
@@ -112,14 +110,18 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
 
       const files = await getGitTrackedFiles(moduleDir);
       if (files.length === 0) {
-        console.warn(`Warning: ${entry.name} has no git-tracked files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`);
+        console.warn(
+          `Warning: ${entry.name} has no git-tracked files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`,
+        );
         continue;
       }
 
       const guidePath = join(moduleDir, "GUIDE.md");
       const guideExists = await Bun.file(guidePath).exists();
       if (!guideExists) {
-        console.error(`Error: Module '${entry.name}' is missing GUIDE.md. Each registry module must provide GUIDE.md.`);
+        console.error(
+          `Error: Module '${entry.name}' is missing GUIDE.md. Each registry module must provide GUIDE.md.`,
+        );
         process.exit(1);
       }
 
@@ -189,9 +191,7 @@ async function copyModuleSources(
       for (const outDir of outputDirs) {
         const destPath = join(outDir, moduleName, file);
         copies.push(
-          mkdir(dirname(destPath), { recursive: true }).then(() =>
-            copyFile(srcPath, destPath),
-          ),
+          mkdir(dirname(destPath), { recursive: true }).then(() => copyFile(srcPath, destPath)),
         );
       }
     }
@@ -200,7 +200,9 @@ async function copyModuleSources(
   await Promise.all(copies);
 
   const totalFiles = Object.values(modules).reduce((sum, m) => sum + m.files.length, 0);
-  console.log(`Module sources copied (${Object.keys(modules).length} modules, ${totalFiles} files)`);
+  console.log(
+    `Module sources copied (${Object.keys(modules).length} modules, ${totalFiles} files)`,
+  );
 }
 
 async function main() {

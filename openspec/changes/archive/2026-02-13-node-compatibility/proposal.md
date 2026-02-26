@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `runtime-abstraction`: 提供一个统一的接口来处理不同运行时（Bun, Node.js）之间的差异，如启动服务器、停止服务器等。
 
 ### Modified Capabilities
+
 - `http-server`: 确保 HTTP 服务器的启动 (`listen`)、停止 (`stop`) 和请求处理行为在 Node.js 下与 Bun 保持一致。
 
 ## Impact

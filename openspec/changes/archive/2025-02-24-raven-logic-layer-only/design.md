@@ -3,6 +3,7 @@
 ## Context
 
 Raven 当前在 `modules/core/index.ts` 的 `Raven` 类中同时包含：
+
 - **逻辑层**：路由、hooks、state、handler 执行，入口为 `handleRequest(request) => Response`
 - **传输层**：`listen()` 调用 `Bun.serve`，`stop()` 停止服务器
 
@@ -11,12 +12,14 @@ Raven 当前在 `modules/core/index.ts` 的 `Raven` 类中同时包含：
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将 Raven 重构为纯逻辑层：仅暴露 `handle(request) => Promise<Response>`，不包含 HTTP 服务器启动
 - 移除 `listen()`、`stop()`、`server` 属性及 `Bun.serve` 依赖
 - 将 `handleRequest` 重命名为更具语义的方法名（建议 `handle`）
 - 文档说明如何将 Raven 接入 Bun.serve 或其他 Fetch 环境
 
 **Non-Goals:**
+
 - 不提供独立 adapters 包（可后续在文档或示例中给出接入方式）
 - 不处理 AsyncLocalStorage 在非 Node 环境的替代实现
 - 不追求向后兼容
@@ -28,6 +31,7 @@ Raven 当前在 `modules/core/index.ts` 的 `Raven` 类中同时包含：
 **选择**: `handle` 作为 Request → Response 处理入口的方法名
 
 **备选**:
+
 - `handleRequest`: 与现有一致，但 "Request" 暗示网络请求
 - `dispatch`: 常见于事件/消息分发，语义略偏
 - `process`: 过于通用
@@ -40,6 +44,7 @@ Raven 当前在 `modules/core/index.ts` 的 `Raven` 类中同时包含：
 **选择**: 完全移除，用户需自行接入服务器
 
 **备选**:
+
 - 在 core 中保留可选的 `toFetchHandler()` 或 `asFetchHandler` getter，返回 `this.handle`：当前 `handle` 本身即为 FetchHandler，无需额外封装
 - 单独包提供 Bun adapter：增加复杂度，暂不采纳
 
@@ -61,8 +66,8 @@ Raven 当前在 `modules/core/index.ts` 的 `Raven` 类中同时包含：
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                   | Mitigation                                      |
+| -------------------------------------- | ----------------------------------------------- |
 | 依赖 `listen()` 的示例或脚本需手动迁移 | 在 README 中提供迁移示例；变更明确标注 BREAKING |
-| 方法名 `handle` 与某些库冲突 | `handle` 为常见词，Raven 实例方法，作用域明确 |
-| 用户期望「开箱即用」的 `app.listen()` | 文档强调 Raven 为逻辑层，并提供 1 行接入示例 |
+| 方法名 `handle` 与某些库冲突           | `handle` 为常见词，Raven 实例方法，作用域明确   |
+| 用户期望「开箱即用」的 `app.listen()`  | 文档强调 Raven 为逻辑层，并提供 1 行接入示例    |

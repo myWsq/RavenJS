@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `cli-status-command`: `raven status` 命令，列出 ai、core、modules 的安装状态，支持 agent 调用以动态判断是否已安装
 
 ### Modified Capabilities
+
 - `cli-ai-commands`: AI 相关 skill/command 通过 `raven status` 判断安装状态，不再写死目录检查逻辑
 
 ## Impact

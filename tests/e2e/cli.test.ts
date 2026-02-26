@@ -9,19 +9,9 @@ const cliDistDir = join(repoRoot, "packages", "cli", "dist");
 const cliPath = join(cliDistDir, "raven");
 const registryPath = join(cliDistDir, "registry.json");
 const sourcePath = join(cliDistDir, "source");
-const buildScriptPath = join(
-  repoRoot,
-  "packages",
-  "cli",
-  "scripts",
-  "build.ts",
-);
+const buildScriptPath = join(repoRoot, "packages", "cli", "scripts", "build.ts");
 
-async function runCommand(
-  cmd: string[],
-  cwd: string,
-  env?: Record<string, string>,
-) {
+async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
   if (!isBun) {
     throw new Error("Bun runtime is required for CLI e2e tests");
   }
@@ -79,9 +69,7 @@ describe("CLI E2E", () => {
 
   afterEach(async () => {
     await Promise.all(
-      tempDirs.map((dir) =>
-        rm(dir, { recursive: true, force: true }).catch(() => {}),
-      ),
+      tempDirs.map((dir) => rm(dir, { recursive: true, force: true }).catch(() => {})),
     );
     tempDirs = [];
   });
@@ -152,10 +140,7 @@ describe("CLI E2E", () => {
       const cwd = await createTempDir(tempDirs);
       await runCli(["init"], cwd);
 
-      const yamlContent = await readFile(
-        join(cwd, "raven", "raven.yaml"),
-        "utf-8",
-      );
+      const yamlContent = await readFile(join(cwd, "raven", "raven.yaml"), "utf-8");
       expect(yamlContent).toContain("version:");
     });
 
@@ -164,10 +149,7 @@ describe("CLI E2E", () => {
       const result = await runCli(["init", "--language", "Chinese"], cwd);
 
       expect(result.exitCode).toBe(0);
-      const yamlContent = await readFile(
-        join(cwd, "raven", "raven.yaml"),
-        "utf-8",
-      );
+      const yamlContent = await readFile(join(cwd, "raven", "raven.yaml"), "utf-8");
       expect(yamlContent).toContain("language: Chinese");
     });
 
@@ -180,10 +162,7 @@ describe("CLI E2E", () => {
     });
   });
 
-  function findModule(
-    mods: { name: string; installed: boolean }[],
-    name: string,
-  ) {
+  function findModule(mods: { name: string; installed: boolean }[], name: string) {
     return mods.find((m) => m.name === name);
   }
 
@@ -285,9 +264,7 @@ describe("CLI E2E", () => {
       expect(status).toHaveProperty("modules");
       expect(Array.isArray(status.modules)).toBe(true);
       expect(findModule(status.modules, "core")?.installed).toBe(true);
-      expect(findModule(status.modules, "schema-validator")?.installed).toBe(
-        true,
-      );
+      expect(findModule(status.modules, "schema-validator")?.installed).toBe(true);
 
       const coreDir = join(cwd, "raven", "core");
       const moduleDir = join(cwd, "raven", "schema-validator");
@@ -301,10 +278,7 @@ describe("CLI E2E", () => {
       await runCli(["init"], cwd);
       await runCli(["add", "schema-validator"], cwd);
 
-      const mainTs = await readFile(
-        join(cwd, "raven", "schema-validator", "index.ts"),
-        "utf-8",
-      );
+      const mainTs = await readFile(join(cwd, "raven", "schema-validator", "index.ts"), "utf-8");
       expect(mainTs).toContain('from "../core"');
       expect(mainTs).not.toContain("@raven.js/core");
     });

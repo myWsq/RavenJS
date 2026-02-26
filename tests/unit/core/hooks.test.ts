@@ -2,66 +2,72 @@ import { describe, test, expect } from "bun:test";
 import { Raven, RavenContext } from "../../../modules/core";
 
 describe("Raven Lifecycle Hooks", () => {
-	test("should execute hooks in order and have context access", async () => {
-		const app = new Raven();
-		const executionOrder: string[] = [];
+  test("should execute hooks in order and have context access", async () => {
+    const app = new Raven();
+    const executionOrder: string[] = [];
 
-		app.onRequest((req) => { 
-			executionOrder.push(`onRequest:${req.method}`); 
-		});
-		app.beforeHandle(() => { executionOrder.push("beforeHandle"); });
-		app.beforeResponse((res) => { 
-			executionOrder.push("beforeResponse");
-			return res;
-		});
+    app.onRequest((req) => {
+      executionOrder.push(`onRequest:${req.method}`);
+    });
+    app.beforeHandle(() => {
+      executionOrder.push("beforeHandle");
+    });
+    app.beforeResponse((res) => {
+      executionOrder.push("beforeResponse");
+      return res;
+    });
 
-		app.get("/", () => new Response("ok"));
+    app.get("/", () => new Response("ok"));
 
-		// Trigger handle manually for testing
-		const request = new Request("http://localhost/");
-		// @ts-ignore - access private for testing
-		await app.handle(request);
+    // Trigger handle manually for testing
+    const request = new Request("http://localhost/");
+    // @ts-ignore - access private for testing
+    await app.handle(request);
 
-		expect(executionOrder).toEqual(["onRequest:GET", "beforeHandle", "beforeResponse"]);
-	});
+    expect(executionOrder).toEqual(["onRequest:GET", "beforeHandle", "beforeResponse"]);
+  });
 
-	test("should short-circuit on onRequest return", async () => {
-		const app = new Raven();
-		const executionOrder: string[] = [];
+  test("should short-circuit on onRequest return", async () => {
+    const app = new Raven();
+    const executionOrder: string[] = [];
 
-		app.onRequest(() => { 
-			executionOrder.push("onRequest");
-			return new Response("short-circuit");
-		});
-		app.beforeHandle(() => { executionOrder.push("beforeHandle"); });
+    app.onRequest(() => {
+      executionOrder.push("onRequest");
+      return new Response("short-circuit");
+    });
+    app.beforeHandle(() => {
+      executionOrder.push("beforeHandle");
+    });
 
-		const request = new Request("http://localhost/");
-		// @ts-ignore
-		const response = await app.handle(request);
+    const request = new Request("http://localhost/");
+    // @ts-ignore
+    const response = await app.handle(request);
 
-		expect(executionOrder).toEqual(["onRequest"]);
-		expect(await response.text()).toBe("short-circuit");
-	});
+    expect(executionOrder).toEqual(["onRequest"]);
+    expect(await response.text()).toBe("short-circuit");
+  });
 
-	test("should handle errors with onError", async () => {
-		const app = new Raven();
-		app.beforeHandle(() => {
-			throw new Error("test error");
-		});
+  test("should handle errors with onError", async () => {
+    const app = new Raven();
+    app.beforeHandle(() => {
+      throw new Error("test error");
+    });
 
-		let errorCaught = false;
-		app.onError((err) => {
-			errorCaught = true;
-			return new Response(err.message, { status: 500 });
-		});
+    let errorCaught = false;
+    app.onError((err) => {
+      errorCaught = true;
+      return new Response(err.message, { status: 500 });
+    });
 
-		app.get("/", () => { throw new Error("test error"); });
+    app.get("/", () => {
+      throw new Error("test error");
+    });
 
-		const request = new Request("http://localhost/");
-		// @ts-ignore
-		const response = await app.handle(request);
+    const request = new Request("http://localhost/");
+    // @ts-ignore
+    const response = await app.handle(request);
 
-		expect(errorCaught).toBe(true);
-		expect(await response.text()).toBe("test error");
-	});
+    expect(errorCaught).toBe(true);
+    expect(await response.text()).toBe("test error");
+  });
 });

@@ -11,9 +11,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `testing-type-safety`: 确保测试 API 的类型安全。
 
 ### Modified Capabilities
+
 - 无
 
 ## Impact

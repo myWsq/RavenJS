@@ -12,12 +12,14 @@ ravenjs 当前定位是一个传统的 npm 框架，但这与 AI 时代的开发
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-first-experience`: 重新定位 ravenjs 为 Agent 的教学工具
 - `agent-focused-cli`: CLI 输出全部面向 Agent（JSON 格式）
 - `agent-teaching-docs`: README.md 重构为 Agent 专用教学文档
 - `smart-code-update`: 支持两种更新模式（直接覆盖/智能合并）
 
 ### Modified Capabilities
+
 - `cli-tool`: 重新设计 CLI 为 Agent 优先
 - `core-framework`: 框架代码作为教学参考，而非依赖
 

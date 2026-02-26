@@ -3,6 +3,7 @@
 @raven.js/sql is a RavenJS plugin that wraps [Bun's native SQL bindings](https://bun.com/docs/runtime/sql), exposing a single `Bun.SQL` client via the framework's dependency injection (AppState).
 
 **Features**:
+
 - **Unified API**: One client for PostgreSQL, MySQL, or SQLite using the same tagged template literal interface.
 - **DI Integration**: The SQL client is stored in AppState; handlers obtain it via the state returned from `register()`.
 - **Multiple clients**: Register the plugin multiple times for different databases; each registration gets its own state and connection pool.

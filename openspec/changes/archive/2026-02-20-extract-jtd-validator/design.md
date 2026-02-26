@@ -24,6 +24,7 @@ Benchmark 测试结果显示 Ajv JTD Parser 性能并不优于 `JSON.parse + val
 ### 1. Core 只保留 State 机制，完全移除验证逻辑
 
 **移除清单**：
+
 - `import Ajv from "ajv/dist/jtd"`
 - `OPTIONAL` symbol 及相关类型
 - `FieldSchema`, `JTDSchema`, `JTDType`, `JTDBaseSchema` 类型
@@ -35,6 +36,7 @@ Benchmark 测试结果显示 Ajv JTD Parser 性能并不优于 `JSON.parse + val
 - `processStates()` 中的验证调用
 
 **保留清单**：
+
 - `ScopedState`, `AppState`, `RequestState` 类
 - `BodyState`, `QueryState`, `ParamsState`, `HeadersState` 实例
 - `processStates()` 只做 JSON 解析和 State 赋值
@@ -51,13 +53,14 @@ packages/jtd-validator/
 ```
 
 **导出 API**：
+
 ```typescript
 // Schema DSL
-export { J, OPTIONAL }
-export type { FieldSchema, JTDSchema, Infer }
+export { J, OPTIONAL };
+export type { FieldSchema, JTDSchema, Infer };
 
 // 验证版 Hooks
-export { useBody, useQuery, useParams, useHeaders }
+export { useBody, useQuery, useParams, useHeaders };
 ```
 
 ### 3. Lazy Validation 实现
@@ -65,38 +68,39 @@ export { useBody, useQuery, useParams, useHeaders }
 ```typescript
 // packages/jtd-validator/main.ts
 
-import Ajv, { type ValidateFunction } from 'ajv/dist/jtd'
-import { BodyState, RavenError } from '@ravenjs/core'
+import Ajv, { type ValidateFunction } from "ajv/dist/jtd";
+import { BodyState, RavenError } from "@ravenjs/core";
 
-const ajv = new Ajv()
-const validatorCache = new WeakMap<object, ValidateFunction>()
+const ajv = new Ajv();
+const validatorCache = new WeakMap<object, ValidateFunction>();
 
 function getOrCompileValidator(schema: object): ValidateFunction {
-  let validator = validatorCache.get(schema)
+  let validator = validatorCache.get(schema);
   if (!validator) {
-    validator = ajv.compile(schema)
-    validatorCache.set(schema, validator)
+    validator = ajv.compile(schema);
+    validatorCache.set(schema, validator);
   }
-  return validator
+  return validator;
 }
 
 export function useBody<T extends FieldSchema>(schema: T): Infer<T> {
-  const data = BodyState.getOrFailed()
-  const validator = getOrCompileValidator(schema.schema)
-  
+  const data = BodyState.getOrFailed();
+  const validator = getOrCompileValidator(schema.schema);
+
   if (!validator(data)) {
-    const errors = validator.errors ?? []
+    const errors = validator.errors ?? [];
     const message = errors
-      .map(e => `${e.instancePath || '/'}: ${e.message || 'invalid'}`)
-      .join('; ')
-    throw RavenError.ERR_VALIDATION(message || 'Invalid body')
+      .map((e) => `${e.instancePath || "/"}: ${e.message || "invalid"}`)
+      .join("; ");
+    throw RavenError.ERR_VALIDATION(message || "Invalid body");
   }
-  
-  return data as Infer<T>
+
+  return data as Infer<T>;
 }
 ```
 
 **关键点**：
+
 - ValidateFunction 使用 WeakMap 缓存，同一 schema 只编译一次
 - 验证失败抛出 `RavenError.ERR_VALIDATION`，复用 Core 错误处理机制
 - 同一请求多次调用 `useBody(schema)` 会重复验证（简单优先，性能影响可忽略）
@@ -104,6 +108,7 @@ export function useBody<T extends FieldSchema>(schema: T): Infer<T> {
 ### 4. Handler 类型简化
 
 **Before (Core)**：
+
 ```typescript
 export type Handler = HandlerFn & {
   bodySchema?: JTDSchema;
@@ -113,6 +118,7 @@ export type Handler = HandlerFn & {
 ```
 
 **After (Core)**：
+
 ```typescript
 export type Handler = () => Response | Promise<Response>;
 ```
@@ -120,10 +126,10 @@ export type Handler = () => Response | Promise<Response>;
 用户定义 Handler 无需 `createHandler()` 链式调用，直接写函数：
 
 ```typescript
-app.post('/users', () => {
-  const body = useBody(CreateUserSchema)  // 从 @ravenjs/jtd-validator 导入
-  return Response.json({ id: 1, ...body })
-})
+app.post("/users", () => {
+  const body = useBody(CreateUserSchema); // 从 @ravenjs/jtd-validator 导入
+  return Response.json({ id: 1, ...body });
+});
 ```
 
 ## Risks / Trade-offs

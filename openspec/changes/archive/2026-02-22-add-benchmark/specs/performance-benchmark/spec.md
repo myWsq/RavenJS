@@ -97,12 +97,12 @@
 #### Scenario: Run all micro benchmarks
 
 - **WHEN** 用户执行 `bun run benchmark:micro`
-- **THEN** 系统运行 benchmark/micro/ 目录下所有 *.bench.ts 文件
+- **THEN** 系统运行 benchmark/micro/ 目录下所有 \*.bench.ts 文件
 
 #### Scenario: Run e2e benchmarks
 
 - **WHEN** 用户执行 `bun run benchmark:e2e`
-- **THEN** 系统运行 benchmark/e2e/ 目录下所有 *.bench.ts 文件
+- **THEN** 系统运行 benchmark/e2e/ 目录下所有 \*.bench.ts 文件
 
 #### Scenario: Run all benchmarks
 

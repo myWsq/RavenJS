@@ -1,6 +1,6 @@
 ## 1. Generate Registry: dependsOn
 
-- [x] 1.1 在 generate-registry 中解析各模块 package.json 的 dependencies 和 devDependencies，提取 @ravenjs/* 引用并转换为模块名（如 @ravenjs/core → core）
+- [x] 1.1 在 generate-registry 中解析各模块 package.json 的 dependencies 和 devDependencies，提取 @ravenjs/\* 引用并转换为模块名（如 @ravenjs/core → core）
 - [x] 1.2 为每个模块输出 dependsOn 数组到 registry；若无工作区依赖则输出空数组
 - [x] 1.3 添加循环依赖检测，若存在则报错退出
 - [x] 1.4 运行脚本重新生成 registry.json 并验证输出

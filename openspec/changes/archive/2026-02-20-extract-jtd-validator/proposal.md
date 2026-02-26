@@ -12,7 +12,7 @@ Benchmark 结果显示 Ajv JTD Parser 的性能并不比 `JSON.parse + validate`
 
 - **Core 瘦身**：移除 Ajv 依赖、J.object() DSL、Infer<T> 类型、HandlerBuilder、runValidator 等
 - **Core 职责单一化**：processStates 只做 State 赋值，不执行验证
-- **新包承载验证**：`@ravenjs/jtd-validator` 提供 J.* DSL、Infer<T>、以及 `useBody(schema)` 等验证版 hooks
+- **新包承载验证**：`@ravenjs/jtd-validator` 提供 J.\* DSL、Infer<T>、以及 `useBody(schema)` 等验证版 hooks
 - **Lazy Validation**：验证发生在 `useBody(schema)` 调用时（获取时验证），而非赋值时
 
 ## Capabilities

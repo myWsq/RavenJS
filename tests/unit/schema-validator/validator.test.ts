@@ -15,14 +15,11 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { body: bodySchema },
-      async (ctx) => {
-        return new Response(JSON.stringify(ctx.body), {
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    );
+    const wrappedHandler = withSchema({ body: bodySchema }, async (ctx) => {
+      return new Response(JSON.stringify(ctx.body), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       BodyState.set({ name: "test" });
@@ -39,10 +36,7 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { body: bodySchema },
-      async () => new Response("OK"),
-    );
+    const wrappedHandler = withSchema({ body: bodySchema }, async () => new Response("OK"));
 
     const error = await requestStorage.run(new Map(), async () => {
       BodyState.set({});
@@ -58,14 +52,11 @@ describe("withSchema", () => {
       page: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { query: querySchema },
-      async (ctx) => {
-        return new Response(JSON.stringify(ctx.query), {
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    );
+    const wrappedHandler = withSchema({ query: querySchema }, async (ctx) => {
+      return new Response(JSON.stringify(ctx.query), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       QueryState.set({ page: "1" });
@@ -82,10 +73,7 @@ describe("withSchema", () => {
       page: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { query: querySchema },
-      async () => new Response("OK"),
-    );
+    const wrappedHandler = withSchema({ query: querySchema }, async () => new Response("OK"));
 
     const error = await requestStorage.run(new Map(), async () => {
       QueryState.set({});
@@ -101,14 +89,11 @@ describe("withSchema", () => {
       id: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { params: paramsSchema },
-      async (ctx) => {
-        return new Response(JSON.stringify(ctx.params), {
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    );
+    const wrappedHandler = withSchema({ params: paramsSchema }, async (ctx) => {
+      return new Response(JSON.stringify(ctx.params), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       ParamsState.set({ id: "123" });
@@ -125,10 +110,7 @@ describe("withSchema", () => {
       id: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { params: paramsSchema },
-      async () => new Response("OK"),
-    );
+    const wrappedHandler = withSchema({ params: paramsSchema }, async () => new Response("OK"));
 
     const error = await requestStorage.run(new Map(), async () => {
       ParamsState.set({});
@@ -144,14 +126,11 @@ describe("withSchema", () => {
       authorization: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { headers: headersSchema },
-      async (ctx) => {
-        return new Response(JSON.stringify(ctx.headers), {
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    );
+    const wrappedHandler = withSchema({ headers: headersSchema }, async (ctx) => {
+      return new Response(JSON.stringify(ctx.headers), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       HeadersState.set({ authorization: "Bearer token" });
@@ -168,10 +147,7 @@ describe("withSchema", () => {
       authorization: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { headers: headersSchema },
-      async () => new Response("OK"),
-    );
+    const wrappedHandler = withSchema({ headers: headersSchema }, async () => new Response("OK"));
 
     const error = await requestStorage.run(new Map(), async () => {
       HeadersState.set({});
@@ -259,18 +235,15 @@ describe("withSchema", () => {
   });
 
   it("should handle missing schema gracefully", async () => {
-    const wrappedHandler = withSchema(
-      {},
-      async (ctx) => {
-        return new Response(
-          JSON.stringify({
-            body: ctx.body,
-            query: ctx.query,
-          }),
-          { headers: { "Content-Type": "application/json" } },
-        );
-      },
-    );
+    const wrappedHandler = withSchema({}, async (ctx) => {
+      return new Response(
+        JSON.stringify({
+          body: ctx.body,
+          query: ctx.query,
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       return wrappedHandler();
@@ -289,14 +262,11 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { body: bodySchema },
-      async (ctx) => {
-        return new Response(JSON.stringify(ctx.body), {
-          headers: { "Content-Type": "application/json" },
-        });
-      },
-    );
+    const wrappedHandler = withSchema({ body: bodySchema }, async (ctx) => {
+      return new Response(JSON.stringify(ctx.body), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
 
     const response = await requestStorage.run(new Map(), async () => {
       BodyState.set({ name: "async test" });

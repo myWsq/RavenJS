@@ -5,6 +5,7 @@ The raven CLI (`packages/cli/index.ts`) uses raw ANSI escape codes (`\x1b[31m`, 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace raw ANSI with a standard colors library (picocolors or chalk)
 - Add spinners (ora) for init/add/update
 - Improve section headers and list formatting
@@ -12,6 +13,7 @@ The raven CLI (`packages/cli/index.ts`) uses raw ANSI escape codes (`\x1b[31m`, 
 - Keep bundle impact minimal
 
 **Non-Goals:**
+
 - Interactive prompts or complex TUI
 - Table rendering for tabular data
 - Custom spinner animations

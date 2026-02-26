@@ -30,14 +30,17 @@ function getSkillsRoot(): string {
 /** Discover skill names from skills/ subdirs */
 async function discoverSkillNames(skillsRoot: string): Promise<string[]> {
   const entries = await readdir(skillsRoot, { withFileTypes: true });
-  return entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  return entries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
 }
 
 async function copySkills(
   skillsRoot: string,
   skillNames: string[],
   targetRoot: string,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<void> {
   const normalized = targetRoot.replace(/\/$/, "");
   for (const name of skillNames) {
@@ -76,7 +79,7 @@ async function runInstallToTargets(targetRoots: string[]): Promise<number> {
     s.stop("Done");
     const uniqueDirs = [...new Set(targetRoots)];
     p.log.success(
-      `Installed ${skillNames.length} skill(s) × ${uniqueDirs.length} location(s): ${uniqueDirs.join(", ")}`
+      `Installed ${skillNames.length} skill(s) × ${uniqueDirs.length} location(s): ${uniqueDirs.join(", ")}`,
     );
     return 0;
   } catch (e: unknown) {
@@ -159,7 +162,10 @@ async function runInteractive(skipConfirm = false): Promise<number> {
 }
 
 function parseIdeOption(ide: string): string[] {
-  return ide.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return ide
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 function runNonInteractive(ideValues: string[]): Promise<number> {
@@ -171,7 +177,9 @@ function runNonInteractive(ideValues: string[]): Promise<number> {
   const targetDirs = getTargetDirsForIdes(ideValues);
   return runInstallToTargets(targetDirs).then((code) => {
     if (code === 0) {
-      p.log.success(`Installed to ${targetDirs.map((d) => join(cwd(), d)).join(", ")}. Open Agent chat and type: \x1b[1m\x1b[36m/raven-setup\x1b[0m`);
+      p.log.success(
+        `Installed to ${targetDirs.map((d) => join(cwd(), d)).join(", ")}. Open Agent chat and type: \x1b[1m\x1b[36m/raven-setup\x1b[0m`,
+      );
     }
     return code;
   });
@@ -182,14 +190,17 @@ const program = new Command();
 program
   .name("install-raven")
   .description("Install RavenJS AI skills into the project (e.g. .claude/skills).")
-  .option("-i, --ide <ide>", `IDE(s) to install for: ${IDE_VALUES.join(", ")} (comma-separated for multiple)`)
+  .option(
+    "-i, --ide <ide>",
+    `IDE(s) to install for: ${IDE_VALUES.join(", ")} (comma-separated for multiple)`,
+  )
   .option("-y, --yes", "Skip confirmation in interactive mode")
   .addHelpText(
     "after",
     `
 Without --ide and with a TTY: prompts for IDE selection.
 With --ide: runs non-interactively (e.g. --ide claude or --ide claude,cursor).
-`
+`,
   )
   .action(async (opts: { ide?: string; yes?: boolean }) => {
     const isInteractive = process.stdin.isTTY && opts.ide === undefined;

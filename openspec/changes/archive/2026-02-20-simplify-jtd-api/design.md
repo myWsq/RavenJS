@@ -6,10 +6,11 @@
 J.object({
   properties: { name: J.string() },
   optionalProperties: { avatar: J.string() },
-})
+});
 ```
 
 这导致：
+
 1. 书写繁琐，嵌套层级深
 2. 无法表达 `nullable`（值可为 null）
 3. `optional` 和字段定义分离，不直观
@@ -17,6 +18,7 @@ J.object({
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 提供扁平化的 `J.object()` API，直接传入字段定义
 - 支持 `.optional()` 链式方法标记可选字段
 - 支持 `.nullable()` 链式方法标记可空值（使用 AJV JTD 原生的 `nullable: true`）
@@ -24,6 +26,7 @@ J.object({
 - 保持与现有 JTD 验证逻辑的兼容性
 
 **Non-Goals:**
+
 - 不考虑向后兼容旧 API（breaking change）
 - 不添加 JTD 规范之外的验证能力（如 pattern, min/max）
 - 不改变底层验证引擎（仍使用 AJV JTD 模式）
@@ -61,8 +64,8 @@ AJV 的 JTD 实现已支持 `nullable: true` 属性，直接在 schema 中添加
 
 ```typescript
 const str = J.string();
-const optStr = str.optional();  // 新对象
-str !== optStr  // true
+const optStr = str.optional(); // 新对象
+str !== optStr; // true
 ```
 
 **Rationale**: 不可变设计，避免意外副作用，允许复用基础类型定义。
@@ -75,7 +78,7 @@ str !== optStr  // true
 J.object({
   name: J.string(),
   avatar: J.string().optional(),
-})
+});
 // 输出:
 // {
 //   properties: { name: { type: "string" } },
@@ -85,8 +88,8 @@ J.object({
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Breaking change 影响现有代码 | 用户确认不考虑兼容，一次性迁移 |
-| 复杂嵌套场景的类型推断可能有边界问题 | 编写充分的测试用例覆盖嵌套场景 |
-| Symbol 在某些调试场景不易观察 | 可通过 `Symbol.for()` 改用可调试的 Symbol（如需要） |
+| Risk                                 | Mitigation                                          |
+| ------------------------------------ | --------------------------------------------------- |
+| Breaking change 影响现有代码         | 用户确认不考虑兼容，一次性迁移                      |
+| 复杂嵌套场景的类型推断可能有边界问题 | 编写充分的测试用例覆盖嵌套场景                      |
+| Symbol 在某些调试场景不易观察        | 可通过 `Symbol.for()` 改用可调试的 Symbol（如需要） |

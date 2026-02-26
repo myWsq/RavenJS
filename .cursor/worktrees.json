@@ -1,6 +1,3 @@
 {
-  "setup-worktree": [
-    "bun install @fission-ai/openspec@latest -g",
-    "bun install"
-  ]
+  "setup-worktree": ["bun install @fission-ai/openspec@latest -g", "bun install"]
 }

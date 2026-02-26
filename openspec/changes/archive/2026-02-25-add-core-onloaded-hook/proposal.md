@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - None.
 
 ### Modified Capabilities
+
 - `core-framework`: 扩展生命周期要求，新增 `onLoaded` hook，并定义其在插件全部加载完成时的触发语义与错误处理。
 
 ## Impact

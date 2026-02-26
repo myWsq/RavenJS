@@ -1,6 +1,7 @@
 ## Context
 
 当前 `packages/core/` 目录结构：
+
 - `main.ts` (485 行) - 核心框架逻辑
 - `index.ts` (4 行) - 公开导出
 - `utils/` 目录包含 5 个模块：
@@ -15,12 +16,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将所有 core 代码整合到单一 `main.ts` 文件（约 800+ 行）
 - 建立清晰的代码分区约定，确保单文件的可读性
 - 消除模块间循环依赖问题
 - 更新编码规范，明确单文件组织的最佳实践
 
 **Non-Goals:**
+
 - 不修改任何公开 API
 - 不重构内部逻辑（仅移动代码）
 - 不修改测试逻辑（仅更新 import 路径）
@@ -70,10 +73,13 @@ export * from "./main.ts";
 ### 4. 测试文件更新策略
 
 测试文件中的 import 路径从：
+
 ```typescript
 import { xxx } from "../utils/state.ts";
 ```
+
 更新为：
+
 ```typescript
 import { xxx } from "../main.ts";
 ```

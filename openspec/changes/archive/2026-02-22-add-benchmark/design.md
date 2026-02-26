@@ -30,10 +30,12 @@ RavenJS 是一个基于 Bun 的高性能 TypeScript Web 框架，核心组件包
 ### 2. 分层测试架构：micro-benchmark + e2e-benchmark
 
 **理由**：
+
 - micro-benchmark 隔离测试单个组件（Router、Validator），定位瓶颈
 - e2e-benchmark 测试完整请求链路，反映真实场景性能
 
 **结构**：
+
 ```
 benchmark/
   micro/
@@ -49,6 +51,7 @@ benchmark/
 ### 3. 对比框架选择：Hono 和 Elysia
 
 **理由**：
+
 - Hono：轻量级，广泛使用，适合作为基准参照
 - Elysia：同为 Bun 原生框架，直接竞争对手
 
@@ -56,11 +59,11 @@ benchmark/
 
 ### 4. 测试数据规模设计
 
-| 测试项 | 数据规模 | 说明 |
-|--------|----------|------|
-| 路由匹配 | 100/1000/10000 路由 | 测试 Radix Tree 扩展性 |
-| Schema 验证 | 简单/中等/复杂对象 | 测试 AJV/JTD 性能 |
-| 请求吞吐 | 持续 10s | 统计 RPS 和延迟 |
+| 测试项      | 数据规模            | 说明                   |
+| ----------- | ------------------- | ---------------------- |
+| 路由匹配    | 100/1000/10000 路由 | 测试 Radix Tree 扩展性 |
+| Schema 验证 | 简单/中等/复杂对象  | 测试 AJV/JTD 性能      |
+| 请求吞吐    | 持续 10s            | 统计 RPS 和延迟        |
 
 ## Risks / Trade-offs
 

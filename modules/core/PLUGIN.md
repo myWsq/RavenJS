@@ -7,10 +7,13 @@ import { definePlugin, type Raven } from "@raven.js/core";
 
 export function myPlugin(config: { prefix: string }) {
   return definePlugin({
-    name: "my-plugin",   // required — shown in error messages
-    states: [],          // ScopedState instances created inside this factory
-    load(app: Raven) {   // called during registration
-      app.onRequest((req) => { /* ... */ });
+    name: "my-plugin", // required — shown in error messages
+    states: [], // ScopedState instances created inside this factory
+    load(app: Raven) {
+      // called during registration
+      app.onRequest((req) => {
+        /* ... */
+      });
     },
   });
 }
@@ -37,10 +40,12 @@ Declare states **inside the factory function**. Each call to the factory creates
 // config-plugin.ts
 import { definePlugin, createAppState, type Raven } from "@raven.js/core";
 
-interface Config { value: string }
+interface Config {
+  value: string;
+}
 
 export function configPlugin(value: string) {
-  const ConfigState = createAppState<Config>();  // new instance per factory call
+  const ConfigState = createAppState<Config>(); // new instance per factory call
   return definePlugin({
     name: "config-plugin",
     states: [ConfigState] as const,
@@ -56,7 +61,7 @@ export function configPlugin(value: string) {
 import { configPlugin } from "./config-plugin.ts";
 
 const app = new Raven();
-const [primaryConfig]   = await app.register(configPlugin("primary-value"));
+const [primaryConfig] = await app.register(configPlugin("primary-value"));
 const [secondaryConfig] = await app.register(configPlugin("secondary-value"));
 
 app.get("/", () => {
@@ -80,7 +85,9 @@ Accept a `ScopedState` instance as a parameter. The caller creates and owns the 
 // logger-plugin.ts
 import { definePlugin, type AppState, type Raven } from "@raven.js/core";
 
-interface Logger { log: (msg: string) => void }
+interface Logger {
+  log: (msg: string) => void;
+}
 
 export function loggerPlugin(loggerState: AppState<Logger>) {
   return definePlugin({
@@ -98,7 +105,9 @@ export function loggerPlugin(loggerState: AppState<Logger>) {
 import { loggerPlugin } from "./logger-plugin.ts";
 import { createAppState } from "@raven.js/core";
 
-interface Logger { log: (msg: string) => void }
+interface Logger {
+  log: (msg: string) => void;
+}
 
 const loggerState = createAppState<Logger>();
 
@@ -127,7 +136,9 @@ export function dbPlugin(dsn: string) {
   return definePlugin({
     name: "db-plugin",
     states: [],
-    async load() { DbState.set(await connectDatabase(dsn)); },
+    async load() {
+      DbState.set(await connectDatabase(dsn));
+    },
   });
 }
 ```
@@ -139,7 +150,9 @@ export function dbPlugin(dsn: string) {
   return definePlugin({
     name: "db-plugin",
     states: [DbState] as const,
-    async load() { DbState.set(await connectDatabase(dsn)); },
+    async load() {
+      DbState.set(await connectDatabase(dsn));
+    },
   });
 }
 
@@ -156,7 +169,7 @@ export const [DbState] = await app.register(dbPlugin("postgres://localhost/mydb"
 ```typescript
 // ❌ Wrong
 app.register(myPlugin());
-app.get("/", handler);   // load() may not have run yet
+app.get("/", handler); // load() may not have run yet
 
 // ✓ Correct
 await app.register(myPlugin());
@@ -179,7 +192,7 @@ export function myPlugin() {
     name: "my-plugin",
     states: [],
     load(app) {
-      dbState.set(db);   // ✓ safe
+      dbState.set(db); // ✓ safe
     },
   });
 }
@@ -190,10 +203,10 @@ export function myPlugin() {
 Hooks added in `load()` are appended to the global hook list. Plugins registered first have their hooks run first. Register plugins before routes to ensure hooks apply to all routes.
 
 ```typescript
-await app.register(authPlugin());    // onRequest hook added first
-await app.register(loggerPlugin());  // onRequest hook added second
+await app.register(authPlugin()); // onRequest hook added first
+await app.register(loggerPlugin()); // onRequest hook added second
 
-app.get("/", handler);               // both hooks apply to this route
+app.get("/", handler); // both hooks apply to this route
 ```
 
 ## `onLoaded` runs once before the first request

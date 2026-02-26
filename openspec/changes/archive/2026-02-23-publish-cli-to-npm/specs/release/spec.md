@@ -5,10 +5,12 @@
 GitHub Actions SHALL run release workflow when a tag matching @raven.js/cli@v&lt;x.x.x&gt; is pushed.
 
 #### Scenario: Tag push triggers release
+
 - **WHEN** a tag @raven.js/cli@v1.2.3 is pushed to repository
 - **THEN** release workflow starts
 
 #### Scenario: Non-version tag does not trigger release
+
 - **WHEN** a tag not matching @raven.js/cli@v&lt;x.x.x&gt; is pushed
 - **THEN** release workflow does not start
 
@@ -17,14 +19,17 @@ GitHub Actions SHALL run release workflow when a tag matching @raven.js/cli@v&lt
 The system SHALL trigger the release workflow when a tag matching the pattern `@raven.js/cli@v*.*.*` is pushed to the repository.
 
 #### Scenario: Push CLI version tag triggers release
+
 - **WHEN** a tag matching `@raven.js/cli@v1.0.0` pattern is pushed
 - **THEN** the release workflow SHALL start automatically
 
 #### Scenario: Non-CLI package tag does not trigger CLI release
+
 - **WHEN** a tag for another package is pushed (e.g., `@raven.js/core@v1.0.0`)
 - **THEN** the CLI release workflow SHALL NOT start
 
 #### Scenario: Non-version tag does not trigger release
+
 - **WHEN** a tag not matching package version pattern is pushed (e.g., `beta`, `v1.0.0`)
 - **THEN** the release workflow SHALL NOT start
 

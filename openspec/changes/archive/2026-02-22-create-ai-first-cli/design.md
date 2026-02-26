@@ -5,11 +5,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 创建 `raven` CLI 工具，支持 `init`、`add <feature>`、`update` 命令
 - 生成 AI 友好的 SPEC.md，帮助 Agent 理解框架能力
 - 创建 SKILL.md，让 Trae/Cursor Agent 知道如何使用 CLI
 
 **Non-Goals:**
+
 - 不修改现有 RavenJS 核心代码结构
 - 不处理复杂的 AI merge 冲突（提示用户手动处理）
 - 不支持私有部署或自定义 registry
@@ -34,10 +36,10 @@
 
 ## Risks / Trade-offs
 
-| 风险 | 描述 | 缓解措施 |
-|------|------|----------|
+| 风险     | 描述                       | 缓解措施          |
+| -------- | -------------------------- | ----------------- |
 | 代码冲突 | 用户修改源码后 update 冲突 | 提示用户先 commit |
-| 版本同步 | 复制的代码与原版不同步 | 提供 update 命令 |
+| 版本同步 | 复制的代码与原版不同步     | 提供 update 命令  |
 
 ## Migration Plan
 

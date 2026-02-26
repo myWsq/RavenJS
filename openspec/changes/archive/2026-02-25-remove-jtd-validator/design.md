@@ -5,6 +5,7 @@ The `jtd-validator` module is currently a part of the RavenJS ecosystem, providi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Completely remove the `modules/jtd-validator` directory and all its contents.
 - Remove the capability to install `jtd-validator` via the RavenJS CLI (`raven add`).
 - Remove all references to `jtd-validator` in AI skills (`raven-add`, `raven-use`, etc.) to prevent AI from suggesting it.
@@ -12,6 +13,7 @@ The `jtd-validator` module is currently a part of the RavenJS ecosystem, providi
 - Ensure the codebase builds and tests pass after removal.
 
 **Non-Goals:**
+
 - Implementing a replacement validation library in this change.
 - modifying the core framework architecture beyond removing dependencies on `jtd-validator`.
 

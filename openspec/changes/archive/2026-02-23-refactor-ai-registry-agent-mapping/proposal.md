@@ -11,9 +11,11 @@ Registry 中 `ai.files` 与 `ai.fileMapping` 冗余：文件列表可从 `Object
 ## Capabilities
 
 ### New Capabilities
+
 - `registry-ai-agent-schema`: Registry `ai` 顶层改为按 agent 分组的 mapping 结构，移除 `files`，支持 `ai.claude`、`ai.cursor` 等
 
 ### Modified Capabilities
+
 - `ai-first-integration`: AI 资源注册与安装逻辑改为从 `ai.<agent>` 读取 mapping，不再使用 `ai.files` / `ai.fileMapping`
 
 ## Impact

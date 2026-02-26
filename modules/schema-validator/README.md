@@ -3,6 +3,7 @@
 @raven.js/schema-validator is a framework-agnostic validation module for RavenJS, built on [Standard Schema](https://standardschema.dev).
 
 **Features**:
+
 - **Library Agnostic**: Works with Zod, Valibot, ArkType, or any Standard Schema compliant library.
 - **Full Request Validation**: Validates Body, Query, Params, and Headers.
 - **Type Safety**: Infers types from schemas for the handler context.
@@ -60,7 +61,7 @@ It is recommended to define the handler directly within `withSchema` to leverage
 
 ```typescript
 const schema = {
-  body: z.object({ name: z.string() })
+  body: z.object({ name: z.string() }),
 };
 
 // Define handler inline for automatic type inference
@@ -92,7 +93,7 @@ By adopting Standard Schema, RavenJS avoids vendor lock-in. You are not forced t
 RavenJS hooks (`beforeHandle`) are void functions that cannot easily pass typed data to the handler.
 
 - **Middleware approach**: Validation runs in a hook, puts result in a weak-map or untyped state. Handler manually casts data.
-- **Wrapper approach**: The wrapper function *knows* the schema types and passes them directly to the handler function as an argument. This enables 100% type safety without manual casting.
+- **Wrapper approach**: The wrapper function _knows_ the schema types and passes them directly to the handler function as an argument. This enables 100% type safety without manual casting.
 
 ---
 
@@ -179,16 +180,19 @@ import { isValidationError } from "@raven.js/schema-validator";
 
 app.onError((error) => {
   if (isValidationError(error)) {
-    return new Response(JSON.stringify({
-      error: "Validation Failed",
-      details: {
-        body: error.bodyIssues,
-        query: error.queryIssues,
-      }
-    }), { 
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Validation Failed",
+        details: {
+          body: error.bodyIssues,
+          query: error.queryIssues,
+        },
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
   return new Response("Internal Error", { status: 500 });
 });
@@ -210,9 +214,12 @@ app.post("/user", async () => {
 });
 
 // ✓ Use withSchema to separate validation from logic
-app.post("/user", withSchema({ body: UserSchema }, (ctx) => {
-  // ...
-}));
+app.post(
+  "/user",
+  withSchema({ body: UserSchema }, (ctx) => {
+    // ...
+  }),
+);
 ```
 
 ## Do not separate handler definition from schema

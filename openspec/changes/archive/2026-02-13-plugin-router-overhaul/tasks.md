@@ -13,7 +13,7 @@
 ## 3. 官方插件适配 (Official Plugins Adaptation)
 
 - [x] 3.1 更新 `packages/plugins/router/index.ts` 以适配新的插件工厂模式
-- [x] 3.2 检查并确保官方插件包的依赖关系正确（指向 workspace:*）
+- [x] 3.2 检查并确保官方插件包的依赖关系正确（指向 workspace:\*）
 
 ## 4. 测试与验证 (Verification)
 

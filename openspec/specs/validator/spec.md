@@ -1,6 +1,7 @@
 # Validator Specification
 
 > **Migration Note**: This spec consolidates following original spec:
+>
 > - `handler-schema-validation`
 
 ## Purpose

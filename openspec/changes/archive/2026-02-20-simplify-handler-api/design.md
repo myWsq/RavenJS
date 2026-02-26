@@ -7,6 +7,7 @@ Ravenjs 使用无参 Handler 设计 `() => Response`，所有请求数据通过 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 分离关注点：State 只负责存储，Schema 直接传递给 Handler
 - 提供流畅的链式 API：`createHandler().bodySchema().handle()`
 - 使用 JTD 替代 JSON Schema，利用 ajv 的 parse 能力提升性能
@@ -14,6 +15,7 @@ Ravenjs 使用无参 Handler 设计 `() => Response`，所有请求数据通过 
 - 保持无参 Handler 设计哲学
 
 **Non-Goals:**
+
 - 引入有参 Handler `(ctx) => Response`
 - 向后兼容旧 API（全新设计）
 
@@ -90,7 +92,8 @@ export function createHandler(): HandlerBuilder {
 使用方式：
 
 ```typescript
-app.post("/users",
+app.post(
+  "/users",
   createHandler()
     .bodySchema(CreateUserBody)
     .querySchema(PaginationQuery)
@@ -98,12 +101,13 @@ app.post("/users",
       const body = useBody(CreateUserBody);
       const query = useQuery(PaginationQuery);
       return new Response(JSON.stringify({ user: body.name }));
-    })
+    }),
 );
 
 // 简单 handler
-app.get("/health",
-  createHandler().handle(() => new Response("OK"))
+app.get(
+  "/health",
+  createHandler().handle(() => new Response("OK")),
 );
 ```
 
@@ -129,6 +133,7 @@ app.get("/health",
 ```
 
 JTD 的限制（可接受）：
+
 - 无 minimum/maximum（数值范围验证）
 - 无 pattern（正则验证）
 - 无 format（email, uri 等格式验证）
@@ -188,7 +193,7 @@ export const J = {
   number: () => ({ type: "float64" as const }),
   int: () => ({ type: "int32" as const }),
   timestamp: () => ({ type: "timestamp" as const }),
-  
+
   enum: <T extends readonly string[]>(values: T) => ({ enum: values }),
   array: <T extends JTDSchema>(schema: T) => ({ elements: schema }),
   object: <P, O>(props: { properties?: P; optionalProperties?: O }) => props,
@@ -229,7 +234,7 @@ onRequest hooks
 processStates ◀── 在 beforeHandle 之前完成 parse + validate
   │                 │
   │                 ├─ bodyParser(text) → BodyState
-  │                 ├─ queryValidator(query) → QueryState  
+  │                 ├─ queryValidator(query) → QueryState
   │                 ├─ paramsValidator(params) → ParamsState
   │                 └─ headersValidator(headers) → HeadersState
   ▼

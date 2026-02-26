@@ -37,7 +37,7 @@ When adding a module, the system SHALL check the module's dependsOn in the regis
 - **WHEN** user runs `raven add <module>` and raven root directory does NOT exist
 - **THEN** CLI SHALL exit with an error instructing user to run `raven init` first
 
-### Requirement: raven add replaces @ravenjs/* imports with relative paths
+### Requirement: raven add replaces @ravenjs/\* imports with relative paths
 
 When copying module files to the user's project, the system SHALL replace `@ravenjs/<module>` import paths with the correct relative path (e.g., `../core`) before writing. The user's raven root has no package.json; modules are plain folders, so `@ravenjs/core` SHALL NOT resolve. The replacement ensures imports work after copy.
 

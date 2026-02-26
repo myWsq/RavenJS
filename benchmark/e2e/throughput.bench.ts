@@ -71,11 +71,11 @@ group("Request with Hooks", () => {
 
 group("Request Routing Overhead", () => {
   const routerApp = new Raven();
-  
+
   for (let i = 0; i < 100; i++) {
     routerApp.get(`/route${i}`, simpleHandler);
   }
-  
+
   const firstRouteReq = new Request("http://localhost/route0", { method: "GET" });
   const lastRouteReq = new Request("http://localhost/route99", { method: "GET" });
   const notFoundReq = new Request("http://localhost/nonexistent", { method: "GET" });
@@ -95,11 +95,11 @@ group("Request Routing Overhead", () => {
 
 group("Request with Dynamic Params", () => {
   const paramApp = new Raven();
-  
+
   paramApp.get("/users/:userId/posts/:postId", () => {
     return Response.json({ userId: "123", postId: "456" });
   });
-  
+
   const paramReq = new Request("http://localhost/users/123/posts/456", { method: "GET" });
 
   bench("with 2 dynamic params", async () => {

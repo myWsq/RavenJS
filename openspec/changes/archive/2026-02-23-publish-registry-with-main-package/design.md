@@ -7,13 +7,15 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - registry.json 与主包一起发布
-- wrapper 脚本通过 __dirname 查找同级的 registry.json
+- wrapper 脚本通过 \_\_dirname 查找同级的 registry.json
 - wrapper 脚本找不到 registry.json 时直接报错
 - raven cli 从环境变量指定的路径加载 registry
 - 移除内联的 registry
 
 **Non-Goals:**
+
 - 修改 registry.json 的内容结构
 - 改变 CLI 的功能行为
 - 修改平台特定子包
@@ -43,15 +45,15 @@
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| wrapper 脚本找不到 registry.json | 使用 __dirname 定位文件，找不到时明确报错 |
-| 路径在不同平台上的问题 | 使用 Node.js path 模块处理路径 |
+| Risk                             | Mitigation                                  |
+| -------------------------------- | ------------------------------------------- |
+| wrapper 脚本找不到 registry.json | 使用 \_\_dirname 定位文件，找不到时明确报错 |
+| 路径在不同平台上的问题           | 使用 Node.js path 模块处理路径              |
 
 ## Migration Plan
 
 1. 修改 create-main-package.ts，在主包中包含 registry.json 文件
-2. 修改 wrapper 脚本，通过 __dirname 查找 registry.json 并设置 RAVEN_REGISTRY_PATH 环境变量
+2. 修改 wrapper 脚本，通过 \_\_dirname 查找 registry.json 并设置 RAVEN_REGISTRY_PATH 环境变量
 3. 修改 wrapper 脚本，找不到 registry.json 时直接报错
 4. 修改 index.ts，只从环境变量加载 registry，移除内联的 registry
 5. 测试整个流程

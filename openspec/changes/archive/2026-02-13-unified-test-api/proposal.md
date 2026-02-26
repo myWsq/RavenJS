@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `unified-test-interface`: 提供兼容 Vitest 和 Bun 的统一测试接口。
 
 ### Modified Capabilities
+
 - 无
 
 ## Impact

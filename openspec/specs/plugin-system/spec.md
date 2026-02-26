@@ -1,6 +1,7 @@
 # Plugin System Specification
 
 > **Migration Note**: This spec consolidates the following original specs:
+>
 > - `plugin-system`
 > - `vite-style-plugin-system`
 

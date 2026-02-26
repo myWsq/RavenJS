@@ -1,6 +1,7 @@
 # CLI Tool Specification
 
 > **Migration Note**: This spec consolidates following original specs:
+>
 > - `cli-tool`
 > - `registry-based-install`
 > - `cli-ai-commands`
@@ -192,8 +193,6 @@ The system SHALL provide a dedicated `packages/ai` package containing AI skills 
 
 ### Requirement: Colorized output via a standard colors library
 
-
-
 The CLI SHALL use a well-known colors library (e.g., picocolors, chalk, kleur) for all colored output instead of raw ANSI escape codes.
 
 #### Scenario: Error messages are red
@@ -355,11 +354,11 @@ The system SHALL provide a mechanism to install RavenJS modules from a registry 
 
 ### Requirement: Registry modules include dependsOn
 
-The registry SHALL include a `dependsOn` array for each module, listing module names that the module depends on. Only @ravenjs/* workspace dependencies SHALL be included.
+The registry SHALL include a `dependsOn` array for each module, listing module names that the module depends on. Only @ravenjs/\* workspace dependencies SHALL be included.
 
 #### Scenario: Module with no workspace deps has empty dependsOn
 
-- **WHEN** a module's package.json has no dependencies on @ravenjs/* packages
+- **WHEN** a module's package.json has no dependencies on @ravenjs/\* packages
 - **THEN** its registry entry SHALL have `dependsOn: []`
 
 #### Scenario: Module depending on core has core in dependsOn
@@ -369,7 +368,7 @@ The registry SHALL include a `dependsOn` array for each module, listing module n
 
 ### Requirement: generate-registry resolves dependsOn
 
-The generate-registry script SHALL parse each module's package.json and extract @ravenjs/* references from both dependencies and devDependencies, then populate dependsOn in the output registry.
+The generate-registry script SHALL parse each module's package.json and extract @ravenjs/\* references from both dependencies and devDependencies, then populate dependsOn in the output registry.
 
 #### Scenario: Circular dependency detection
 
@@ -397,10 +396,12 @@ CLI SHALL 在安装模块时并发地从内嵌 `dist/source/` 目录复制多个
 All RavenJS CLI commands SHALL output JSON format by default, with the exception of `raven init` and `raven guide`.
 
 #### Scenario: CLI command outputs JSON
+
 - **WHEN** an Agent runs any RavenJS CLI command except `raven init` and `raven guide`
 - **THEN** the output SHALL be valid JSON
 
 #### Scenario: raven init for human use
+
 - **WHEN** a human runs `raven init`
 - **THEN** the output SHALL be human-friendly (non-JSON)
 
@@ -409,6 +410,7 @@ All RavenJS CLI commands SHALL output JSON format by default, with the exception
 The CLI SHALL provide structured information to help Agents make decisions, including current version, latest version, file hashes, and modified file status (via `raven status` and `raven diff`).
 
 #### Scenario: Agent checks status
+
 - **WHEN** an Agent runs `raven status`
 - **THEN** the output SHALL include current version, latest version (when available), and file hashes
 

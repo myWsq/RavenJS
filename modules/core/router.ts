@@ -57,11 +57,7 @@ class RouterNode<T> {
   /**
    * Searches for a matching route in the node tree.
    */
-  search(
-    segments: string[],
-    method: string,
-    params: Record<string, string>,
-  ): T | null {
+  search(segments: string[], method: string, params: Record<string, string>): T | null {
     let current: RouterNode<T> = this;
 
     for (const segment of segments) {

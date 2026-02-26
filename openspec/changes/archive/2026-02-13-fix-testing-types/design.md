@@ -5,15 +5,18 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 提供准确的类型提示。
 - 保持运行时环境检测和动态导入。
 
 ## Decisions
 
 ### 1. 使用 `import type`
+
 我们将使用 `import type` 导入 `vitest` 和 `bun:test` 的类型。
 
 ### 2. 导出显式命名的类型
+
 手动声明导出变量的类型。
 
 ## Risks / Trade-offs

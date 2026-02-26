@@ -5,12 +5,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 创建 `packages/ai` 作为独立 package，包含 skills 和 commands
 - Registry 增加顶级 `ai` 属性，与 `modules` 并列
 - 从 `modules` 移除 ai-skills，CLI 统一从 `registry.ai` 消费
 - 更新 generate-registry 以扫描 packages/ai 生成 ai 字段
 
 **Non-Goals:**
+
 - 改变 AI 资源安装到 .claude/ 的行为
 - 改变 raven init / update 命令的对外接口
 - 为 packages/ai 增加运行时逻辑（仅静态资源）
@@ -20,7 +22,7 @@
 1. **packages/ai 目录结构**
    - `packages/ai/skills/`、`packages/ai/commands/` 与现 templates 结构对应
    - package.json 使用 `files` 列出 skills 和 commands，供 generate-registry 扫描
-   - Alternative: 保留在 cli 内，仅调整 registry 结构 —  rejected，与「独立模块」目标不符
+   - Alternative: 保留在 cli 内，仅调整 registry 结构 — rejected，与「独立模块」目标不符
 
 2. **Registry `ai` 字段结构**
    - 与 modules 中单模块类似：`{ files: string[], fileMapping?: Record<string, string> }`

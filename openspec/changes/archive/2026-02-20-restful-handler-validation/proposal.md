@@ -14,9 +14,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `state-slots-validation`: 提供基于 `ScopedState` 的声明式校验与数据自动注入能力。
 
 ### Modified Capabilities
+
 - `routing-system`: 扩展路由定义，支持声明 Handler 所需的 State Slots。
 - `scoped-state`: 增强现有的 `ScopedState`，使其支持可选的 JSON Schema 绑定。
 

@@ -9,6 +9,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 创建统一的错误类 `RavenError`，支持错误码、上下文数据
 - 定义错误码规范，使用 `ERR_XXX` 字符串格式
 - 每个错误类型对应一个静态方法
@@ -16,6 +17,7 @@
 - 更新现有代码，使用标准化错误类替代裸 `Error`
 
 **Non-Goals:**
+
 - 不修改现有的 `onError` 钩子接口（保持向后兼容）
 - 不实现错误国际化 (i18n) 功能
 
@@ -26,12 +28,14 @@
 **选择:** 使用静态方法 `RavenError.ERR_XXX()` 创建错误
 
 **示例:**
+
 ```typescript
-RavenError.ERR_SERVER_ALREADY_RUNNING()
-RavenError.ERR_SCOPED_TOKEN_NOT_INITIALIZED("tokenName")
+RavenError.ERR_SERVER_ALREADY_RUNNING();
+RavenError.ERR_SCOPED_TOKEN_NOT_INITIALIZED("tokenName");
 ```
 
 **理由:**
+
 - 语义清晰，方法名即错误类型
 - TypeScript 类型安全
 - 易于 IDE 自动补全
@@ -41,6 +45,7 @@ RavenError.ERR_SCOPED_TOKEN_NOT_INITIALIZED("tokenName")
 **选择:** 提供 `setContext()` 方法用于后续添加上下文
 
 **理由:**
+
 - 简化静态方法签名，不需要每次都传 context
 - 灵活，可以在需要时再添加上下文
 
@@ -49,6 +54,7 @@ RavenError.ERR_SCOPED_TOKEN_NOT_INITIALIZED("tokenName")
 **选择:** 在 `packages/main/utils/error.ts` 单文件中实现
 
 **理由:**
+
 - 简化文件结构，便于维护
 - 集中管理所有错误相关代码
 

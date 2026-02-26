@@ -1,6 +1,7 @@
 ## Why
 
 The current test directory structure is inconsistent and doesn't follow industry best practices. Tests are scattered across `modules/*/tests/` and `packages/*/tests/` directories without clear separation between unit, integration, and E2E tests. This makes it difficult to:
+
 - Quickly identify test types
 - Run specific test categories
 - Onboard new developers to the testing conventions
@@ -22,9 +23,11 @@ The current test directory structure is inconsistent and doesn't follow industry
 ## Capabilities
 
 ### New Capabilities
+
 - `test-organization`: Centralized test directory structure with clear分层 (unit/integration/e2e)
 
 ### Modified Capabilities
+
 - None - this is a refactoring change that doesn't modify existing requirements
 
 ## Impact

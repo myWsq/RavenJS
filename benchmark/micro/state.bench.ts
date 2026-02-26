@@ -20,7 +20,7 @@ group("AppState Operations", () => {
   bench("get - direct", () => {
     const app = createAppInstance();
     app.internalStateMap.set(appState.symbol, "test-value");
-    
+
     currentAppStorage.run(app, () => {
       appState.get();
     });
@@ -28,7 +28,7 @@ group("AppState Operations", () => {
 
   bench("set", () => {
     const app = createAppInstance();
-    
+
     currentAppStorage.run(app, () => {
       appState.set("test-value");
     });
@@ -36,7 +36,7 @@ group("AppState Operations", () => {
 
   bench("get + set cycle", () => {
     const app = createAppInstance();
-    
+
     currentAppStorage.run(app, () => {
       appState.set("test-value");
       appState.get();
@@ -48,7 +48,7 @@ group("RequestState Operations", () => {
   bench("get - direct", () => {
     const store = new Map<symbol, any>();
     store.set(requestState.symbol, "test-value");
-    
+
     requestStorage.run(store, () => {
       requestState.get();
     });
@@ -56,7 +56,7 @@ group("RequestState Operations", () => {
 
   bench("set", () => {
     const store = new Map<symbol, any>();
-    
+
     requestStorage.run(store, () => {
       requestState.set("test-value");
     });
@@ -64,7 +64,7 @@ group("RequestState Operations", () => {
 
   bench("get + set cycle", () => {
     const store = new Map<symbol, any>();
-    
+
     requestStorage.run(store, () => {
       requestState.set("test-value");
       requestState.get();
@@ -75,7 +75,7 @@ group("RequestState Operations", () => {
 group("AsyncLocalStorage Overhead", () => {
   bench("getStore (app)", () => {
     const app = createAppInstance();
-    
+
     currentAppStorage.run(app, () => {
       currentAppStorage.getStore();
     });
@@ -83,7 +83,7 @@ group("AsyncLocalStorage Overhead", () => {
 
   bench("getStore (request)", () => {
     const store = new Map<symbol, any>();
-    
+
     requestStorage.run(store, () => {
       requestStorage.getStore();
     });
@@ -97,7 +97,7 @@ group("AsyncLocalStorage Overhead", () => {
   bench("nested run (app + request)", () => {
     const app = createAppInstance();
     const store = new Map<symbol, any>();
-    
+
     currentAppStorage.run(app, () => {
       requestStorage.run(store, () => {});
     });
@@ -114,7 +114,7 @@ group("Multiple State Access Pattern", () => {
     app.internalStateMap.set(state1.symbol, "v1");
     app.internalStateMap.set(state2.symbol, "v2");
     app.internalStateMap.set(state3.symbol, "v3");
-    
+
     currentAppStorage.run(app, () => {
       state1.get();
       state2.get();

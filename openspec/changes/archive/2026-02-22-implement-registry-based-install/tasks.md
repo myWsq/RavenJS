@@ -8,7 +8,7 @@
 ## 2. Registry 生成脚本
 
 - [x] 2.1 创建 `packages/cli/scripts/generate-registry.ts`
-- [x] 2.2 扫描 modules/*/package.json，读取 dist 字段
+- [x] 2.2 扫描 modules/\*/package.json，读取 dist 字段
 - [x] 2.3 读取 dependencies 字段作为外部依赖
 - [x] 2.4 生成 registry.json 结构（version, modules[].files, modules[].dependencies）
 

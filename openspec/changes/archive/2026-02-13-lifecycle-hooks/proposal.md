@@ -12,10 +12,12 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `lifecycle-hooks`: 定义和执行请求生命周期的各个阶段（onRequest, beforeHandle, beforeResponse）。
 - `error-handling`: 提供全局 `onError` 钩子，用于捕获和处理整个生命周期中的异常。
 
 ### Modified Capabilities
+
 - `http-server`: 调整请求处理逻辑以集成生命周期钩子执行链。
 
 ## Impact

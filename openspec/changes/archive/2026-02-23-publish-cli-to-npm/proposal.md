@@ -15,9 +15,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `npm-cli-publish`: 通过 npm 发布 CLI，包含平台特定子包机制
 
 ### Modified Capabilities
+
 - `release`: 现有的发布规范需要更新，从 GitHub Releases 切换到 npm 发布
 
 ## Impact

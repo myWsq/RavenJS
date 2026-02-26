@@ -5,12 +5,14 @@ The RavenJS CLI currently uses `raven init` to set up a new project by copying c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Rename `init` subcommand to `install` in the CLI
 - Update all user-facing text, error messages, and help strings
 - Update all specs and tests to use the new command
 - Update documentation and skills that reference `raven init`
 
 **Non-Goals:**
+
 - Changing command behavior or logic (only naming)
 - Backward compatibility (no alias for `init`)
 - Modifying add/update/self-update commands

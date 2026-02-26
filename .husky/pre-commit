@@ -1,2 +1,3 @@
 bun run generate:modules
 git add README.md
+bunx lint-staged

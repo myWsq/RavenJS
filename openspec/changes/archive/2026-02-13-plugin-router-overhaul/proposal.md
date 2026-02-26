@@ -16,9 +16,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `vite-style-plugin-system`: 实现类似 Vite 的插件定义和注册机制，通过工厂函数预配置参数。
 
 ### Modified Capabilities
+
 - `routing-system`: 调整 `Context` 的生命周期，确保其包含完整的路由元数据。
 - `lifecycle-hooks`: 更新钩子执行逻辑，明确各阶段 `Context` 的可用状态。
 

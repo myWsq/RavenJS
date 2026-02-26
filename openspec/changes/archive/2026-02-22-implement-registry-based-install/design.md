@@ -3,6 +3,7 @@
 当前 CLI (packages/cli/index.ts) 依赖本地源码目录 RAVEN_SOURCE_DIR 复制代码，不支持用户独立安装。用户需要克隆整个仓库或设置环境变量才能使用，缺乏 registry 机制。
 
 **当前状态**:
+
 - CLI 从 `RAVEN_SOURCE_DIR/packages/*` 复制代码到 `src/raven/`
 - 无 registry 描述模块文件
 - 版本信息分散在各个 package.json
@@ -10,6 +11,7 @@
 - 所有包都在 packages/ 目录下，未区分 CLI 工具和分发模块
 
 **约束**:
+
 - 使用 Bun 作为运行时
 - 模块为目录形式（core/, jtd-validator/）
 - 只支持外部依赖，无模块间依赖
@@ -17,6 +19,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 实现 registry.json 机制，描述各模块的文件路径和外部依赖
 - 编译时自动扫描 modules/ 目录生成 registry.json
 - 将需要分发的模块移到 modules/ 目录，与 packages/（CLI工具）分离
@@ -26,6 +29,7 @@
 - 支持从 GitHub 并行下载单文件
 
 **Non-Goals:**
+
 - 不支持单独更新某个模块
 - 不支持指定版本安装
 - 不支持模块间依赖解析
@@ -44,9 +48,10 @@
 }
 ```
 
-编译时扫描 modules/*/package.json，读取 `dist` 字段生成 registry。
+编译时扫描 modules/\*/package.json，读取 `dist` 字段生成 registry。
 
 ** alternatives considered **:
+
 - 约定规则自动扫描: 不够精确，可能包含不需要的文件
 - glob patterns: 增加复杂度
 
@@ -66,17 +71,20 @@ ravenjs/
 编译时扫描 `modules/*/package.json` 生成 registry。
 
 ** alternatives considered **:
+
 - 使用 packages/ 的标记字段: 增加配置复杂度
 - 在 packages/ 内新建子目录: 嵌套太深
 
 ### 2. 下载方式
 
 使用 GitHub Raw API 并行下载：
+
 ```
 https://raw.githubusercontent.com/ravenjs/ravenjs/v{version}/{filePath}
 ```
 
 ** alternatives considered **:
+
 - Download release tarball: 需要处理 tarball 解压和清理
 - Git clone: 体积太大，不适合
 
@@ -85,12 +93,14 @@ https://raw.githubusercontent.com/ravenjs/ravenjs/v{version}/{filePath}
 在 `bun run build` 时调用 `scripts/generate-registry.ts`，生成后内嵌到 CLI 二进制中。
 
 ** alternatives considered **:
+
 - 运行时从远程获取: 增加网络依赖
 - 手动维护: 容易出错
 
 ### 4. CLI 自我更新
 
 使用 npm/bun 的全局安装机制：
+
 - `bunx @ravenjs/cli@latest` 方式运行
 - 或 `npm install -g @ravenjs/cli`
 
@@ -100,7 +110,7 @@ https://raw.githubusercontent.com/ravenjs/ravenjs/v{version}/{filePath}
 
 ```typescript
 interface CLIOptions {
-  ravenRoot?: string;  // 默认 "raven"
+  ravenRoot?: string; // 默认 "raven"
   verbose?: boolean;
 }
 ```

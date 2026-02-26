@@ -28,12 +28,11 @@ Read the module's GUIDE.md from the directory obtained in Step 0:
 
 GUIDE.md is a markdown document that tells you how to learn the module.
 
-
 ---
 
 ## Read the referenced files
 
-The guide points you to the files that matter. It often references other docs or files (e.g. README.md, source files). If the guide uses relative paths, resolve them from `installDir` first — look for the file under the module directory before searching elsewhere. 
+The guide points you to the files that matter. It often references other docs or files (e.g. README.md, source files). If the guide uses relative paths, resolve them from `installDir` first — look for the file under the module directory before searching elsewhere.
 
 ---
 

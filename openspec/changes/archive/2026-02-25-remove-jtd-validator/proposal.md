@@ -13,9 +13,11 @@ The `jtd-validator` module is being removed from the codebase. This decision aim
 ## Capabilities
 
 ### New Capabilities
+
 - `remove-jtd-validator`: Execution of the removal process for the JTD validator module and its references.
 
 ### Modified Capabilities
+
 - `cli-tool`: Remove the requirement and support for adding the `jtd-validator` module.
 - `validator`: Deprecate and remove the validation specification provided by `jtd-validator`.
 

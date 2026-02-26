@@ -1,9 +1,4 @@
-import {
-  BodyState,
-  QueryState,
-  ParamsState,
-  HeadersState,
-} from "@raven.js/core";
+import { BodyState, QueryState, ParamsState, HeadersState } from "@raven.js/core";
 import type { StandardSchemaV1 } from "./standard-schema";
 
 export interface Context<
@@ -30,9 +25,7 @@ export interface Schemas<
   headers?: StandardSchemaV1<Record<string, string>, H>;
 }
 
-export type SchemaHandler<B, Q, P, H> = (
-  ctx: Context<B, Q, P, H>,
-) => Response | Promise<Response>;
+export type SchemaHandler<B, Q, P, H> = (ctx: Context<B, Q, P, H>) => Response | Promise<Response>;
 
 export type ValidationSource = "body" | "query" | "params" | "headers";
 
@@ -89,13 +82,12 @@ export function withSchema<B, Q, P, H>(
     const params = ParamsState.get() ?? {};
     const headers = HeadersState.get() ?? {};
 
-    const [bodyResult, queryResult, paramsResult, headersResult] =
-      await Promise.all([
-        validateSchema(schemas.body, body),
-        validateSchema(schemas.query, query),
-        validateSchema(schemas.params, params),
-        validateSchema(schemas.headers, headers),
-      ]);
+    const [bodyResult, queryResult, paramsResult, headersResult] = await Promise.all([
+      validateSchema(schemas.body, body),
+      validateSchema(schemas.query, query),
+      validateSchema(schemas.params, params),
+      validateSchema(schemas.headers, headers),
+    ]);
 
     if (
       bodyResult?.issues ||
@@ -104,15 +96,9 @@ export function withSchema<B, Q, P, H>(
       headersResult?.issues
     ) {
       throw new ValidationError({
-        body: bodyResult?.issues
-          ? (bodyResult as StandardSchemaV1.FailureResult)
-          : undefined,
-        query: queryResult?.issues
-          ? (queryResult as StandardSchemaV1.FailureResult)
-          : undefined,
-        params: paramsResult?.issues
-          ? (paramsResult as StandardSchemaV1.FailureResult)
-          : undefined,
+        body: bodyResult?.issues ? (bodyResult as StandardSchemaV1.FailureResult) : undefined,
+        query: queryResult?.issues ? (queryResult as StandardSchemaV1.FailureResult) : undefined,
+        params: paramsResult?.issues ? (paramsResult as StandardSchemaV1.FailureResult) : undefined,
         headers: headersResult?.issues
           ? (headersResult as StandardSchemaV1.FailureResult)
           : undefined,
@@ -120,12 +106,8 @@ export function withSchema<B, Q, P, H>(
     }
 
     const ctx: Context<B, Q, P, H> = {
-      body: bodyResult
-        ? (bodyResult as StandardSchemaV1.SuccessResult<B>).value
-        : (body as B),
-      query: queryResult
-        ? (queryResult as StandardSchemaV1.SuccessResult<Q>).value
-        : (query as Q),
+      body: bodyResult ? (bodyResult as StandardSchemaV1.SuccessResult<B>).value : (body as B),
+      query: queryResult ? (queryResult as StandardSchemaV1.SuccessResult<Q>).value : (query as Q),
       params: paramsResult
         ? (paramsResult as StandardSchemaV1.SuccessResult<P>).value
         : (params as P),

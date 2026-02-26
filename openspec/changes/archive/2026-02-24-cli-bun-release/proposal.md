@@ -15,9 +15,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `cli-bun-publish`: 使用 Bun target 编译 CLI 并直接发布到 npm 的规范
 
 ### Modified Capabilities
+
 - `release`: 移除跨平台二进制构建、prebuild 等需求，改为 bun 单目标构建
 - `npm-cli-publish`: 移除平台特定子包、主包 optionalDependencies、包装脚本等需求，改为单一包发布
 

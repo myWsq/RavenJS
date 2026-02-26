@@ -86,7 +86,9 @@ describe("Unified State Mount (AppState & RequestState)", () => {
   describe("Error Handling", () => {
     it("should throw when setting state without context", () => {
       const SomeState = createAppState<string>({ name: "test" });
-      expect(() => SomeState.set("fail")).toThrow("Cannot set value for state \"test\": Scope is not initialized");
+      expect(() => SomeState.set("fail")).toThrow(
+        'Cannot set value for state "test": Scope is not initialized',
+      );
     });
 
     it("should return undefined when getting state without context", () => {
@@ -98,7 +100,9 @@ describe("Unified State Mount (AppState & RequestState)", () => {
       const Required = createAppState<string>({ name: "required" });
       const app = new Raven();
       await currentAppStorage.run(app, () => {
-        expect(() => Required.getOrFailed()).toThrow("State is not initialized. Cannot access state: required");
+        expect(() => Required.getOrFailed()).toThrow(
+          "State is not initialized. Cannot access state: required",
+        );
       });
     });
   });

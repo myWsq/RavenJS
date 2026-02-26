@@ -12,6 +12,7 @@
 ## Capabilities
 
 ### Modified Capabilities
+
 - `npm-cli-publish`: 主包现在会包含并发布 registry.json 文件
 - `cli-tool`: CLI 现在从外部文件加载 registry，而不是内联数据
 

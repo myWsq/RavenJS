@@ -12,10 +12,12 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `ai-first-integration`: 提供 AI 可识别的 skill 和 command 机制，支持通过自然语言管理 RavenJS 项目
 - `cli-ai-commands`: 扩展 Raven CLI 以支持 AI 工作流所需的新命令（init、install）
 
 ### Modified Capabilities
+
 - `cli-update`: 更新 `raven update` 命令以支持同步 AI skills/commands
 
 ## Impact

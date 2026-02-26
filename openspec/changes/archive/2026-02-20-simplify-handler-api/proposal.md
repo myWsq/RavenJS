@@ -1,6 +1,7 @@
 ## Why
 
 当前的 `createHandler` API 存在冗余：
+
 1. 需要在 `StateOptions` 中指定 `source` 字段
 2. 需要通过 `{ slots: [...] }` 对象包装来声明依赖
 3. `slots` 是一个内部实现概念，对用户来说不够语义化
@@ -18,6 +19,7 @@
 ## Capabilities
 
 ### Modified Capabilities
+
 - `state-management`: 简化 State 定义，移除 source 字段
 - `handler-schema-validation`: 用固定属性名替代 slots 机制
 

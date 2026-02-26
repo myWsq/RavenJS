@@ -5,22 +5,27 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 提供 `raven.register(plugin, options)` API。
 - 支持异步插件初始化（Awaiting `register`）。
 
 **Non-Goals:**
+
 - 实现插件作用域隔离（暂不考虑）。
 - 实现复杂的插件依赖树排序。
 
 ## Decisions
 
 ### 1. 插件定义 (Plugin Definition)
+
 插件将是一个接受 `Raven` 实例和配置选项的函数。
+
 ```typescript
 type Plugin = (instance: Raven, opts: any) => void | Promise<void>;
 ```
 
 ### 2. 注册机制
+
 `register` 方法将直接在当前 `Raven` 实例上执行插件函数。
 
 ## Risks / Trade-offs

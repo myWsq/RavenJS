@@ -5,12 +5,14 @@ The `raven self-update` command currently prints manual npm/bunx instructions. T
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Implement self-update that downloads and installs the latest binary from GitHub Releases
 - Match install.sh behavior: OS/arch detection, GitHub API, URL pattern, install path `~/.local/bin`
 - Show "Already up to date" when current version equals latest
 - Clear success/error messages aligned with install.sh semantics
 
 **Non-Goals:**
+
 - Supporting Windows (install.sh doesn't; CLI can error on unsupported OS/arch)
 - Updating when run via `bun run` or development setup
 - Confirmation prompts (install.sh doesn't prompt; we proceed directly)
@@ -18,21 +20,26 @@ The `raven self-update` command currently prints manual npm/bunx instructions. T
 ## Decisions
 
 **1. Install target: `~/.local/bin/raven`**
+
 - Same as install.sh. Works for both binary-installed and npm/bunx users.
 - Alternative: Replace the running executable in-place. Rejected because detecting the real binary path across npx/bunx/global install is complex and platform-specific.
 
 **2. Version source**
+
 - Current: from bundled `registry.version` (matches CLI package version).
 - Latest: from GitHub Releases API `https://api.github.com/repos/myWsq/RavenJS/releases`, first non-prerelease tag (same logic as install.sh).
 
 **3. OS/arch detection**
+
 - Mirror install.sh: `uname -s` → linux/darwin; `uname -m` → x64/arm64. Unsupported → exit with error.
 
 **4. Download URL**
+
 - `https://github.com/myWsq/RavenJS/releases/download/v{version}/raven-{version}-{os}-{arch}`
 - No `.exe` suffix (no Windows support).
 
 **5. Update flow**
+
 - Fetch latest version → compare with current → if same, print "Already up to date" and exit.
 - Else: download to temp file → validate non-empty → write to `~/.local/bin/raven` → `chmod +x` → success message.
 - Use Bun `fetch` and `Bun.write`; `process.platform` / `process.arch` for detection.

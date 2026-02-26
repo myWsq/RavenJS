@@ -14,9 +14,11 @@ The `init` command name is less intuitive for the primary action of installing R
 ## Capabilities
 
 ### New Capabilities
+
 - None
 
 ### Modified Capabilities
+
 - `cli-tool`: Change requirement "init 命令初始化项目" to "install 命令安装项目"
 - `registry-based-install`: Update scenario references from `raven init` to `raven install`
 - `cli-output-styling`: Update examples referencing init to install

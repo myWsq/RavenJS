@@ -28,8 +28,9 @@ bun run benchmark:micro
 ```
 
 Includes:
+
 - **Router** - RadixRouter matching performance
-- **Validator** - JTD Schema validation performance  
+- **Validator** - JTD Schema validation performance
 - **State** - AppState/RequestState operations
 
 ### E2E Benchmarks Only
@@ -41,6 +42,7 @@ bun run benchmark:e2e
 ```
 
 Includes:
+
 - Simple GET/POST requests
 - JSON body parsing and validation
 - Hook chain execution
@@ -91,12 +93,12 @@ router 1000 routes     2.3M ops/sec          ...
 
 ### Key Metrics
 
-| Metric | Description |
-|--------|-------------|
-| **avg** | Average operations per second |
-| **p75** | 75th percentile latency |
-| **p99** | 99th percentile latency |
-| **min/max** | Range of measurements |
+| Metric      | Description                   |
+| ----------- | ----------------------------- |
+| **avg**     | Average operations per second |
+| **p75**     | 75th percentile latency       |
+| **p99**     | 99th percentile latency       |
+| **min/max** | Range of measurements         |
 
 ### What to Look For
 
@@ -130,24 +132,24 @@ Baseline numbers (Apple Silicon, Bun 1.3.10):
 
 ### Micro Benchmarks
 
-| Test | Performance | Notes |
-|------|-------------|-------|
-| Static route match (100-10000 routes) | ~70-85 ns/iter (~13M ops/sec) | Stable across route counts |
-| Dynamic route match (:param) | ~108-111 ns/iter (~9M ops/sec) | Includes param extraction |
-| Wildcard route match (*) | ~62-89 ns/iter (~14M ops/sec) | Fast wildcard handling |
-| Simple schema validation | ~11 ns/iter (~90M ops/sec) | 3-field object |
-| Complex schema validation | ~1.12 µs/iter (~890K ops/sec) | Nested objects + arrays |
-| State get/set | ~42-46 ns/iter (~22M ops/sec) | AsyncLocalStorage overhead |
-| State inheritance (depth 10) | ~105 ns/iter (~9.5M ops/sec) | Parent chain lookup |
+| Test                                  | Performance                    | Notes                      |
+| ------------------------------------- | ------------------------------ | -------------------------- |
+| Static route match (100-10000 routes) | ~70-85 ns/iter (~13M ops/sec)  | Stable across route counts |
+| Dynamic route match (:param)          | ~108-111 ns/iter (~9M ops/sec) | Includes param extraction  |
+| Wildcard route match (\*)             | ~62-89 ns/iter (~14M ops/sec)  | Fast wildcard handling     |
+| Simple schema validation              | ~11 ns/iter (~90M ops/sec)     | 3-field object             |
+| Complex schema validation             | ~1.12 µs/iter (~890K ops/sec)  | Nested objects + arrays    |
+| State get/set                         | ~42-46 ns/iter (~22M ops/sec)  | AsyncLocalStorage overhead |
+| State inheritance (depth 10)          | ~105 ns/iter (~9.5M ops/sec)   | Parent chain lookup        |
 
 ### E2E Request Handling
 
-| Test | Performance | Notes |
-|------|-------------|-------|
-| Simple GET (text) | ~2.6 µs/iter (~385K req/sec) | Minimal handler |
-| GET with JSON response | ~2.8 µs/iter (~357K req/sec) | Response.json() |
+| Test                      | Performance                  | Notes            |
+| ------------------------- | ---------------------------- | ---------------- |
+| Simple GET (text)         | ~2.6 µs/iter (~385K req/sec) | Minimal handler  |
+| GET with JSON response    | ~2.8 µs/iter (~357K req/sec) | Response.json()  |
 | POST with body validation | ~4.7 µs/iter (~213K req/sec) | JTD body parsing |
-| GET with 3 hooks | ~2.8 µs/iter (~357K req/sec) | Full hook chain |
-| Dynamic route params | ~3.1 µs/iter (~323K req/sec) | 2 path params |
+| GET with 3 hooks          | ~2.8 µs/iter (~357K req/sec) | Full hook chain  |
+| Dynamic route params      | ~3.1 µs/iter (~323K req/sec) | 2 path params    |
 
-*Actual numbers will vary based on hardware and Bun version.*
+_Actual numbers will vary based on hardware and Bun version._

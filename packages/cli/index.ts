@@ -48,15 +48,11 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function loadRegistry(options?: {
-  registry?: string;
-}): Promise<Registry> {
+async function loadRegistry(options?: { registry?: string }): Promise<Registry> {
   const candidates: string[] = [];
   if (options?.registry) {
     candidates.push(
-      isAbsolute(options.registry)
-        ? options.registry
-        : resolve(cwd(), options.registry),
+      isAbsolute(options.registry) ? options.registry : resolve(cwd(), options.registry),
     );
   }
   if (process.env.RAVEN_DEFAULT_REGISTRY_PATH) {
@@ -71,9 +67,7 @@ async function loadRegistry(options?: {
       return JSON.parse(content) as Registry;
     }
   }
-  console.error(
-    "registry.json not found. Run 'bun run build' in packages/cli first.",
-  );
+  console.error("registry.json not found. Run 'bun run build' in packages/cli first.");
   process.exit(1);
 }
 
@@ -162,11 +156,7 @@ function getModuleNames(registry: Registry): string[] {
   return Object.keys(registry.modules);
 }
 
-function getInstallOrder(
-  moduleName: string,
-  registry: Registry,
-  installed: Set<string>,
-): string[] {
+function getInstallOrder(moduleName: string, registry: Registry, installed: Set<string>): string[] {
   const result: string[] = [];
   const visited = new Set<string>();
   const recStack = new Set<string>();
@@ -206,11 +196,7 @@ function getInstallOrder(
 
 const RAVENJS_PREFIX = "@raven.js/";
 
-function replaceRavenImports(
-  content: string,
-  fromModuleDir: string,
-  registry: Registry,
-): string {
+function replaceRavenImports(content: string, fromModuleDir: string, registry: Registry): string {
   const moduleNames = Object.keys(registry.modules);
   let out = content;
   const depth = fromModuleDir.split("/").filter(Boolean).length;
@@ -219,14 +205,8 @@ function replaceRavenImports(
     const pkg = `${RAVENJS_PREFIX}${modName}`;
     const rel = prefix + modName;
 
-    const dq = new RegExp(
-      `from\\s+"${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`,
-      "g",
-    );
-    const sq = new RegExp(
-      `from\\s+'${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`,
-      "g",
-    );
+    const dq = new RegExp(`from\\s+"${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`, "g");
+    const sq = new RegExp(`from\\s+'${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'`, "g");
     out = out.replace(dq, `from "${rel}"`).replace(sq, `from '${rel}'`);
   }
   return out;
@@ -326,7 +306,9 @@ async function cmdInit(options: CLIOptions) {
     s.stop("Initializing raven root...");
   }
 
-  success("RavenJS raven root initialized. Install AI skills with: install-raven (or npx install-raven).");
+  success(
+    "RavenJS raven root initialized. Install AI skills with: install-raven (or npx install-raven).",
+  );
 
   printSectionHeader("Modified Files");
   for (const file of modifiedFiles) {
@@ -343,11 +325,7 @@ interface RavenYamlConfig {
   language?: string;
 }
 
-async function createRavenYaml(
-  destDir: string,
-  version: string,
-  language?: string,
-) {
+async function createRavenYaml(destDir: string, version: string, language?: string) {
   const data: RavenYamlConfig = { version };
   if (language !== undefined) {
     data.language = language;
@@ -356,10 +334,7 @@ async function createRavenYaml(
   await writeFile(join(destDir, "raven.yaml"), content);
 }
 
-async function getInstalledModules(
-  ravenDir: string,
-  registry: Registry,
-): Promise<Set<string>> {
+async function getInstalledModules(ravenDir: string, registry: Registry): Promise<Set<string>> {
   const installed = new Set<string>();
   for (const name of getModuleNames(registry)) {
     const modDir = join(ravenDir, name);
@@ -373,9 +348,7 @@ async function getInstalledModules(
 async function cmdAdd(moduleName: string, options: CLIOptions) {
   const registry = await loadRegistry(options);
   if (!moduleName) {
-    error(
-      `Please specify a module to add. Available: ${getModuleNames(registry).join(", ")}`,
-    );
+    error(`Please specify a module to add. Available: ${getModuleNames(registry).join(", ")}`);
   }
 
   const available = getModuleNames(registry);
@@ -393,12 +366,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
     const modifiedFiles: string[] = [];
     const allDependencies: Record<string, string> = {};
     for (const name of order) {
-      const files = await installModule(
-        registry,
-        name,
-        ravenDir,
-        options,
-      );
+      const files = await installModule(registry, name, ravenDir, options);
       modifiedFiles.push(...files);
       const mod = registry.modules[name];
       if (mod?.dependencies) {
@@ -445,10 +413,7 @@ async function computeFileHash(filePath: string): Promise<string> {
   return createHash("sha256").update(content).digest("hex");
 }
 
-async function getStatus(
-  registry: Registry,
-  options: CLIOptions,
-): Promise<StatusResult> {
+async function getStatus(registry: Registry, options: CLIOptions): Promise<StatusResult> {
   const targetDir = cwd();
   const root = getRoot(options);
   const ravenDir = join(targetDir, root);
@@ -478,8 +443,7 @@ async function getStatus(
 
     for (const name of knownModules) {
       const modDir = join(ravenDir, name);
-      const installed =
-        (await pathExists(modDir)) && !(await isDirEmpty(modDir));
+      const installed = (await pathExists(modDir)) && !(await isDirEmpty(modDir));
       const mod = registry.modules[name];
       moduleStatus.push({
         name,
@@ -546,7 +510,9 @@ program
 
 program
   .command("init")
-  .description("Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.")
+  .description(
+    "Initialize raven root (directory and raven.yaml). Install AI skills with install-raven.",
+  )
   .option("--language <lang>", "Language (stored in raven.yaml)")
   .action(function (this: { opts: () => CLIOptions }) {
     const opts = this.opts();

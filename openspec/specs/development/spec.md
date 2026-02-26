@@ -1,6 +1,7 @@
 # Development Specification
 
 > **Migration Note**: This spec consolidates following original specs:
+>
 > - `unified-test-interface`
 > - `test-organization`
 > - `cli-e2e-testing`
@@ -230,12 +231,12 @@ e2e 测试 SHALL 使用固定夹具与临时目录进行隔离，确保可重复
 #### Scenario: Run all micro benchmarks
 
 - **WHEN** 用户执行 `bun run benchmark:micro`
-- **THEN** 系统运行 benchmark/micro/ 目录下所有 *.bench.ts 文件
+- **THEN** 系统运行 benchmark/micro/ 目录下所有 \*.bench.ts 文件
 
 #### Scenario: Run e2e benchmarks
 
 - **WHEN** 用户执行 `bun run benchmark:e2e`
-- **THEN** 系统运行 benchmark/e2e/ 目录下所有 *.bench.ts 文件
+- **THEN** 系统运行 benchmark/e2e/ 目录下所有 \*.bench.ts 文件
 
 #### Scenario: Run all benchmarks
 
@@ -318,6 +319,7 @@ e2e 测试 SHALL 使用固定夹具与临时目录进行隔离，确保可重复
 
 - **WHEN** 编写 `index.ts` 文件
 - **THEN** 使用以下结构：
+
   ```typescript
   // =============================================================================
   // Public API - 用户应该使用的导出

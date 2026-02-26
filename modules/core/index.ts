@@ -47,9 +47,7 @@ export type Handler = () => Response | Promise<Response>;
  * Hook executed when a request is first received.
  * Returning a Response will short-circuit the request lifecycle.
  */
-export type OnRequestHook = (
-  request: Request,
-) => void | Response | Promise<void | Response>;
+export type OnRequestHook = (request: Request) => void | Response | Promise<void | Response>;
 
 /**
  * Hook executed before the main route handler.
@@ -61,9 +59,7 @@ export type BeforeHandleHook = () => void | Response | Promise<void | Response>;
  * Hook executed before the response is sent to the client.
  * Can return a new Response to override the outgoing response.
  */
-export type BeforeResponseHook = (
-  response: Response,
-) => void | Response | Promise<void | Response>;
+export type BeforeResponseHook = (response: Response) => void | Response | Promise<void | Response>;
 
 /**
  * Hook executed when an error occurs during the request lifecycle.
@@ -108,12 +104,7 @@ export class RavenError extends Error {
   public readonly statusCode?: number;
   public override readonly cause?: unknown;
 
-  private constructor(
-    code: string,
-    message: string,
-    context: ErrorContext,
-    statusCode?: number,
-  ) {
+  private constructor(code: string, message: string, context: ErrorContext, statusCode?: number) {
     super(message);
     this.code = code;
     this.context = context;
@@ -250,7 +241,7 @@ export abstract class ScopedState<T> {
 
   /** Retrieves the state value, returning undefined if not set. */
   public abstract get(): T | undefined;
-  
+
   /** Sets the state value in the current scope. */
   public abstract set(value: T): void;
 
@@ -344,9 +335,7 @@ export { RadixRouter, type RouteMatch } from "./router.ts";
  * Without this helper, TypeScript infers `states` as `ScopedState<any>[]` (array).
  * With this helper, it infers the precise tuple type, enabling typed register() returns.
  */
-export function definePlugin<S extends readonly ScopedState<any>[]>(
-  plugin: Plugin<S>,
-): Plugin<S> {
+export function definePlugin<S extends readonly ScopedState<any>[]>(plugin: Plugin<S>): Plugin<S> {
   return plugin;
 }
 
@@ -356,7 +345,7 @@ export function definePlugin<S extends readonly ScopedState<any>[]>(
 export class Raven implements RavenInstance {
   private router: RadixRouter<RouteData>;
   public readonly internalStateMap = new Map<symbol, any>();
-  
+
   private hooks = {
     onRequest: [] as OnRequestHook[],
     beforeHandle: [] as BeforeHandleHook[],
@@ -379,9 +368,7 @@ export class Raven implements RavenInstance {
    * @param plugin The plugin object to register.
    * @returns The plugin's declared states tuple, for per-registration state access.
    */
-  async register<S extends readonly ScopedState<any>[]>(
-    plugin: Plugin<S>,
-  ): Promise<S> {
+  async register<S extends readonly ScopedState<any>[]>(plugin: Plugin<S>): Promise<S> {
     try {
       await currentAppStorage.run(this, () => plugin.load(this));
     } catch (err) {
@@ -540,9 +527,7 @@ export class Raven implements RavenInstance {
             RavenContext.set(new Context(request));
           }
           return this.handleError(
-            error instanceof Error
-              ? error
-              : RavenError.ERR_UNKNOWN_ERROR(String(error)),
+            error instanceof Error ? error : RavenError.ERR_UNKNOWN_ERROR(String(error)),
           );
         }
       });
@@ -597,10 +582,7 @@ export class Raven implements RavenInstance {
   /**
    * Evaluates error hooks and formats standard framework errors.
    */
-  private async handleError(
-    error: Error,
-    status: number = 500,
-  ): Promise<Response> {
+  private async handleError(error: Error, status: number = 500): Promise<Response> {
     const onErrorHooks = this.hooks.onError;
     if (onErrorHooks.length > 0) {
       for (const hook of onErrorHooks) {

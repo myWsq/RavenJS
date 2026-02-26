@@ -5,12 +5,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 提供独立可执行入口（如 `npx install-raven` 或全局 `install-raven`），仅将 RavenJS Skill 安装到当前项目的 `.claude/skills/`（或可配置目录）。
 - Skill 来源与现有 `packages/ai` 及 registry 的 ai 映射一致，复用同一套 source→dest 定义，便于本地开发与发布一致。
 - 明确 raven-setup 的契约：在项目中安装 `@raven.js/cli` 并执行后续 init/add core/校验，文档化在 Skill 内即可。
 - **从 @raven.js/cli 中移除创建/安装 Skill 的能力**：`raven init` 只创建 raven 根目录与 `raven.yaml`，不再向 `.claude/skills/` 写入任何内容；`raven update` 只更新框架模块，不再更新 AI 资源；Skill 的安装与更新由 install-raven 单一入口负责。
 
 **Non-Goals:**
+
 - 不在此变更中发布独立 npm 包名（可后续决定是独立包还是 monorepo 内子包 + bin）。
 
 ## Decisions

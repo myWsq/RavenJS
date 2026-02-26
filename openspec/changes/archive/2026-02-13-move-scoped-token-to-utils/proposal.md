@@ -12,9 +12,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - 无新 capabilities
 
 ### Modified Capabilities
+
 - 无修改 existing capabilities（这是重构任务，不改变需求规范）
 
 ## Impact

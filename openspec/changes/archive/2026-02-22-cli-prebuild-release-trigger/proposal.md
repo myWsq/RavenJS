@@ -11,10 +11,12 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `cli-prebuild-release-trigger`: CLI 预构建与 GitHub Release 标签的联动与触发规则
 
 ### Modified Capabilities
-- 
+
+-
 
 ## Impact
 

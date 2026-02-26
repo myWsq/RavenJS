@@ -13,12 +13,15 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `scoped-tokens`: 提供统一的、基于令牌的异步作用域变量管理机制。
 
 ### Modified Capabilities
+
 - `lifecycle-hooks`: 集成 `runScoped` 以覆盖请求全生命周期。
 
 ### Modified Capabilities
+
 - `request-context`: 不再作为独立的存储类，而是作为 `unified-async-context` 的一个预定义 Token。
 - `lifecycle-hooks`: 修改为在请求入口处启动统一的上下文池。
 

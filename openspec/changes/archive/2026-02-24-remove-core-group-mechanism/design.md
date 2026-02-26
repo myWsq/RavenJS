@@ -5,6 +5,7 @@ Core 当前通过 `group()` 创建子 Raven 实例，子实例共享同一 Radix
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 移除 group 机制，实现无嵌套的扁平设计
 - 简化 Raven 类：无 parent、无 prefix 累加、无 `group()` 方法
 - 简化 AppState：仅查询当前实例，无 parent 链查找
@@ -12,6 +13,7 @@ Core 当前通过 `group()` 创建子 Raven 实例，子实例共享同一 Radix
 - 保持路由、请求处理、状态管理（单实例 scope）等核心能力不变
 
 **Non-Goals:**
+
 - 不提供替代的路由前缀方案（用户自行在路径中写 `/api/v1/...`）
 - 不考虑向后兼容或迁移指南
 - 不修改 RequestState、Plugin、DI 等其他机制

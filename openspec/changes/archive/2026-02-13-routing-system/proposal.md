@@ -14,9 +14,11 @@ Raven 框架目前仅支持单一的默认处理器（defaultHandler），缺乏
 ## Capabilities
 
 ### New Capabilities
+
 - `routing-system`: 核心路由匹配、参数提取、路由组管理以及与生命周期的集成逻辑。
 
 ### Modified Capabilities
+
 - `lifecycle-hooks`: 调整钩子执行顺序和 Context 组装逻辑，支持作用域感知的钩子回溯执行。
 
 ## Impact

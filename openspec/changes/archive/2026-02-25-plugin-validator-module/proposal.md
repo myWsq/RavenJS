@@ -13,9 +13,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `plugin-validator`: 提供基于 Standard Schema 的核心参数校验功能
 
 ### Modified Capabilities
+
 - 无
 
 ## Impact

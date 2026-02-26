@@ -12,9 +12,11 @@ RavenJS 需要一个专门的目录来存放官方提供的插件，以保持核
 ## Capabilities
 
 ### New Capabilities
+
 - `official-plugins-infrastructure`: 提供官方插件的目录结构、构建配置及基础工具类。
 
 ### Modified Capabilities
+
 - `routing-system`: 修改路由匹配逻辑，支持将 `params` 和 `query` 注入到 Context 中。
 - `lifecycle-hooks`: 调整 `onRequest` 钩子与 Context 组装的先后顺序。
 

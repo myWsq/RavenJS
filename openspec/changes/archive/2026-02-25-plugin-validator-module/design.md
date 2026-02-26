@@ -3,12 +3,14 @@
 当前项目需要实现一个 `plugin-validator` 模块，用于对 HTTP 请求的参数（body、query、params、headers）进行校验。项目使用 Bun + TypeScript，已有一个 `standard-schema.ts` 定义了 Standard Schema 接口。
 
 现有模块结构：
+
 - `modules/core/` - 核心框架，包含 Router、Context、State 等
 - `modules/jtd-validator/` - 基于 JTD 的校验器
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 实现 `withSchema` 高阶函数，支持基于 Standard Schema 的参数校验
 - 支持 `body`、`query`、`params`、`headers` 四个位置的校验
 - 校验失败时返回 400 状态码和详细错误信息
@@ -16,6 +18,7 @@
 - 无需直接依赖具体 schema 库，实现黑盒校验
 
 **Non-Goals:**
+
 - 不实现具体的 schema DSL（由其他模块如 jtd-validator 提供）
 - 不处理路由匹配逻辑（由 core 模块处理）
 - 不提供默认的错误响应格式定制（可后续扩展）
