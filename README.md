@@ -17,7 +17,9 @@ RavenJS is an **AI-native** Bun web framework. Lightweight and high-performance.
 
 Requires **Bun** `>=1.0`. Raven installs in your **project directory**—framework code is copied in as reference for AI agents to learn from.
 
-**New project?** Use [bun init](https://bun.com/docs/runtime/templating/init) first. RavenJS supports **server-only** (`bun init -y`) or [Full Stack Dev Server](https://bun.sh/docs/bundler/fullstack) (`bun init --react`, `bun init --react=tailwind`, etc.).
+**0. New project?**
+
+Use [bun init](https://bun.com/docs/runtime/templating/init) first. RavenJS supports **server-only** (`bun init -y`) or [Full Stack Dev Server](https://bun.sh/docs/bundler/fullstack) (`bun init --react`, `bun init --react=tailwind`, etc.).
 
 **1. Install AI skills**
 
