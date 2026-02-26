@@ -1,63 +1,108 @@
 import { describe, expect, it, mock } from "bun:test";
-import { Raven, createAppState, currentAppStorage, definePlugin } from "../../../modules/core";
+import {
+  Raven,
+  defineAppState,
+  currentAppStorage,
+  definePlugin,
+  type StateSetter,
+} from "../../../modules/core";
 
 describe("Plugin System", () => {
-  it("should register a simple sync plugin", async () => {
+  it("should register a plugin and call load after build()", async () => {
     const raven = new Raven();
-    const load = mock((app: Raven) => {
+    const load = mock((app: Raven, _set: StateSetter) => {
       app.onRequest(() => {});
     });
 
-    await raven.register(definePlugin({ name: "test-plugin", states: [], load }));
-    expect(load).toHaveBeenCalledWith(raven);
+    raven.register(definePlugin({ name: "test-plugin", load }));
+    expect(load).not.toHaveBeenCalled();
+
+    await raven.ready();
+    expect(load).toHaveBeenCalledWith(raven, expect.any(Function));
   });
 
-  it("should register an async plugin", async () => {
+  it("should support async plugin load", async () => {
     const raven = new Raven();
     let initialized = false;
-    const load = async (_: Raven) => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      initialized = true;
-    };
+    const ConfigState = defineAppState<string>();
 
-    await raven.register(definePlugin({ name: "async-plugin", states: [], load }));
+    raven.register(
+      definePlugin({
+        name: "async-plugin",
+        async load(_app, set) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          set(ConfigState, "ready");
+          initialized = true;
+        },
+      }),
+    );
+
+    await raven.ready();
     expect(initialized).toBe(true);
+    currentAppStorage.run(raven, () => {
+      expect(ConfigState.getOrFailed()).toBe("ready");
+    });
   });
 
-  it("should register hooks on the main instance", async () => {
+  it("should run plugin loads in order so later plugins see earlier plugins' state", async () => {
+    const raven = new Raven();
+    const DbState = defineAppState<string>();
+    let seenDb: string | undefined;
+
+    raven
+      .register(
+        definePlugin({
+          name: "db-plugin",
+          async load(_app, set) {
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            set(DbState, "connected");
+          },
+        }),
+      )
+      .register(
+        definePlugin({
+          name: "user-plugin",
+          load(_app, _set) {
+            seenDb = DbState.get();
+          },
+        }),
+      );
+
+    await raven.ready();
+    expect(seenDb).toBe("connected");
+  });
+
+  it("should register hooks on the main instance after build()", async () => {
     const raven = new Raven();
     const hook = () => {};
     const plugin = definePlugin({
       name: "hooks-plugin",
-      states: [],
-      load(app: Raven) {
+      load(app: Raven, _set: StateSetter) {
         app.onRequest(hook);
       },
     });
 
-    await raven.register(plugin);
+    raven.register(plugin);
+    await raven.ready();
     // @ts-expect-error - accessing private hooks for testing
     expect(raven.hooks.onRequest).toContain(hook);
   });
 
-  it("should return plugin states from register()", async () => {
+  it("should write AppState via set parameter and read it back", async () => {
     const raven = new Raven();
-    const ConfigState = createAppState<{ value: string }>();
+    const ConfigState = defineAppState<{ value: string }>();
 
     const plugin = definePlugin({
       name: "state-plugin",
-      states: [ConfigState] as const,
-      // load runs inside app context; app not needed for this test
-      load(_app: Raven) {
-        ConfigState.set({ value: "ok" });
+      load(_app: Raven, set: StateSetter) {
+        set(ConfigState, { value: "ok" });
       },
     });
 
-    const [config] = await raven.register(plugin);
-    expect(config).toBe(ConfigState);
-    // AppState is only readable inside app context
+    raven.register(plugin);
+    await raven.ready();
     currentAppStorage.run(raven, () => {
-      expect(config.getOrFailed().value).toBe("ok");
+      expect(ConfigState.getOrFailed().value).toBe("ok");
     });
   });
 
@@ -69,33 +114,31 @@ describe("Plugin System", () => {
     const myPlugin = (opts: MyOptions) =>
       definePlugin({
         name: "my-plugin",
-        states: [],
-        load(_app: Raven) {
+        load(_app: Raven, _set: StateSetter) {
           expect(opts.foo).toBe("bar");
         },
       });
 
-    await raven.register(myPlugin({ foo: "bar" }));
+    raven.register(myPlugin({ foo: "bar" }));
+    await raven.ready();
   });
 
   it("should run onLoaded hooks once after plugins are registered", async () => {
     const raven = new Raven();
     const executionOrder: string[] = [];
 
-    await raven.register(
+    raven.register(
       definePlugin({
         name: "plugin-a",
-        states: [],
-        load() {
+        load(_app, _set) {
           executionOrder.push("plugin-a:load");
         },
       }),
     );
-    await raven.register(
+    raven.register(
       definePlugin({
         name: "plugin-b",
-        states: [],
-        load() {
+        load(_app, _set) {
           executionOrder.push("plugin-b:load");
         },
       }),
@@ -111,8 +154,9 @@ describe("Plugin System", () => {
     });
     raven.get("/", () => new Response("ok"));
 
-    await raven.handle(new Request("http://localhost/"));
-    await raven.handle(new Request("http://localhost/"));
+    const fetch = await raven.ready();
+    await fetch(new Request("http://localhost/"));
+    await fetch(new Request("http://localhost/"));
 
     expect(executionOrder).toEqual(["plugin-a:load", "plugin-b:load", "onLoaded:1", "onLoaded:2"]);
   });
@@ -121,11 +165,10 @@ describe("Plugin System", () => {
     const raven = new Raven();
     const executionOrder: string[] = [];
 
-    await raven.register(
+    raven.register(
       definePlugin({
         name: "plugin-a",
-        states: [],
-        load() {},
+        load(_app, _set) {},
       }),
     );
 
@@ -138,7 +181,49 @@ describe("Plugin System", () => {
     });
     raven.get("/", () => new Response("ok"));
 
-    await expect(raven.handle(new Request("http://localhost/"))).rejects.toThrow("onLoaded failed");
+    await expect(raven.ready()).rejects.toThrow("onLoaded failed");
     expect(executionOrder).toEqual(["onLoaded:1"]);
+  });
+
+  it("should isolate AppState between two registrations with different scope keys", async () => {
+    const raven = new Raven();
+    const DBState = defineAppState<string>({ name: "db-plugin-scope" });
+
+    raven.register({
+      name: "sql-global",
+      load(_a, set) {
+        set(DBState, "db-global");
+      },
+    });
+    raven.register(
+      {
+        name: "sql-s1",
+        load(_a, set) {
+          set(DBState, "db-s1");
+        },
+      },
+      "S1",
+    );
+    await raven.ready();
+
+    currentAppStorage.run(raven, () => {
+      expect(DBState.get()).toBe("db-global");
+      expect(DBState.in("S1").get()).toBe("db-s1");
+    });
+  });
+
+  it("should wrap plugin load errors with plugin name", async () => {
+    const raven = new Raven();
+    const plugin = definePlugin({
+      name: "broken-plugin",
+      load() {
+        throw new Error("connection refused");
+      },
+    });
+
+    raven.register(plugin);
+    await expect(raven.ready()).rejects.toThrow(
+      "[broken-plugin] Plugin load failed: connection refused",
+    );
   });
 });

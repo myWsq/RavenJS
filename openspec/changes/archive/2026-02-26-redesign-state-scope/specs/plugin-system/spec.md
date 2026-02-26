@@ -1,15 +1,4 @@
-# Plugin System Specification
-
-> **Migration Note**: This spec consolidates the following original specs:
->
-> - `plugin-system`
-> - `vite-style-plugin-system`
-
-## Purpose
-
-定义 RavenJS 的插件系统，支持对象式插件定义、结构化注册方法、per-registration 独立状态，以及提供插件包结构标准。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 对象式插件定义 (Object Plugin Definition)
 
@@ -25,6 +14,8 @@
 - **WHEN** 使用 `definePlugin({ name: 'x', load(app, set) {} })` 包裹插件对象
 - **THEN** TypeScript SHALL 接受该对象并返回相同对象，不产生任何编译错误
 - **AND** `definePlugin` 不再有泛型参数，仅作 identity 辅助函数
+
+---
 
 ### Requirement: 简化插件注册方法 (Simplified Register Method)
 
@@ -48,24 +39,7 @@
 - **THEN** 两次注册均正常完成
 - **AND** global Scope 和 `'S1'` Scope 各自持有独立的 State 值
 
-### Requirement: 异步插件注册 (Async Plugin Registration)
-
-框架 MUST 等待 `plugin.load(app)` 返回的 `Promise` 解析完成后再继续执行。
-
-#### Scenario: 异步插件注册
-
-- **WHEN** `plugin.load(app)` 返回一个 Promise
-- **THEN** `await app.register(plugin)` MUST 在该 Promise resolve 后才 resolve
-
-### Requirement: 插件加载错误归因 (Plugin Load Error Attribution)
-
-当 `plugin.load(app)` 抛出异常时，框架 MUST 将错误包装并在消息中包含插件名称。
-
-#### Scenario: load 阶段抛出错误
-
-- **WHEN** `plugin.load(app)` 抛出 `Error('connection refused')`
-- **THEN** `app.register(plugin)` SHALL 抛出包含 `[my-plugin] Plugin load failed: connection refused` 的错误
-- **AND** 原始错误 SHALL 作为 `cause` 保留
+---
 
 ### Requirement: 提供 Raven 实例访问 (Raven Instance Access)
 
@@ -81,20 +55,10 @@
 - **WHEN** 插件在 `load(app, set)` 中调用 `set(DBState, connect())`
 - **THEN** `DBState` 的值在该 Scope 下立即可读
 
-### Requirement: 插件包结构 (Plugin Package Structure)
+## REMOVED Requirements
 
-在 `packages/` 目录下必须存在 `plugins/` 文件夹，该文件夹作为一个独立的工作区成员管理。
+### Requirement: 插件 states 字段声明与返回
 
-#### Scenario: 验证目录存在
+**Reason**: `Plugin.states` 字段与 `register()` 返回 states 元组的模式被新的 `StateSetter` + `State.in()` 机制替代。State 以模块顶层 export 形式声明，调用方通过静态 import 访问，无需从 `register()` 获取。
 
-- **WHEN** 检查项目根目录下的 `packages/` 文件夹
-- **THEN** 应当存在 `plugins/` 目录
-
-### Requirement: 基础构建配置 (Base Build Configuration)
-
-`plugins/` 目录必须包含标准的 TypeScript 项目配置，允许各个子插件共享或独立构建。
-
-#### Scenario: 验证 package.json
-
-- **WHEN** 检查 `packages/plugins/package.json`
-- **THEN** 应当定义为一个 `monorepo` 工作区包，或者作为核心库的对等依赖包
+**Migration**: 将 `const [DBState] = await app.register(sqlPlugin())` 替换为直接 `import { DBState } from 'sqlPlugin'`；`plugin.states` 字段从 Plugin 定义中移除；`register()` 调用不再需要解构返回值。

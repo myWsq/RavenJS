@@ -1,12 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { withSchema, isValidationError } from "../../../modules/schema-validator";
-import {
-  BodyState,
-  QueryState,
-  ParamsState,
-  HeadersState,
-  requestStorage,
-} from "../../../modules/core";
+import { Raven } from "../../../modules/core";
 import { z } from "zod";
 
 describe("withSchema", () => {
@@ -15,16 +9,25 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema({ body: bodySchema }, async (ctx) => {
-      return new Response(JSON.stringify(ctx.body), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+    const app = new Raven();
+    app.post(
+      "/test",
+      withSchema({ body: bodySchema }, async (ctx) => {
+        return new Response(JSON.stringify(ctx.body), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      BodyState.set({ name: "test" });
-      return wrappedHandler();
-    });
+    const response = await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test", {
+        method: "POST",
+        body: JSON.stringify({ name: "test" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -36,15 +39,29 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema({ body: bodySchema }, async () => new Response("OK"));
-
-    const error = await requestStorage.run(new Map(), async () => {
-      BodyState.set({});
-      return wrappedHandler().catch((err) => err);
+    let capturedError: Error | undefined;
+    const app = new Raven();
+    app.post(
+      "/test",
+      withSchema({ body: bodySchema }, async () => new Response("OK")),
+    );
+    app.onError((err) => {
+      capturedError = err;
+      return new Response("Error", { status: 400 });
     });
 
-    expect(isValidationError(error)).toBe(true);
-    expect(error.bodyIssues).toBeDefined();
+    await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test", {
+        method: "POST",
+        body: JSON.stringify({}),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).bodyIssues).toBeDefined();
   });
 
   it("should pass validated query to handler", async () => {
@@ -52,16 +69,17 @@ describe("withSchema", () => {
       page: z.string(),
     });
 
-    const wrappedHandler = withSchema({ query: querySchema }, async (ctx) => {
-      return new Response(JSON.stringify(ctx.query), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+    const app = new Raven();
+    app.get(
+      "/test",
+      withSchema({ query: querySchema }, async (ctx) => {
+        return new Response(JSON.stringify(ctx.query), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      QueryState.set({ page: "1" });
-      return wrappedHandler();
-    });
+    const response = await (await app.ready())(new Request("http://localhost/test?page=1"));
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -73,15 +91,23 @@ describe("withSchema", () => {
       page: z.string(),
     });
 
-    const wrappedHandler = withSchema({ query: querySchema }, async () => new Response("OK"));
-
-    const error = await requestStorage.run(new Map(), async () => {
-      QueryState.set({});
-      return wrappedHandler().catch((err) => err);
+    let capturedError: Error | undefined;
+    const app = new Raven();
+    app.get(
+      "/test",
+      withSchema({ query: querySchema }, async () => new Response("OK")),
+    );
+    app.onError((err) => {
+      capturedError = err;
+      return new Response("Error", { status: 400 });
     });
 
-    expect(isValidationError(error)).toBe(true);
-    expect(error.queryIssues).toBeDefined();
+    await (
+      await app.ready()
+    )(new Request("http://localhost/test"));
+
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).queryIssues).toBeDefined();
   });
 
   it("should pass validated params to handler", async () => {
@@ -89,16 +115,17 @@ describe("withSchema", () => {
       id: z.string(),
     });
 
-    const wrappedHandler = withSchema({ params: paramsSchema }, async (ctx) => {
-      return new Response(JSON.stringify(ctx.params), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+    const app = new Raven();
+    app.get(
+      "/test/:id",
+      withSchema({ params: paramsSchema }, async (ctx) => {
+        return new Response(JSON.stringify(ctx.params), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      ParamsState.set({ id: "123" });
-      return wrappedHandler();
-    });
+    const response = await (await app.ready())(new Request("http://localhost/test/123"));
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -107,18 +134,26 @@ describe("withSchema", () => {
 
   it("should throw ValidationError when params validation fails", async () => {
     const paramsSchema = z.object({
-      id: z.string(),
+      id: z.string().min(5),
     });
 
-    const wrappedHandler = withSchema({ params: paramsSchema }, async () => new Response("OK"));
-
-    const error = await requestStorage.run(new Map(), async () => {
-      ParamsState.set({});
-      return wrappedHandler().catch((err) => err);
+    let capturedError: Error | undefined;
+    const app = new Raven();
+    app.get(
+      "/test/:id",
+      withSchema({ params: paramsSchema }, async () => new Response("OK")),
+    );
+    app.onError((err) => {
+      capturedError = err;
+      return new Response("Error", { status: 400 });
     });
 
-    expect(isValidationError(error)).toBe(true);
-    expect(error.paramsIssues).toBeDefined();
+    await (
+      await app.ready()
+    )(new Request("http://localhost/test/ab"));
+
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).paramsIssues).toBeDefined();
   });
 
   it("should pass validated headers to handler", async () => {
@@ -126,20 +161,27 @@ describe("withSchema", () => {
       authorization: z.string(),
     });
 
-    const wrappedHandler = withSchema({ headers: headersSchema }, async (ctx) => {
-      return new Response(JSON.stringify(ctx.headers), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+    const app = new Raven();
+    app.get(
+      "/test",
+      withSchema({ headers: headersSchema }, async (ctx) => {
+        return new Response(JSON.stringify(ctx.headers), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      HeadersState.set({ authorization: "Bearer token" });
-      return wrappedHandler();
-    });
+    const response = await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test", {
+        headers: { authorization: "Bearer token" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ authorization: "Bearer token" });
+    expect(body.authorization).toBe("Bearer token");
   });
 
   it("should throw ValidationError when headers validation fails", async () => {
@@ -147,15 +189,23 @@ describe("withSchema", () => {
       authorization: z.string(),
     });
 
-    const wrappedHandler = withSchema({ headers: headersSchema }, async () => new Response("OK"));
-
-    const error = await requestStorage.run(new Map(), async () => {
-      HeadersState.set({});
-      return wrappedHandler().catch((err) => err);
+    let capturedError: Error | undefined;
+    const app = new Raven();
+    app.get(
+      "/test",
+      withSchema({ headers: headersSchema }, async () => new Response("OK")),
+    );
+    app.onError((err) => {
+      capturedError = err;
+      return new Response("Error", { status: 400 });
     });
 
-    expect(isValidationError(error)).toBe(true);
-    expect(error.headersIssues).toBeDefined();
+    await (
+      await app.ready()
+    )(new Request("http://localhost/test"));
+
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).headersIssues).toBeDefined();
   });
 
   it("should validate all parameters when all schemas provided", async () => {
@@ -172,33 +222,39 @@ describe("withSchema", () => {
       auth: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      {
-        body: bodySchema,
-        query: querySchema,
-        params: paramsSchema,
-        headers: headersSchema,
-      },
-      async (ctx) => {
-        return new Response(
-          JSON.stringify({
-            body: ctx.body,
-            query: ctx.query,
-            params: ctx.params,
-            headers: ctx.headers,
-          }),
-          { headers: { "Content-Type": "application/json" } },
-        );
-      },
+    const app = new Raven();
+    app.post(
+      "/test/:id",
+      withSchema(
+        {
+          body: bodySchema,
+          query: querySchema,
+          params: paramsSchema,
+          headers: headersSchema,
+        },
+        async (ctx) => {
+          return new Response(
+            JSON.stringify({
+              body: ctx.body,
+              query: ctx.query,
+              params: ctx.params,
+              headers: { auth: ctx.headers.auth },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          );
+        },
+      ),
     );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      BodyState.set({ name: "test" });
-      QueryState.set({ page: "1" });
-      ParamsState.set({ id: "123" });
-      HeadersState.set({ auth: "Bearer token" });
-      return wrappedHandler();
-    });
+    const response = await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test/123?page=1", {
+        method: "POST",
+        body: JSON.stringify({ name: "test" }),
+        headers: { "Content-Type": "application/json", auth: "Bearer token" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -218,36 +274,48 @@ describe("withSchema", () => {
       page: z.string(),
     });
 
-    const wrappedHandler = withSchema(
-      { body: bodySchema, query: querySchema },
-      async () => new Response("OK"),
+    let capturedError: Error | undefined;
+    const app = new Raven();
+    app.post(
+      "/test",
+      withSchema({ body: bodySchema, query: querySchema }, async () => new Response("OK")),
     );
-
-    const error = await requestStorage.run(new Map(), async () => {
-      BodyState.set({});
-      QueryState.set({});
-      return wrappedHandler().catch((err) => err);
+    app.onError((err) => {
+      capturedError = err;
+      return new Response("Error", { status: 400 });
     });
 
-    expect(isValidationError(error)).toBe(true);
-    expect(error.bodyIssues).toBeDefined();
-    expect(error.queryIssues).toBeDefined();
+    await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test", {
+        method: "POST",
+        body: JSON.stringify({}),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).bodyIssues).toBeDefined();
+    expect((capturedError as ReturnType<typeof Object.assign>).queryIssues).toBeDefined();
   });
 
   it("should handle missing schema gracefully", async () => {
-    const wrappedHandler = withSchema({}, async (ctx) => {
-      return new Response(
-        JSON.stringify({
-          body: ctx.body,
-          query: ctx.query,
-        }),
-        { headers: { "Content-Type": "application/json" } },
-      );
-    });
+    const app = new Raven();
+    app.get(
+      "/test",
+      withSchema({}, async (ctx) => {
+        return new Response(
+          JSON.stringify({
+            body: ctx.body,
+            query: ctx.query,
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      return wrappedHandler();
-    });
+    const response = await (await app.ready())(new Request("http://localhost/test"));
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -262,16 +330,25 @@ describe("withSchema", () => {
       name: z.string(),
     });
 
-    const wrappedHandler = withSchema({ body: bodySchema }, async (ctx) => {
-      return new Response(JSON.stringify(ctx.body), {
-        headers: { "Content-Type": "application/json" },
-      });
-    });
+    const app = new Raven();
+    app.post(
+      "/test",
+      withSchema({ body: bodySchema }, async (ctx) => {
+        return new Response(JSON.stringify(ctx.body), {
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
 
-    const response = await requestStorage.run(new Map(), async () => {
-      BodyState.set({ name: "async test" });
-      return wrappedHandler();
-    });
+    const response = await (
+      await app.ready()
+    )(
+      new Request("http://localhost/test", {
+        method: "POST",
+        body: JSON.stringify({ name: "async test" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     const body = await response.json();

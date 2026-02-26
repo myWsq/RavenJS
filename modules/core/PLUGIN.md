@@ -1,100 +1,101 @@
 # PLUGIN AUTHORING GUIDE
 
-A plugin is a **named object** returned by a factory function and registered via `app.register()`.
+A plugin is a named object with a `load()` function. Register it via `app.register()` before calling `app.ready()`.
 
 ```typescript
-import { definePlugin, type Raven } from "@raven.js/core";
+import { definePlugin, type Raven, type StateSetter } from "@raven.js/core";
 
 export function myPlugin(config: { prefix: string }) {
   return definePlugin({
-    name: "my-plugin", // required — shown in error messages
-    states: [], // ScopedState instances created inside this factory
-    load(app: Raven) {
-      // called during registration
-      app.onRequest((req) => {
-        /* ... */
-      });
+    name: "my-plugin",
+    async load(app: Raven, set: StateSetter) {
+      // register hooks, routes, write state
     },
   });
 }
 
 const app = new Raven();
-await app.register(myPlugin({ prefix: "/api" }));
+app.register(myPlugin({ prefix: "/api" }));
+const fetch = await app.ready();
 ```
 
-**`definePlugin`** is a type helper — it ensures TypeScript infers `states` as a tuple rather than an array, which makes the return type of `register()` precise. It has no runtime effect.
+**`definePlugin(plugin)`** — type helper only, no runtime effect.
 
-Use `app.onLoaded(hook)` for one-time app initialization that should happen after plugin registration and before requests are served.
+**`StateSetter`** — scope-bound write function injected into `load()`. Signature: `set<T>(state: ScopedState<T>, value: T) => void`. Always writes to the scope determined at registration time (see below).
+
+**`app.register(plugin, scopeKey?)`** — synchronous, queues the plugin. All queued plugins run in registration order during `await app.ready()`, each `load()` awaited serially.
+
+**`app.use(plugin, scopeKey?)`** — async, runs `load()` **immediately**. Intended for use inside another plugin's `load()` to declare an inline dependency whose state is needed right away. See [Pattern 3](#pattern-3--plugin-owns-its-dependency).
+
+**`app.onLoaded(hook)`** — registers a hook that runs during `ready()`, after all plugin loads complete.
 
 ---
 
 # STATE PATTERNS
 
-Plugins interact with the `ScopedState` DI system in two patterns. Choose based on who owns the state.
+State ownership is the key design decision. Pick the pattern based on who holds and who reads the state.
 
-## Pattern A — Per-registration isolated states
+## Pattern 1 — Plugin produces state
 
-Declare states **inside the factory function**. Each call to the factory creates a new state instance. `app.register()` returns these states — the caller destructures them.
+Define state descriptor(s) at module level and export them. In `load()`, write the value via `set()`.
+
+As a plugin author, **you don't know which scope your plugin will run in** — that's decided by whoever calls `app.register()`. You don't need to think about it. `set()` is scope-transparent: it writes to whatever scope the caller assigned, and the exported descriptor is the read handle consumers use to get it back.
 
 ```typescript
-// config-plugin.ts
-import { definePlugin, createAppState, type Raven } from "@raven.js/core";
+// db-plugin.ts
+import { definePlugin, defineAppState, type Raven, type StateSetter } from "@raven.js/core";
 
-interface Config {
-  value: string;
+export interface DB {
+  query(sql: string): Promise<unknown[]>;
 }
 
-export function configPlugin(value: string) {
-  const ConfigState = createAppState<Config>(); // new instance per factory call
+export const DBState = defineAppState<DB>({ name: "db" });
+
+export function dbPlugin(dsn: string) {
   return definePlugin({
-    name: "config-plugin",
-    states: [ConfigState] as const,
-    load(app: Raven) {
-      ConfigState.set({ value });
+    name: "db",
+    async load(_app: Raven, set: StateSetter) {
+      set(DBState, await connectDatabase(dsn)); // scope is up to the caller
     },
   });
 }
 ```
 
+The plugin code never changes — the caller decides how to register it:
+
 ```typescript
-// app.ts
-import { configPlugin } from "./config-plugin.ts";
+// Single instance — no scopeKey, state lands in GLOBAL scope
+app.register(dbPlugin(dsn));
+DBState.getOrFailed(); // reads GLOBAL scope ✓
 
-const app = new Raven();
-const [primaryConfig] = await app.register(configPlugin("primary-value"));
-const [secondaryConfig] = await app.register(configPlugin("secondary-value"));
-
-app.get("/", () => {
-  const a = primaryConfig.getOrFailed();
-  const b = secondaryConfig.getOrFailed();
-  return Response.json({ a: a.value, b: b.value });
-});
+// Multiple instances — caller names each scope
+app.register(dbPlugin(primaryDsn), "primary");
+app.register(dbPlugin(replicaDsn), "replica");
+DBState.in("primary").getOrFailed();
+DBState.in("replica").getOrFailed();
 ```
 
-**When to use**: any plugin that owns its state — whether registered once or multiple times. Each registration holds independent state; the caller gets it back from `register()`.
-
-> **Note**: `as const` on the `states` array is required to help TypeScript infer a tuple type, so the destructured value from `register()` is typed correctly.
+> `DBState.get()` always reads GLOBAL scope. If the plugin was registered with a `scopeKey`, reads must use `.in(scopeKey)` — the scope key is owned by the caller, not the plugin.
 
 ---
 
-## Pattern B — Caller-provided state (inter-plugin dependency)
+## Pattern 2 — Plugin reads state from another plugin
 
-Accept a `ScopedState` instance as a parameter. The caller creates and owns the state; the plugin only writes to it. This is the standard way for one plugin to depend on another.
+When a plugin needs to **read** state owned by another plugin, accept a `StateView<T>` as a factory parameter. The caller decides which scope to pass — the plugin stays fully decoupled from scope details.
 
 ```typescript
-// logger-plugin.ts
-import { definePlugin, type AppState, type Raven } from "@raven.js/core";
+// auth-plugin.ts
+import { definePlugin, type StateView, type Raven, type StateSetter } from "@raven.js/core";
+import type { DB } from "./db-plugin.ts";
 
-interface Logger {
-  log: (msg: string) => void;
-}
-
-export function loggerPlugin(loggerState: AppState<Logger>) {
+export function authPlugin(dbView: StateView<DB>) {
   return definePlugin({
-    name: "logger-plugin",
-    states: [],
-    load(app: Raven) {
-      loggerState.set({ log: (msg) => console.log(msg) });
+    name: "auth",
+    load(app: Raven, set: StateSetter) {
+      app.beforeHandle(async () => {
+        const db = dbView.getOrFailed(); // reads from whatever scope the caller bound
+        // verify token against db...
+      });
     },
   });
 }
@@ -102,134 +103,223 @@ export function loggerPlugin(loggerState: AppState<Logger>) {
 
 ```typescript
 // app.ts
-import { loggerPlugin } from "./logger-plugin.ts";
-import { createAppState } from "@raven.js/core";
+import { dbPlugin, DBState } from "./db-plugin.ts";
+import { authPlugin } from "./auth-plugin.ts";
 
-interface Logger {
-  log: (msg: string) => void;
-}
-
-const loggerState = createAppState<Logger>();
-
-const app = new Raven();
-await app.register(loggerPlugin(loggerState));
-
-// pass loggerState to any other plugin that needs it
-await app.register(someOtherPlugin(loggerState));
+app.register(dbPlugin("postgres://primary/db"), "primary");
+app.register(authPlugin(DBState.in("primary"))); // caller picks the scope and wires it up
 ```
 
-**When to use**: a plugin depends on state owned by another plugin, or the caller needs explicit control over the state's identity and lifecycle.
+If `dbPlugin` is registered without a `scopeKey` (GLOBAL scope), just pass `DBState` directly — its `.get()` is already bound to GLOBAL:
+
+```typescript
+app.register(dbPlugin("postgres://host/db"));
+app.register(authPlugin(DBState)); // DBState implements StateView<DB>
+```
+
+**When to use**: plugin reads (but does not write) state from another plugin. The caller wires up which instance to use.
+
+---
+
+## Pattern 3 — Plugin owns its dependency
+
+When a plugin wants to **fully encapsulate** a dependency — hiding it as an internal implementation detail — use `app.use()` with a dynamically created `Symbol` scope key.
+
+`app.use()` runs the dependency's `load()` immediately (unlike `app.register()` which defers it), so the dependency's state is available within the same `load()` phase.
+
+Creating the `Symbol` inside `load()` gives each invocation its own unique scope, so multiple registrations of the parent plugin never interfere with each other.
+
+```typescript
+// auth-plugin.ts
+import { definePlugin, type Raven, type StateSetter } from "@raven.js/core";
+import { dbPlugin, DBState } from "./db-plugin.ts";
+
+export function authPlugin(dsn: string) {
+  return definePlugin({
+    name: "auth",
+    async load(app: Raven, set: StateSetter) {
+      // Fresh Symbol per load() call — collision-free across multiple registrations
+      const dbScope = Symbol("auth:db");
+
+      await app.use(dbPlugin(dsn), dbScope); // runs dbPlugin immediately
+
+      // State is available right now
+      const db = DBState.in(dbScope).getOrFailed();
+
+      app.get("/auth/check", async () => {
+        // Closure captures dbScope — always reads this instance's own db
+        const conn = DBState.in(dbScope).getOrFailed();
+        // ...
+      });
+    },
+  });
+}
+```
+
+```typescript
+// app.ts — two independent auth instances, each with their own db
+app.register(authPlugin("postgres://tenant-a/db"));
+app.register(authPlugin("postgres://tenant-b/db"));
+```
+
+Each registration's `load()` creates a new `Symbol`, so the two `DBState` values never overlap.
+
+**When to use**: a plugin has its own internal dependency and wants to hide it from the caller.
+
+### Multiple internal instances of the same dependency
+
+Create a separate `Symbol` for each:
+
+```typescript
+async load(app: Raven, set: StateSetter) {
+  const primaryScope = Symbol("auth:db-primary");
+  const replicaScope = Symbol("auth:db-replica");
+
+  await app.use(dbPlugin(primaryDsn), primaryScope);
+  await app.use(dbPlugin(replicaDsn), replicaScope);
+
+  const primary = DBState.in(primaryScope).getOrFailed();
+  const replica = DBState.in(replicaScope).getOrFailed();
+
+  app.get("/data", () => {
+    const p = DBState.in(primaryScope).getOrFailed();
+    const r = DBState.in(replicaScope).getOrFailed();
+    // ...
+  });
+}
+```
+
+---
+
+## Pattern 4 — Writing `RequestState` in hooks
+
+`RequestState` is written per-request, not at registration time. Capture the `set` from `load()` in a closure and call it inside a `beforeHandle` or `onRequest` hook.
+
+```typescript
+// auth-plugin.ts
+import {
+  definePlugin,
+  defineRequestState,
+  HeadersState,
+  type Raven,
+  type StateSetter,
+} from "@raven.js/core";
+
+interface User {
+  id: string;
+  name: string;
+}
+
+export const CurrentUser = defineRequestState<User>({ name: "current-user" });
+
+export function authPlugin() {
+  return definePlugin({
+    name: "auth",
+    load(app: Raven, set: StateSetter) {
+      app.beforeHandle(async () => {
+        const headers = HeadersState.getOrFailed();
+        const user = await verifyToken(headers["authorization"]);
+        set(CurrentUser, user); // writes to request scope on every request
+      });
+    },
+  });
+}
+```
+
+```typescript
+// any route handler
+app.get("/me", () => {
+  const user = CurrentUser.getOrFailed();
+  return Response.json(user);
+});
+```
+
+The `set` closure captures the scope key from `register()`. When called during a request, it writes to request-scoped storage under that scope — isolated to the current request's lifetime.
+
+**When to use**: state that differs per request (authenticated user, parsed body, tenant context, etc.).
 
 ---
 
 # GOTCHAS
 
-## Do not declare state outside the factory
+## `app.register()` inside `load()` does not execute immediately
 
-States declared at module level are shared across all `Raven` instances in the same process. This breaks test isolation and makes it impossible to register the same plugin more than once with independent state.
+Calling `app.register()` inside a plugin's `load()` appends the new plugin to the pending queue — it runs _after_ the current plugin's `load()` finishes, not right away. Reading the dependency's state in the same `load()` call will fail.
 
 ```typescript
-// ❌ Wrong: shared across all app instances
-export const DbState = createAppState<DB>();
+// ❌ Wrong: dbPlugin hasn't loaded yet
+async load(app, set) {
+  app.register(dbPlugin(dsn), "my-db");
+  DBState.in("my-db").getOrFailed(); // throws — state not set
+}
 
-export function dbPlugin(dsn: string) {
-  return definePlugin({
-    name: "db-plugin",
-    states: [],
-    async load() {
-      DbState.set(await connectDatabase(dsn));
-    },
-  });
+// ✓ Correct: app.use() runs immediately
+async load(app, set) {
+  const dbScope = Symbol("my-db");
+  await app.use(dbPlugin(dsn), dbScope);
+  DBState.in(dbScope).getOrFailed(); // safe
 }
 ```
 
-```typescript
-// ✓ Correct: one state instance per registration
-export function dbPlugin(dsn: string) {
-  const DbState = createAppState<DB>();
-  return definePlugin({
-    name: "db-plugin",
-    states: [DbState] as const,
-    async load() {
-      DbState.set(await connectDatabase(dsn));
-    },
-  });
-}
+`app.register()` inside `load()` is fine if the dependency's state is only needed inside handlers (at request time), because all plugins will have loaded by then.
 
-// app.ts
-export const [DbState] = await app.register(dbPlugin("postgres://localhost/mydb"));
+---
+
+## `scopeKey` is for multiple instances, not for inter-plugin isolation
+
+`scopeKey` exists to give independent state to multiple registrations of the **same plugin**. It is not a general isolation mechanism between different plugins.
+
+State meant to be shared across the app — including state that other plugins read — should be written to GLOBAL scope (no `scopeKey`). Plugins that read it just call `state.get()` or accept a `StateView` parameter.
+
+---
+
+## Scoped reads must match the registered scope key
+
+When a plugin is registered with a `scopeKey`, `set` writes to that named scope. `state.get()` reads GLOBAL scope only — it will return `undefined` if nothing was written there.
+
+```typescript
+app.register(dbPlugin("postgres://primary"), "primary");
+
+// ❌ Wrong: reads GLOBAL scope — returns undefined
+DBState.getOrFailed();
+
+// ✓ Correct
+DBState.in("primary").getOrFailed();
 ```
 
 ---
 
-## `register()` must be awaited
+## Hook order follows registration order
 
-`register()` returns `Promise<states>`. Not awaiting it means `load()` may not have run before you register routes or subsequent plugins.
+Hooks added in `load()` are appended to the global hook list. Plugins registered first have their hooks run first.
 
 ```typescript
-// ❌ Wrong
-app.register(myPlugin());
-app.get("/", handler); // load() may not have run yet
-
-// ✓ Correct
-await app.register(myPlugin());
+app.register(authPlugin()); // beforeHandle added first — runs first per request
+app.register(loggerPlugin()); // beforeHandle added second — runs second
 app.get("/", handler);
 ```
 
-## `AppState.set()` requires AppStorage context
+---
 
-`AppState.set()` only works when `currentAppStorage` is active. Inside `load()` this is always the case. Outside of `load()` (e.g. at module top level) it throws `ERR_STATE_CANNOT_SET`.
+## `onLoaded` runs after all plugins, during `ready()`
 
-```typescript
-const dbState = createAppState<DB>();
-
-// ❌ Wrong: outside any context
-dbState.set(db);
-
-// ✓ Correct: inside load()
-export function myPlugin() {
-  return definePlugin({
-    name: "my-plugin",
-    states: [],
-    load(app) {
-      dbState.set(db); // ✓ safe
-    },
-  });
-}
-```
-
-## Hooks registered in `load()` apply in registration order
-
-Hooks added in `load()` are appended to the global hook list. Plugins registered first have their hooks run first. Register plugins before routes to ensure hooks apply to all routes.
+`onLoaded` hooks run after all plugin `load()` calls complete, in registration order, each awaited serially. If one throws, the remaining hooks are skipped and `ready()` rejects.
 
 ```typescript
-await app.register(authPlugin()); // onRequest hook added first
-await app.register(loggerPlugin()); // onRequest hook added second
-
-app.get("/", handler); // both hooks apply to this route
-```
-
-## `onLoaded` runs once before the first request
-
-`onLoaded` is app-level (not request-level). Hooks run in registration order, are awaited serially, and execute once before the first request lifecycle.
-
-```typescript
-await app.register(authPlugin());
-await app.register(loggerPlugin());
-
-app.onLoaded(async () => {
-  await initMetrics();
+app.register(dbPlugin(dsn));
+app.onLoaded(async (app) => {
+  // all plugins are loaded; safe to run post-init tasks
+  await runMigrations(DBState.getOrFailed());
 });
 
-// onLoaded executes once on the first request
-await app.handle(new Request("http://localhost/"));
+const fetch = await app.ready();
 ```
 
-If an `onLoaded` hook throws, remaining `onLoaded` hooks are skipped and the error is propagated.
+---
 
-## `load()` errors are attributed to the plugin
+## `load()` errors are wrapped with the plugin name
 
-If `load()` throws, the error message is wrapped with the plugin name:
+If `load()` throws, `ready()` rejects with a message in the form:
 
 ```
 [my-plugin] Plugin load failed: connection refused

@@ -7,8 +7,8 @@ describe("Routing System", () => {
     const handler = mock(() => new Response("ok"));
     raven.get("/hello", handler);
 
-    // @ts-ignore
-    const response = await raven.handle(new Request("http://localhost/hello"));
+    const fetch = await raven.ready();
+    const response = await fetch(new Request("http://localhost/hello"));
     expect(await response.text()).toBe("ok");
     expect(handler).toHaveBeenCalled();
   });
@@ -20,8 +20,8 @@ describe("Routing System", () => {
       return new Response(`User ${ctx?.params.id}`);
     });
 
-    // @ts-ignore
-    const response = await raven.handle(new Request("http://localhost/user/123"));
+    const fetch = await raven.ready();
+    const response = await fetch(new Request("http://localhost/user/123"));
     expect(await response.text()).toBe("User 123");
   });
 
@@ -32,8 +32,8 @@ describe("Routing System", () => {
       return new Response(`Org: ${ctx?.params.orgId}, Project: ${ctx?.params.projectId}`);
     });
 
-    // @ts-ignore
-    const response = await raven.handle(new Request("http://localhost/org/raven/project/routing"));
+    const fetch = await raven.ready();
+    const response = await fetch(new Request("http://localhost/org/raven/project/routing"));
     expect(await response.text()).toBe("Org: raven, Project: routing");
   });
 
@@ -44,8 +44,8 @@ describe("Routing System", () => {
       return new Response(`Search: ${ctx?.query.q}`);
     });
 
-    // @ts-ignore
-    const response = await raven.handle(new Request("http://localhost/search?q=raven"));
+    const fetch = await raven.ready();
+    const response = await fetch(new Request("http://localhost/search?q=raven"));
     expect(await response.text()).toBe("Search: raven");
   });
 
@@ -69,17 +69,17 @@ describe("Routing System", () => {
       return new Response("ok");
     });
 
-    // @ts-ignore
-    await raven.handle(new Request("http://localhost/test/123"));
+    const fetch = await raven.ready();
+    await fetch(new Request("http://localhost/test/123"));
 
-    expect(onRequestParams).toBeUndefined(); // In Phase 1, params are not yet matched
-    expect(beforeHandleParams).toEqual({ id: "123" }); // In Phase 2, params are available
+    expect(onRequestParams).toBeUndefined();
+    expect(beforeHandleParams).toEqual({ id: "123" });
   });
 
   it("should return 404 for unknown routes", async () => {
     const raven = new Raven();
-    // @ts-ignore
-    const response = await raven.handle(new Request("http://localhost/unknown"));
+    const fetch = await raven.ready();
+    const response = await fetch(new Request("http://localhost/unknown"));
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("Not Found");
   });

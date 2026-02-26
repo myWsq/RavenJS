@@ -17,15 +17,35 @@ export interface ErrorContext {
 }
 
 /**
- * Core interface representing a Raven application instance.
+ * Scope key type for plugin-scoped state.
  */
-export interface RavenInstance {
-  /** Internal storage for application-scoped state. */
-  internalStateMap: Map<symbol, any>;
+export type ScopeKey = string | symbol;
+
+/**
+ * A scope-pinned read handle returned by `State.in(scopeKey)`.
+ * Has no `in()` — scope is fixed at creation time.
+ */
+export interface StateView<T> {
+  get(): T | undefined;
+  getOrFailed(): T;
 }
 
 /**
- * Options for creating a new state.
+ * Setter function provided to plugin.load() for writing state values.
+ * Scope-bound: always writes to the scope determined at register() time.
+ */
+export type StateSetter = <T>(state: ScopedState<T>, value: T) => void;
+
+/**
+ * Core interface representing a Raven application instance.
+ */
+export interface RavenInstance {
+  /** Internal storage for scoped application-level state. */
+  scopedStateMaps: Map<ScopeKey, Map<symbol, any>>;
+}
+
+/**
+ * Options for defining a new state.
  */
 export interface StateOptions {
   /** Optional name for the state, useful for debugging. */
@@ -80,15 +100,12 @@ interface RouteData {
 
 /**
  * Plugin object type for extending the Raven instance.
- * @template S Tuple of ScopedState instances declared by this plugin.
  */
-export interface Plugin<S extends readonly ScopedState<any>[] = readonly []> {
+export interface Plugin {
   /** Plugin name, shown in error messages for attribution. */
   name: string;
-  /** States created inside this plugin factory (returned by register()). */
-  states: S;
-  /** Called during registration to set up routes, hooks, etc. */
-  load(app: Raven): void | Promise<void>;
+  /** Called during registration to set up routes, hooks, and initial state. */
+  load(app: Raven, set: StateSetter): void | Promise<void>;
 }
 
 // =============================================================================
@@ -111,11 +128,6 @@ export class RavenError extends Error {
     this.statusCode = statusCode;
   }
 
-  /**
-   * Appends additional context to the error.
-   * @param context Additional properties to include.
-   * @returns The current RavenError instance.
-   */
   public setContext(context: ErrorContext): this {
     Object.assign(this.context, context);
     return this;
@@ -145,9 +157,6 @@ export class RavenError extends Error {
     return new RavenError("ERR_UNKNOWN_ERROR", message, {}, 500);
   }
 
-  /**
-   * Serializes the error to a JSON-friendly object.
-   */
   public toJSON(): Record<string, unknown> {
     return {
       name: this.name,
@@ -160,9 +169,6 @@ export class RavenError extends Error {
     };
   }
 
-  /**
-   * Converts the error to a standard HTTP Response.
-   */
   public toResponse(): Response {
     const status = this.statusCode ?? 500;
     return new Response(JSON.stringify({ message: this.message }), {
@@ -203,17 +209,14 @@ export class Context {
     this.url = new URL(request.url);
   }
 
-  /** HTTP method of the request. */
   get method(): string {
     return this.request.method;
   }
 
-  /** HTTP headers of the request. */
   get headers(): Headers {
     return this.request.headers;
   }
 
-  /** Body stream of the request. */
   get body(): ReadableStream<Uint8Array> | null {
     return this.request.body;
   }
@@ -221,14 +224,30 @@ export class Context {
 
 /** Storage for the current application instance. */
 export const currentAppStorage = new AsyncLocalStorage<RavenInstance>();
-/** Storage for the current request's state map. */
-export const requestStorage = new AsyncLocalStorage<Map<symbol, any>>();
+/** Storage for the current request's scoped state maps. */
+export const requestStorage = new AsyncLocalStorage<Map<ScopeKey, Map<symbol, any>>>();
+
+/** Default scope key used when no scopeKey is specified at register(). */
+const GLOBAL_SCOPE: unique symbol = Symbol("raven:global");
 
 let stateCounter = 0;
 
+function getOrCreateScopeMap(
+  parent: Map<ScopeKey, Map<symbol, any>>,
+  key: ScopeKey,
+): Map<symbol, any> {
+  let map = parent.get(key);
+  if (!map) {
+    map = new Map<symbol, any>();
+    parent.set(key, map);
+  }
+  return map;
+}
+
 /**
- * Base class for a scoped state container.
- * @template T The type of the state value.
+ * Base class for state descriptors (AppState, RequestState).
+ * Provides identity (symbol/name), global-scope get/getOrFailed, and the in() factory.
+ * Writing is done exclusively via StateSetter in plugin.load().
  */
 export abstract class ScopedState<T> {
   public readonly symbol: symbol;
@@ -239,16 +258,13 @@ export abstract class ScopedState<T> {
     this.symbol = Symbol(this.name);
   }
 
-  /** Retrieves the state value, returning undefined if not set. */
+  /** Reads from the GLOBAL scope. */
   public abstract get(): T | undefined;
 
-  /** Sets the state value in the current scope. */
-  public abstract set(value: T): void;
+  /** Returns a scope-pinned read handle. The handle has no in() — scope is fixed. */
+  public abstract in(scopeKey: ScopeKey): StateView<T>;
 
-  /**
-   * Retrieves the state value, throwing an error if not initialized.
-   * @throws {RavenError} If the state is not initialized.
-   */
+  /** Reads from the GLOBAL scope, throwing if not initialized. */
   public getOrFailed(): T {
     const value = this.get();
     if (value === undefined) {
@@ -258,66 +274,124 @@ export abstract class ScopedState<T> {
   }
 }
 
+// ── AppState ──────────────────────────────────────────────────────────────────
+
+class AppStateView<T> implements StateView<T> {
+  constructor(
+    private readonly descriptor: AppState<T>,
+    private readonly scope: ScopeKey,
+  ) {}
+
+  public get(): T | undefined {
+    const app = currentAppStorage.getStore();
+    return app?.scopedStateMaps.get(this.scope)?.get(this.descriptor.symbol);
+  }
+
+  public getOrFailed(): T {
+    const value = this.get();
+    if (value === undefined) {
+      throw RavenError.ERR_STATE_NOT_INITIALIZED(this.descriptor.name);
+    }
+    return value;
+  }
+}
+
 /**
- * Application-scoped state, shared across the entire application instance.
+ * Application-scoped state descriptor.
+ * Shared across the entire application instance; isolated per Raven instance.
  */
 export class AppState<T> extends ScopedState<T> {
-  constructor(options?: StateOptions) {
-    super(options);
+  private readonly _views = new Map<ScopeKey, AppStateView<T>>();
+
+  public override get(): T | undefined {
+    const app = currentAppStorage.getStore();
+    return app?.scopedStateMaps.get(GLOBAL_SCOPE)?.get(this.symbol);
   }
+
+  public override in(scopeKey: ScopeKey): AppStateView<T> {
+    if (!this._views.has(scopeKey)) {
+      this._views.set(scopeKey, new AppStateView<T>(this, scopeKey));
+    }
+    return this._views.get(scopeKey)!;
+  }
+}
+
+// ── RequestState ──────────────────────────────────────────────────────────────
+
+class RequestStateView<T> implements StateView<T> {
+  constructor(
+    private readonly descriptor: RequestState<T>,
+    private readonly scope: ScopeKey,
+  ) {}
 
   public get(): T | undefined {
-    const app = currentAppStorage.getStore();
-    return app?.internalStateMap.get(this.symbol);
+    const store = requestStorage.getStore();
+    return store?.get(this.scope)?.get(this.descriptor.symbol);
   }
 
-  public set(value: T): void {
-    const app = currentAppStorage.getStore();
-    if (!app) {
-      throw RavenError.ERR_STATE_CANNOT_SET(this.name);
+  public getOrFailed(): T {
+    const value = this.get();
+    if (value === undefined) {
+      throw RavenError.ERR_STATE_NOT_INITIALIZED(this.descriptor.name);
     }
-    app.internalStateMap.set(this.symbol, value);
+    return value;
   }
 }
 
 /**
- * Request-scoped state, isolated to a single HTTP request lifecycle.
+ * Request-scoped state descriptor.
+ * Isolated to a single HTTP request lifecycle.
  */
 export class RequestState<T> extends ScopedState<T> {
-  constructor(options?: StateOptions) {
-    super(options);
+  private readonly _views = new Map<ScopeKey, RequestStateView<T>>();
+
+  public override get(): T | undefined {
+    const store = requestStorage.getStore();
+    return store?.get(GLOBAL_SCOPE)?.get(this.symbol);
   }
 
-  public get(): T | undefined {
-    const store = requestStorage.getStore();
-    return store?.get(this.symbol);
-  }
-
-  public set(value: T): void {
-    const store = requestStorage.getStore();
-    if (!store) {
-      throw RavenError.ERR_STATE_CANNOT_SET(this.name);
+  public override in(scopeKey: ScopeKey): RequestStateView<T> {
+    if (!this._views.has(scopeKey)) {
+      this._views.set(scopeKey, new RequestStateView<T>(this, scopeKey));
     }
-    store.set(this.symbol, value);
+    return this._views.get(scopeKey)!;
   }
 }
 
-/** Creates a new application-scoped state. */
-export function createAppState<T>(options?: StateOptions): AppState<T> {
+// ── Factories ─────────────────────────────────────────────────────────────────
+
+/** Defines a new application-scoped state descriptor. */
+export function defineAppState<T>(options?: StateOptions): AppState<T> {
   return new AppState<T>(options);
 }
 
-/** Creates a new request-scoped state. */
-export function createRequestState<T>(options?: StateOptions): RequestState<T> {
+/** Defines a new request-scoped state descriptor. */
+export function defineRequestState<T>(options?: StateOptions): RequestState<T> {
   return new RequestState<T>(options);
 }
 
+/**
+ * Internal setter for framework-owned states. Writes to GLOBAL_SCOPE only.
+ * Not exported — only used within this module.
+ */
+function internalSet<T>(state: ScopedState<T>, value: T): void {
+  if (state instanceof AppState) {
+    const app = currentAppStorage.getStore();
+    if (!app) throw RavenError.ERR_STATE_CANNOT_SET(state.name);
+    getOrCreateScopeMap(app.scopedStateMaps, GLOBAL_SCOPE).set(state.symbol, value);
+  } else if (state instanceof RequestState) {
+    const reqMap = requestStorage.getStore();
+    if (!reqMap) throw RavenError.ERR_STATE_CANNOT_SET(state.name);
+    getOrCreateScopeMap(reqMap, GLOBAL_SCOPE).set(state.symbol, value);
+  }
+}
+
 // Predefined Request States
-export const RavenContext = createRequestState<Context>({ name: "raven:context" });
-export const BodyState = createRequestState<unknown>({ name: "raven:body" });
-export const QueryState = createRequestState<Record<string, string>>({ name: "raven:query" });
-export const ParamsState = createRequestState<Record<string, string>>({ name: "raven:params" });
-export const HeadersState = createRequestState<Record<string, string>>({ name: "raven:headers" });
+export const RavenContext = defineRequestState<Context>({ name: "raven:context" });
+export const BodyState = defineRequestState<unknown>({ name: "raven:body" });
+export const QueryState = defineRequestState<Record<string, string>>({ name: "raven:query" });
+export const ParamsState = defineRequestState<Record<string, string>>({ name: "raven:params" });
+export const HeadersState = defineRequestState<Record<string, string>>({ name: "raven:headers" });
 
 // Re-export router types for consumers
 export { RadixRouter, type RouteMatch } from "./router.ts";
@@ -331,11 +405,10 @@ export { RadixRouter, type RouteMatch } from "./router.ts";
 // =============================================================================
 
 /**
- * Utility function to define a plugin with correct tuple type inference for states.
- * Without this helper, TypeScript infers `states` as `ScopedState<any>[]` (array).
- * With this helper, it infers the precise tuple type, enabling typed register() returns.
+ * Utility function to define a plugin with correct type checking.
+ * Identity function; exists solely as a typing convenience.
  */
-export function definePlugin<S extends readonly ScopedState<any>[]>(plugin: Plugin<S>): Plugin<S> {
+export function definePlugin(plugin: Plugin): Plugin {
   return plugin;
 }
 
@@ -344,7 +417,7 @@ export function definePlugin<S extends readonly ScopedState<any>[]>(plugin: Plug
  */
 export class Raven implements RavenInstance {
   private router: RadixRouter<RouteData>;
-  public readonly internalStateMap = new Map<symbol, any>();
+  public readonly scopedStateMaps = new Map<ScopeKey, Map<symbol, any>>();
 
   private hooks = {
     onRequest: [] as OnRequestHook[],
@@ -353,178 +426,175 @@ export class Raven implements RavenInstance {
     onError: [] as OnErrorHook[],
     onLoaded: [] as OnLoadedHook[],
   };
-  private hasRunOnLoadedHooks = false;
-  private onLoadedRunPromise: Promise<void> | null = null;
+  private pendingPlugins: Array<{ plugin: Plugin; scopeKey?: ScopeKey }> = [];
+  private buildPromise: Promise<FetchHandler> | null = null;
 
-  /**
-   * Initializes a new Raven application instance.
-   */
   constructor() {
     this.router = new RadixRouter<RouteData>();
   }
 
-  /**
-   * Registers a plugin with the application instance.
-   * @param plugin The plugin object to register.
-   * @returns The plugin's declared states tuple, for per-registration state access.
-   */
-  async register<S extends readonly ScopedState<any>[]>(plugin: Plugin<S>): Promise<S> {
-    try {
-      await currentAppStorage.run(this, () => plugin.load(this));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`[${plugin.name}] Plugin load failed: ${message}`, {
-        cause: err,
-      });
-    }
-    return plugin.states;
+  private getOrCreateScopeMap(key: ScopeKey): Map<symbol, any> {
+    return getOrCreateScopeMap(this.scopedStateMaps, key);
   }
 
-  /** Internal helper to register a route handler. */
+  private makeSet(scope: ScopeKey): StateSetter {
+    return <T>(state: ScopedState<T>, value: T): void => {
+      if (state instanceof AppState) {
+        this.getOrCreateScopeMap(scope).set(state.symbol, value);
+      } else if (state instanceof RequestState) {
+        const reqMap = requestStorage.getStore();
+        if (reqMap) {
+          getOrCreateScopeMap(reqMap, scope).set(state.symbol, value);
+        }
+      }
+    };
+  }
+
+  /**
+   * Queues a plugin for loading. Plugins are loaded in order during ready().
+   * @param plugin The plugin object to register.
+   * @param scopeKey Optional scope key for isolating this plugin's state.
+   */
+  register(plugin: Plugin, scopeKey?: ScopeKey): this {
+    this.pendingPlugins.push({ plugin, scopeKey });
+    return this;
+  }
+
+  /**
+   * Immediately loads a plugin, running its load() function right away.
+   * Unlike register(), use() executes synchronously within the current load phase,
+   * so state set by the plugin is available immediately after awaiting.
+   * Intended for use inside another plugin's load() to declare inline dependencies.
+   * @param plugin The plugin object to load.
+   * @param scopeKey Optional scope key for isolating this plugin's state.
+   */
+  async use(plugin: Plugin, scopeKey?: ScopeKey): Promise<void> {
+    const scope: ScopeKey = scopeKey ?? GLOBAL_SCOPE;
+    try {
+      await plugin.load(this, this.makeSet(scope));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`[${plugin.name}] Plugin load failed: ${message}`, { cause: err });
+    }
+  }
+
+  /**
+   * Initialises the application: runs all plugin loads in order, then fires onLoaded hooks.
+   * Returns a FetchHandler ready for use with Bun.serve / Deno.serve / etc.
+   * Calling ready() multiple times returns the same promise.
+   */
+  async ready(): Promise<FetchHandler> {
+    if (this.buildPromise) return this.buildPromise;
+
+    this.buildPromise = currentAppStorage.run(this, async () => {
+      for (const { plugin, scopeKey } of this.pendingPlugins) {
+        const scope: ScopeKey = scopeKey ?? GLOBAL_SCOPE;
+        try {
+          await plugin.load(this, this.makeSet(scope));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          throw new Error(`[${plugin.name}] Plugin load failed: ${message}`, { cause: err });
+        }
+      }
+
+      for (const hook of this.hooks.onLoaded) {
+        await hook(this);
+      }
+
+      return (request: Request) => this.dispatchRequest(request);
+    });
+
+    return this.buildPromise;
+  }
+
   private addRoute(method: string, path: string, handler: Handler) {
     this.router.add(method, path, { handler });
   }
 
-  /** Registers a GET route. */
   get(path: string, handler: Handler): this {
     this.addRoute("GET", path, handler);
     return this;
   }
 
-  /** Registers a POST route. */
   post(path: string, handler: Handler): this {
     this.addRoute("POST", path, handler);
     return this;
   }
 
-  /** Registers a PUT route. */
   put(path: string, handler: Handler): this {
     this.addRoute("PUT", path, handler);
     return this;
   }
 
-  /** Registers a DELETE route. */
   delete(path: string, handler: Handler): this {
     this.addRoute("DELETE", path, handler);
     return this;
   }
 
-  /** Registers a PATCH route. */
   patch(path: string, handler: Handler): this {
     this.addRoute("PATCH", path, handler);
     return this;
   }
 
-  /** Adds an OnRequest hook. */
   onRequest(hook: OnRequestHook): this {
     this.hooks.onRequest.push(hook);
     return this;
   }
 
-  /** Adds a BeforeHandle hook. */
   beforeHandle(hook: BeforeHandleHook): this {
     this.hooks.beforeHandle.push(hook);
     return this;
   }
 
-  /** Adds a BeforeResponse hook. */
   beforeResponse(hook: BeforeResponseHook): this {
     this.hooks.beforeResponse.push(hook);
     return this;
   }
 
-  /** Adds an OnError hook. */
   onError(hook: OnErrorHook): this {
     this.hooks.onError.push(hook);
     return this;
   }
 
-  /** Adds an OnLoaded hook. */
   onLoaded(hook: OnLoadedHook): this {
     this.hooks.onLoaded.push(hook);
     return this;
   }
 
-  /**
-   * Runs onLoaded hooks exactly once, in registration order.
-   * If any hook throws, the error is propagated and later hooks are skipped.
-   */
-  private async runOnLoadedHooksOnce(): Promise<void> {
-    if (this.hasRunOnLoadedHooks) {
-      return;
-    }
-    if (this.onLoadedRunPromise) {
-      await this.onLoadedRunPromise;
-      return;
-    }
-
-    const runPromise = currentAppStorage.run(this, async () => {
-      for (const hook of this.hooks.onLoaded) {
-        await hook(this);
-      }
-      this.hasRunOnLoadedHooks = true;
-    });
-
-    this.onLoadedRunPromise = runPromise;
-    try {
-      await runPromise;
-    } finally {
-      this.onLoadedRunPromise = null;
-    }
-  }
-
-  /**
-   * Main request processing entrypoint (FetchHandler).
-   * Evaluates hooks, matches routes, and handles responses/errors.
-   * Use with HTTP server
-   */
-  public async handle(request: Request): Promise<Response> {
-    // Ensure app-level initialization hooks complete before serving requests.
-    await this.runOnLoadedHooksOnce();
+  private async dispatchRequest(request: Request): Promise<Response> {
     return currentAppStorage.run(this, () => {
-      return requestStorage.run(new Map(), async () => {
+      return requestStorage.run(new Map<ScopeKey, Map<symbol, any>>(), async () => {
         try {
-          const globalOnRequest = this.hooks.onRequest;
-          for (const hook of globalOnRequest) {
+          for (const hook of this.hooks.onRequest) {
             const result = await hook(request);
-            if (result instanceof Response) {
-              return result;
-            }
+            if (result instanceof Response) return result;
           }
 
           const url = new URL(request.url);
           const match = this.router.find(request.method, url.pathname);
           if (!match) {
-            const ctx = new Context(request);
-            RavenContext.set(ctx);
+            internalSet(RavenContext, new Context(request));
             return this.handleError(new Error("Not Found"), 404);
           }
 
           const { data: routeData, params } = match;
-
           const query: Record<string, string> = {};
           url.searchParams.forEach((value, key) => {
             query[key] = value;
           });
 
-          const ctx = new Context(request, params, query);
-          RavenContext.set(ctx);
-
+          internalSet(RavenContext, new Context(request, params, query));
           await this.processStates(request, params, query);
 
           for (const hook of this.hooks.beforeHandle) {
             const result = await hook();
-            if (result instanceof Response) {
-              return this.handleResponseHooks(result);
-            }
+            if (result instanceof Response) return this.handleResponseHooks(result);
           }
 
-          const response = await routeData.handler();
-
-          return this.handleResponseHooks(response);
+          return this.handleResponseHooks(await routeData.handler());
         } catch (error) {
           if (!RavenContext.get()) {
-            RavenContext.set(new Context(request));
+            internalSet(RavenContext, new Context(request));
           }
           return this.handleError(
             error instanceof Error ? error : RavenError.ERR_UNKNOWN_ERROR(String(error)),
@@ -534,9 +604,6 @@ export class Raven implements RavenInstance {
     });
   }
 
-  /**
-   * Parses and stores request state (parameters, query, headers, body).
-   */
   private async processStates(
     request: Request,
     params: Record<string, string>,
@@ -547,9 +614,9 @@ export class Raven implements RavenInstance {
       headersObj[key.toLowerCase()] = value;
     });
 
-    ParamsState.set(params);
-    QueryState.set(query);
-    HeadersState.set(headersObj);
+    internalSet(ParamsState, params);
+    internalSet(QueryState, query);
+    internalSet(HeadersState, headersObj);
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -561,45 +628,28 @@ export class Raven implements RavenInstance {
           `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`,
         );
       }
-      BodyState.set(data);
+      internalSet(BodyState, data);
     }
   }
 
-  /**
-   * Runs response modification hooks.
-   */
   private async handleResponseHooks(response: Response): Promise<Response> {
-    let currentResponse = response;
+    let current = response;
     for (const hook of this.hooks.beforeResponse) {
-      const result = await hook(currentResponse);
-      if (result instanceof Response) {
-        currentResponse = result;
-      }
+      const result = await hook(current);
+      if (result instanceof Response) current = result;
     }
-    return currentResponse;
+    return current;
   }
 
-  /**
-   * Evaluates error hooks and formats standard framework errors.
-   */
   private async handleError(error: Error, status: number = 500): Promise<Response> {
-    const onErrorHooks = this.hooks.onError;
-    if (onErrorHooks.length > 0) {
-      for (const hook of onErrorHooks) {
-        const result = await hook(error);
-        if (result instanceof Response) {
-          return result;
-        }
-      }
+    for (const hook of this.hooks.onError) {
+      const result = await hook(error);
+      if (result instanceof Response) return result;
     }
 
-    if (isRavenError(error)) {
-      return error.toResponse();
-    }
+    if (isRavenError(error)) return error.toResponse();
+    if (status === 404) return new Response("Not Found", { status: 404 });
 
-    if (status === 404) {
-      return new Response("Not Found", { status: 404 });
-    }
     console.error("Unhandled error:", error);
     return new Response("Internal Server Error", { status: 500 });
   }

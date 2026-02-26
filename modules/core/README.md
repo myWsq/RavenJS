@@ -4,7 +4,7 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 
 **Features**:
 
-- Logic layer: `app.handle` (FetchHandler)
+- Logic layer: `app.ready()` returns a `FetchHandler`
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
 - Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
@@ -17,14 +17,14 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 **Lifecycle overview**:
 
 ```
-app startup / first handle()
+app setup (sync)
       │
       ▼
-[plugin register/load]   ← `await app.register(plugin)`; plugin hooks/states are installed here.
+[plugin register]    ← app.register(plugin) — sync, queues plugins for loading.
       │
       ▼
-[onLoaded hooks]       ← app-level init; runs once before the first request lifecycle.
-      │
+await app.ready()    ← async build phase: runs plugin loads in order, then onLoaded hooks.
+      │              ← returns a FetchHandler ready for Bun.serve / Deno.serve / etc.
       ▼
 app ready
 ```
@@ -63,12 +63,14 @@ any uncaught exception → [onError hooks] → fallback 500
 ## Raven
 
 The main application class. Register routes with full paths (e.g. `app.get('/api/v1/users', handler)`).
-Raven is a **logic layer**—it exposes `handle(request) => Promise<Response>`:
+Raven is a **logic layer** — call `await app.ready()` to get a `FetchHandler`:
 
 ```typescript
 const app = new Raven();
 app.get("/", () => new Response("Hello"));
-Bun.serve({ fetch: (req) => app.handle(req) });
+
+const fetch = await app.ready();
+Bun.serve({ fetch });
 ```
 
 Because Raven is a logic layer, you can combine it with [Bun's Fullstack Dev Server](https://bun.com/docs/bundler/fullstack.md) to serve HTML routes and bundled frontend assets alongside API routes:
@@ -78,13 +80,13 @@ import { Raven } from "@raven.js/core";
 import homepage from "./index.html";
 
 const app = new Raven();
-
 app.get("/api/hello", () => Response.json({ message: "Hello" }));
 
+const fetch = await app.ready();
 Bun.serve({
   routes: {
     "/": homepage,
-    "/api/*": (req) => app.handle(req),
+    "/api/*": fetch,
   },
 });
 ```
@@ -122,9 +124,24 @@ console.log(ctx.params); // { id: "42" }
 
 ## Plugin
 
-A plugin is a **named object** with a `load(app)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration. `app.register()` returns a `Promise` resolving to the plugin's `states` tuple — always `await` it.
+A plugin is a **named object** with a `load(app, set)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration.
 
-For post-registration initialization, use `app.onLoaded(hook)`. `onLoaded` hooks run in registration order, are awaited serially, and execute once before the first request is processed.
+`app.register()` is **synchronous** — it queues the plugin for loading. Plugins are loaded in registration order during `await app.ready()`, which awaits each `load()` serially. This means a later plugin's `load()` can safely read state written by an earlier plugin's async `load()`.
+
+`app.register()` returns `this`, enabling **chained registration**:
+
+```typescript
+const fetch = await app
+  .register(dbPlugin({ dsn: "postgres://..." }))
+  .register(authPlugin())
+  .ready();
+```
+
+The second argument to `load` is a **`StateSetter`** — a scope-bound function for writing state: `set(state, value)`. It captures the scope key provided at `register()` time, so writes always land in the correct scope.
+
+`app.register()` accepts an optional `scopeKey` string to isolate state for that registration. Use this when registering the same plugin multiple times with independent state; read scoped values via `state.in(scopeKey)`.
+
+`app.onLoaded(hook)` registers hooks that run during `ready()`, after all plugin loads complete. Use them for one-time initialization that shouldn't block plugin registration.
 
 → **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
 
@@ -153,12 +170,14 @@ This is intentional:
 - Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
 - Any plain function can be a handler with zero migration cost
 
-## Why is the hook pipeline snapshotted at route registration?
+## Why is `register()` sync and `ready()` async?
 
-When `addRoute()` is called, it snapshots all currently registered hooks and stores them in the route's `pipeline`. This means:
+Two distinct phases with different semantics:
 
-- **Hooks must be registered before routes** — hooks added after a route is registered will not apply to it
-- Each route's pipeline is an independent snapshot and does not affect other routes
+- **`register()` (sync)**: declares structure — routes, hooks, and the plugin load queue. No I/O, no side effects. Immediately reflects in the app's route table and hook list.
+- **`ready()` (async)**: runs all plugin `load()` functions serially (supporting async init like DB connections), then fires `onLoaded` hooks. Returns the `FetchHandler` when complete.
+
+This separation means plugin B's `load()` can safely `await` async work and write state that plugin C's `load()` will read — serial ordering is guaranteed.
 
 ---
 
@@ -178,43 +197,39 @@ app.get("/users", handler);
 
 Reason: `addRoute()` snapshots all current hooks at call time.
 
-## 2. `register()` is async — always await it
+## 2. `register()` is sync — plugins load during `ready()`
 
-`register()` returns `Promise<states>`, not `Promise<app>`. Always await and destructure the returned states if needed.
+`register()` only queues the plugin. The actual `load()` call happens inside `await app.ready()`. Always call `ready()` before serving traffic.
 
 ```typescript
-// ❌ Wrong: plugin may not have run yet
+// ❌ Wrong: load() hasn't run yet
 app.register(myPlugin());
+// state written by myPlugin is not available here
 
-// ✓ Correct: await it
-await app.register(myPlugin());
-
-// ✓ Correct: destructure states when plugin declares them
-const [configState] = await app.register(configPlugin({ dsn: "..." }));
+// ✓ Correct: wait for ready()
+app.register(myPlugin());
+const fetch = await app.ready();
+// state is fully initialized
 ```
 
-## 3. `AppState.set()` only works inside an AppStorage context
+## 3. `StateSetter` only works inside an active context
 
-`AppState.set()` depends on `currentAppStorage`. It is only valid inside:
+`set(state, value)` (the `StateSetter` injected into `load()`) writes `AppState` values using `currentAppStorage`. It is only valid:
 
-- a plugin's `load(app)` callback
-- a request handler (after `handle` establishes the context)
+- during the `load(app, set)` call (for `AppState`)
+- inside hooks or handlers that run within an active request context (for `RequestState` — use the captured `set` closure)
 
-Calling it outside these locations throws `ERR_STATE_CANNOT_SET`.
+Calling it outside these locations has no effect or throws `ERR_STATE_CANNOT_SET`.
 
 ```typescript
-const dbState = createAppState<DB>({ name: "db" });
+const dbState = defineAppState<DB>({ name: "db" });
 
-// ❌ Wrong: called outside AppStorage context
-dbState.set(db);
-
-// ✓ Correct: called inside plugin load()
-await app.register(
+// ✓ Correct: write via set inside load()
+app.register(
   definePlugin({
     name: "db",
-    states: [],
-    load(app) {
-      dbState.set(db);
+    load(_app, set) {
+      set(dbState, db);
     },
   }),
 );
@@ -262,33 +277,22 @@ app.beforeHandle(() => {
 });
 ```
 
-## 7. Do not pass `app.handle` directly to `Bun.serve`
+## 7. Register `onLoaded` before calling `ready()`
 
-`handle` is a class method. Passing `app.handle` as the `fetch` callback loses the `this` context when Bun calls it, so `handle`'s internal use of `this` (e.g. for `currentAppStorage.run(this, ...)`) will break.
-
-```typescript
-// ❌ Wrong: this is lost when Bun invokes the callback
-Bun.serve({ fetch: app.handle });
-
-// ✓ Correct: wrap in an arrow function (or use app.handle.bind(app))
-Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
-```
-
-## 8. Register `onLoaded` before serving traffic
-
-`onLoaded` is triggered once, right before the first successful request lifecycle starts. Register all plugins and `onLoaded` hooks before calling `handle()` from live traffic.
+`onLoaded` hooks are registered on the app instance and run during `await app.ready()`. Register all plugins and `onLoaded` hooks before calling `ready()`.
 
 ```typescript
 const app = new Raven();
 
-await app.register(authPlugin());
-await app.register(dbPlugin());
+app.register(authPlugin());
+app.register(dbPlugin());
 
 app.onLoaded(async () => {
   await warmupCaches();
 });
 
-Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
+const fetch = await app.ready();
+Bun.serve({ fetch, port: 3000 });
 ```
 
 ---
@@ -298,15 +302,22 @@ Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
 ## Do not store request-scoped data in AppState
 
 ```typescript
-const userState = createAppState<User>({ name: "user" }); // ❌
+const userState = defineAppState<User>({ name: "user" }); // ❌
 
 // AppState is shared across the entire app — concurrent requests will overwrite each other
-app.beforeHandle(async () => {
-  userState.set(await fetchUser()); // dangerous! concurrent requests corrupt this value
-});
+app.register(
+  definePlugin({
+    name: "bad-plugin",
+    load(app, set) {
+      app.beforeHandle(async () => {
+        set(userState, await fetchUser()); // dangerous! concurrent requests corrupt this value
+      });
+    },
+  }),
+);
 
 // ✓ Use RequestState instead
-const userState = createRequestState<User>({ name: "user" });
+const userState = defineRequestState<User>({ name: "user" });
 ```
 
 ## Do not register route-specific hooks globally
@@ -351,10 +362,9 @@ app.onError((error) => {
 import { Raven } from "./index.ts";
 
 const app = new Raven();
-
 app.get("/", () => new Response("Hello, World!"));
 
-Bun.serve({ fetch: (req) => app.handle(req), port: 3000 });
+Bun.serve({ fetch: await app.ready(), port: 3000 });
 ```
 
 ## Path parameters
@@ -384,29 +394,38 @@ app.post("/api/v1/users", () => new Response("Create user", { status: 201 }));
 ## Auth middleware (hooks must come before routes)
 
 ```typescript
-import { Raven, createRequestState, RavenContext } from "./index.ts";
+import { Raven, definePlugin, defineRequestState, RavenContext } from "./index.ts";
 
 interface User {
   id: string;
   role: string;
 }
-const currentUser = createRequestState<User>({ name: "currentUser" });
+const currentUser = defineRequestState<User>({ name: "currentUser" });
 
 const app = new Raven();
 
-// register hook first
-app.beforeHandle(async () => {
-  const ctx = RavenContext.getOrFailed();
-  const token = ctx.headers.get("authorization");
-  if (!token) return new Response("Unauthorized", { status: 401 });
-  currentUser.set(await verifyToken(token));
-});
+// register auth plugin first (hooks apply to routes registered after)
+app.register(
+  definePlugin({
+    name: "auth",
+    load(app, set) {
+      app.beforeHandle(async () => {
+        const ctx = RavenContext.getOrFailed();
+        const token = ctx.headers.get("authorization");
+        if (!token) return new Response("Unauthorized", { status: 401 });
+        set(currentUser, await verifyToken(token));
+      });
+    },
+  }),
+);
 
 // then register routes
 app.get("/profile", () => {
   const user = currentUser.getOrFailed();
   return Response.json({ id: user.id });
 });
+
+Bun.serve({ fetch: await app.ready(), port: 3000 });
 ```
 
 ## Error handling

@@ -23,14 +23,10 @@ describe("Raven Context Assembly", () => {
 
     app.get("/user/:id", () => new Response("ok"));
 
-    const request = new Request("http://localhost/user/123?name=raven");
-    // @ts-ignore
-    await app.handle(request);
+    const fetch = await app.ready();
+    await fetch(new Request("http://localhost/user/123?name=raven"));
 
-    // onRequest should NOT have access to context token
     expect(onRequestHasCtx).toBe(false);
-
-    // beforeHandle should have populated params/query
     expect(beforeHandleParams).toEqual({ id: "123" });
     expect(beforeHandleQuery).toEqual({ name: "raven" });
   });
