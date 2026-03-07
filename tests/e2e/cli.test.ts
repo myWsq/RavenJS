@@ -219,14 +219,15 @@ describe("CLI E2E", () => {
     it("should show modules after add", async () => {
       const cwd = await createTempDir(tempDirs);
       await runCli(["init"], cwd);
-      await runCli(["add", "schema-validator"], cwd);
+      await runCli(["add", "sql"], cwd);
 
       const result = await runCli(["status"], cwd);
 
       expect(result.exitCode).toBe(0);
       const out = JSON.parse(result.stdout.trim());
       expect(findModule(out.modules, "core")?.installed).toBe(true);
-      expect(findModule(out.modules, "schema-validator")?.installed).toBe(true);
+      expect(findModule(out.modules, "sql")?.installed).toBe(true);
+      expect(findModule(out.modules, "schema-validator")).toBeUndefined();
     });
 
     it("should respect --root option", async () => {
@@ -247,7 +248,7 @@ describe("CLI E2E", () => {
       const cwd = await createTempDir(tempDirs);
       await runCli(["init"], cwd);
 
-      const result = await runCli(["add", "schema-validator"], cwd);
+      const result = await runCli(["add", "sql"], cwd);
 
       expect(result.exitCode).toBe(0);
       // add outputs two JSON lines: add result + status (for Agent, one call saves tokens)
@@ -256,7 +257,7 @@ describe("CLI E2E", () => {
 
       const addResult = JSON.parse(lines[0] || "{}");
       expect(addResult.success).toBe(true);
-      expect(addResult.moduleName).toBe("schema-validator");
+      expect(addResult.moduleName).toBe("sql");
       expect(Array.isArray(addResult.modifiedFiles)).toBe(true);
       expect(typeof addResult.dependencies).toBe("object");
 
@@ -264,10 +265,11 @@ describe("CLI E2E", () => {
       expect(status).toHaveProperty("modules");
       expect(Array.isArray(status.modules)).toBe(true);
       expect(findModule(status.modules, "core")?.installed).toBe(true);
-      expect(findModule(status.modules, "schema-validator")?.installed).toBe(true);
+      expect(findModule(status.modules, "sql")?.installed).toBe(true);
+      expect(findModule(status.modules, "schema-validator")).toBeUndefined();
 
       const coreDir = join(cwd, "raven", "core");
-      const moduleDir = join(cwd, "raven", "schema-validator");
+      const moduleDir = join(cwd, "raven", "sql");
       expect(await fileExists(coreDir)).toBe(true);
       expect(await fileExists(moduleDir)).toBe(true);
       expect(await fileExists(join(moduleDir, "index.ts"))).toBe(true);
@@ -276,19 +278,29 @@ describe("CLI E2E", () => {
     it("should replace @raven.js/core with relative path in copied files", async () => {
       const cwd = await createTempDir(tempDirs);
       await runCli(["init"], cwd);
-      await runCli(["add", "schema-validator"], cwd);
+      await runCli(["add", "sql"], cwd);
 
-      const mainTs = await readFile(join(cwd, "raven", "schema-validator", "index.ts"), "utf-8");
+      const mainTs = await readFile(join(cwd, "raven", "sql", "index.ts"), "utf-8");
       expect(mainTs).toContain('from "../core"');
       expect(mainTs).not.toContain("@raven.js/core");
     });
 
     it("should fail when project not initialized", async () => {
       const cwd = await createTempDir(tempDirs);
-      const result = await runCli(["add", "schema-validator"], cwd);
+      const result = await runCli(["add", "sql"], cwd);
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("raven init");
+    });
+
+    it("should reject removed schema-validator module", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+
+      const result = await runCli(["add", "schema-validator"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Unknown module");
     });
 
     it("should fail for unknown module", async () => {

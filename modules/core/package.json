@@ -2,6 +2,6 @@
   "name": "@raven.js/core",
   "version": "0.0.1",
   "private": true,
-  "description": "RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles.",
+  "description": "RavenJS core framework providing HTTP services, routing, hooks, state management, and built-in Standard Schema request validation.",
   "type": "module"
 }

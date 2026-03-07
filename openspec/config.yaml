@@ -3,16 +3,10 @@ schema: spec-driven
 # Project context (optional)
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
 context: |
-  Tech stack: Bun, TypeScript
-  Coding Guidelines:
-    - Single-file organization: Each package's core logic resides in a single `main.ts` file
-    - Code sections: Use `// === SECTION: Name ===` comments to organize code by dependency order
-    - Explicit exports: `index.ts` explicitly manages Public API and Internal API exports
-    - No utils directory: All code in `main.ts`, organized by sections instead of separate files
-    - Unit tests: Implement in `tests/` directory within each package
-    - Focus on high performance, leveraging Bun's native APIs
-    - Use Pascal naming convention strictly
+  语言：中文（简体）  
+  所有产出物必须用简体中文撰写
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

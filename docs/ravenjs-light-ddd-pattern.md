@@ -449,7 +449,7 @@ Instead, prefer:
 Recommended shape:
 
 ```ts
-import { SchemaClass } from "@raven.js/schema-validator";
+import { SchemaClass } from "@raven.js/core";
 import { z } from "zod";
 
 export class OrderDTO extends SchemaClass({
@@ -481,7 +481,7 @@ RavenJS note:
 - request validation must still use a real runtime schema with `withSchema()`
 - response validation remains optional defensive validation
 - avoid relying on `transform`, `coerce`, or `default` inside `SchemaClass` shapes unless a real runtime schema is applied separately
-- Zod is a fine default because it works with `@raven.js/schema-validator`
+- Zod is a fine default because it works with RavenJS core's built-in Standard Schema validation
 
 DTO rules:
 

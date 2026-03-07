@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import { readdir, readFile, writeFile, mkdir, copyFile } from "fs/promises";
-import { join, dirname, relative } from "path";
+import { readdir, readFile, writeFile, mkdir, copyFile, rm } from "fs/promises";
+import { join, dirname } from "path";
 
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
@@ -13,6 +13,7 @@ const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
 
 /** Module files excluded from registry and source copy (paths relative to module dir) */
 const EXCLUDED_MODULE_FILES = new Set(["package.json"]);
+const EXCLUDED_MODULE_DIRS = new Set(["node_modules"]);
 
 function extractDependsOn(pkg: {
   dependencies?: Record<string, string>;
@@ -79,19 +80,33 @@ interface Registry {
   modules: Record<string, ModuleInfo>;
 }
 
-async function getGitTrackedFiles(moduleDir: string): Promise<string[]> {
-  const { $ } = await import("bun");
-  const relPath = relative(ROOT_DIR, moduleDir);
-  const proc = $`git ls-files ${relPath}`.cwd(ROOT_DIR);
-  const output = await proc.text();
-  const prefix = relPath + "/";
-  return output
-    .trim()
-    .split("\n")
-    .filter((f) => f)
-    .map((f) => (f.startsWith(prefix) ? f.slice(prefix.length) : f))
-    .filter((f) => f && !EXCLUDED_MODULE_FILES.has(f))
-    .sort();
+async function getModuleFiles(moduleDir: string): Promise<string[]> {
+  const files: string[] = [];
+
+  async function walk(currentDir: string, currentRelDir = ""): Promise<void> {
+    const entries = await readdir(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const relPath = currentRelDir ? join(currentRelDir, entry.name) : entry.name;
+      const absPath = join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (!EXCLUDED_MODULE_DIRS.has(entry.name)) {
+          await walk(absPath, relPath);
+        }
+        continue;
+      }
+
+      if (EXCLUDED_MODULE_FILES.has(relPath)) {
+        continue;
+      }
+
+      files.push(relPath);
+    }
+  }
+
+  await walk(moduleDir);
+  return files.sort();
 }
 
 async function scanModules(): Promise<Record<string, ModuleInfo>> {
@@ -108,10 +123,10 @@ async function scanModules(): Promise<Record<string, ModuleInfo>> {
       const content = await readFile(packageJsonPath, "utf-8");
       const pkg = JSON.parse(content);
 
-      const files = await getGitTrackedFiles(moduleDir);
+      const files = await getModuleFiles(moduleDir);
       if (files.length === 0) {
         console.warn(
-          `Warning: ${entry.name} has no git-tracked files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`,
+          `Warning: ${entry.name} has no module files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`,
         );
         continue;
       }
@@ -177,6 +192,7 @@ async function copyModuleSources(
   outputDirs: string[],
 ): Promise<void> {
   for (const outDir of outputDirs) {
+    await rm(outDir, { recursive: true, force: true });
     await mkdir(outDir, { recursive: true });
   }
 

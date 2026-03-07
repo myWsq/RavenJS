@@ -11,5 +11,6 @@ To understand the architecture, concepts, API, and usage, read:
 | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | [PLUGIN.md](./PLUGIN.md)                                                  | You are creating a plugin — covers `definePlugin`, all three state patterns, and plugin-specific gotchas. |
 | [router.ts](./router.ts)                                                  | You need to understand or extend route matching (Radix tree, path params, wildcards).                     |
+| [schema.ts](./schema.ts)                                                  | You need to use or extend built-in `withSchema`, `ValidationError`, or `SchemaClass`.                     |
 | [standard-schema.ts](./standard-schema.ts)                                | You need to integrate validation (Zod, Valibot) or implement Standard Schema–compatible validation.       |
 | [Bun Full Stack Documentation](https://bun.com/docs/bundler/fullstack.md) | If you need to understand how to use Bun's full stack features                                            |

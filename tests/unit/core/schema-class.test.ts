@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { SchemaClass } from "../../../modules/schema-validator";
+import { SchemaClass } from "../../../modules/core";
 import { z } from "zod";
 
 describe("SchemaClass", () => {
@@ -41,7 +41,6 @@ describe("SchemaClass", () => {
 
   it("should not validate at runtime (assigns input as-is)", () => {
     class Person extends SchemaClass({ age: z.number().min(0).max(150) }) {}
-    // Invalid value at runtime; SchemaClass does not validate
     const p = new Person({ age: -1 } as { age: number });
 
     expect(p.age).toBe(-1);

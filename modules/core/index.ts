@@ -4,6 +4,13 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { RadixRouter } from "./router.ts";
+import {
+  isSchemaAwareHandler,
+  validateRequestSchemas,
+  type AnySchemaAwareHandler,
+  type AnySchemas,
+  type SchemaAwareHandler,
+} from "./schema.ts";
 
 // =============================================================================
 // SECTION: Types & Interfaces
@@ -62,6 +69,7 @@ export type FetchHandler = (request: Request) => Response | Promise<Response>;
  * Request handler function type.
  */
 export type Handler = () => Response | Promise<Response>;
+export type RouteHandler = Handler | AnySchemaAwareHandler;
 
 /**
  * Hook executed when a request is first received.
@@ -96,6 +104,7 @@ export type OnLoadedHook = (app: Raven) => void | Promise<void>;
 /** Internal route data structure. */
 interface RouteData {
   handler: Handler;
+  schemas?: AnySchemas;
 }
 
 /**
@@ -395,6 +404,8 @@ export const HeadersState = defineRequestState<Record<string, string>>({ name: "
 
 // Re-export router types for consumers
 export { RadixRouter, type RouteMatch } from "./router.ts";
+export * from "./schema.ts";
+export type { StandardSchemaV1 } from "./standard-schema.ts";
 
 // =============================================================================
 // SECTION: Server Adapters
@@ -507,31 +518,55 @@ export class Raven implements RavenInstance {
     return this.buildPromise;
   }
 
-  private addRoute(method: string, path: string, handler: Handler) {
+  private addRoute(method: string, path: string, handler: RouteHandler) {
+    if (isSchemaAwareHandler(handler)) {
+      this.router.add(method, path, {
+        handler: () =>
+          handler.handler({
+            body: BodyState.get(),
+            query: (QueryState.get() ?? {}) as any,
+            params: (ParamsState.get() ?? {}) as any,
+            headers: (HeadersState.get() ?? {}) as any,
+          }),
+        schemas: handler.schemas,
+      });
+      return;
+    }
+
     this.router.add(method, path, { handler });
   }
 
-  get(path: string, handler: Handler): this {
+  get(path: string, handler: Handler): this;
+  get<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  get(path: string, handler: RouteHandler): this {
     this.addRoute("GET", path, handler);
     return this;
   }
 
-  post(path: string, handler: Handler): this {
+  post(path: string, handler: Handler): this;
+  post<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  post(path: string, handler: RouteHandler): this {
     this.addRoute("POST", path, handler);
     return this;
   }
 
-  put(path: string, handler: Handler): this {
+  put(path: string, handler: Handler): this;
+  put<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  put(path: string, handler: RouteHandler): this {
     this.addRoute("PUT", path, handler);
     return this;
   }
 
-  delete(path: string, handler: Handler): this {
+  delete(path: string, handler: Handler): this;
+  delete<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  delete(path: string, handler: RouteHandler): this {
     this.addRoute("DELETE", path, handler);
     return this;
   }
 
-  patch(path: string, handler: Handler): this {
+  patch(path: string, handler: Handler): this;
+  patch<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  patch(path: string, handler: RouteHandler): this {
     this.addRoute("PATCH", path, handler);
     return this;
   }
@@ -584,7 +619,7 @@ export class Raven implements RavenInstance {
           });
 
           internalSet(RavenContext, new Context(request, params, query));
-          await this.processStates(request, params, query);
+          await this.processStates(request, params, query, routeData.schemas);
 
           for (const hook of this.hooks.beforeHandle) {
             const result = await hook();
@@ -608,27 +643,37 @@ export class Raven implements RavenInstance {
     request: Request,
     params: Record<string, string>,
     query: Record<string, string>,
+    schemas?: AnySchemas,
   ): Promise<void> {
     const headersObj: Record<string, string> = {};
     request.headers.forEach((value, key) => {
       headersObj[key.toLowerCase()] = value;
     });
 
-    internalSet(ParamsState, params);
-    internalSet(QueryState, query);
-    internalSet(HeadersState, headersObj);
-
     const contentType = request.headers.get("content-type") || "";
+    let bodyData: unknown;
     if (contentType.includes("application/json")) {
-      let data: unknown;
       try {
-        data = await request.json();
+        bodyData = await request.json();
       } catch (err) {
         throw RavenError.ERR_BAD_REQUEST(
           `Invalid JSON body: ${err instanceof Error ? err.message : "parse error"}`,
         );
       }
-      internalSet(BodyState, data);
+    }
+
+    const validated = await validateRequestSchemas(schemas, {
+      body: bodyData,
+      query,
+      params,
+      headers: headersObj,
+    });
+
+    internalSet(ParamsState, validated.params as any);
+    internalSet(QueryState, validated.query as any);
+    internalSet(HeadersState, validated.headers as any);
+    if (validated.body !== undefined) {
+      internalSet(BodyState, validated.body);
     }
   }
 

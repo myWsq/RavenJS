@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { withSchema, isValidationError } from "../../../modules/schema-validator";
-import { Raven } from "../../../modules/core";
+import { QueryState, Raven, isValidationError, withSchema } from "../../../modules/core";
 import { z } from "zod";
 
 describe("withSchema", () => {
@@ -84,6 +83,36 @@ describe("withSchema", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ page: "1" });
+  });
+
+  it("should write validated query output back to QueryState before beforeHandle", async () => {
+    const querySchema = z.object({
+      page: z.string().transform((value) => Number(value)),
+    });
+
+    let beforeHandlePage: number | undefined;
+    const app = new Raven();
+    app.beforeHandle(() => {
+      beforeHandlePage = (QueryState.getOrFailed() as { page: number }).page;
+    });
+    app.get(
+      "/test",
+      withSchema({ query: querySchema }, async (ctx) => {
+        return Response.json({
+          beforeHandlePage,
+          handlerPage: ctx.query.page,
+        });
+      }),
+    );
+
+    const response = await (await app.ready())(new Request("http://localhost/test?page=7"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual({
+      beforeHandlePage: 7,
+      handlerPage: 7,
+    });
   });
 
   it("should throw ValidationError when query validation fails", async () => {
@@ -266,7 +295,7 @@ describe("withSchema", () => {
     });
   });
 
-  it("should throw first ValidationError when multiple fail", async () => {
+  it("should throw ValidationError when multiple sources fail", async () => {
     const bodySchema = z.object({
       name: z.string(),
     });

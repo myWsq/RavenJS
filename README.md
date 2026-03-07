@@ -54,11 +54,10 @@ Work with RavenJS primarily through skills.
 
 ## Available Modules
 
-| Module             | Description                                                                                                                                                                                               | Docs                                         |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `core`             | RavenJS core framework providing HTTP services, routing, hooks, and state management. Designed for building web services and handling request/response cycles.                                            | [README](modules/core/README.md)             |
-| `schema‑validator` | Validation helper based on Standard Schema. Use this module when you need to validate request data (body, query, params, headers) using Zod, Valibot, or ArkType, and want type-safe context in handlers. | [README](modules/schema-validator/README.md) |
-| `sql`              | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database.                                                                                     | [README](modules/sql/README.md)              |
+| Module | Description                                                                                                                        | Docs                             |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `core` | RavenJS core framework providing HTTP services, routing, hooks, state management, and built-in Standard Schema request validation. | [README](modules/core/README.md) |
+| `sql`  | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database.              | [README](modules/sql/README.md)  |
 
 ## CLI
 

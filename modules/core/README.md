@@ -7,8 +7,10 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 - Logic layer: `app.ready()` returns a `FetchHandler`
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
+- Built-in Standard Schema request validation via `withSchema`
 - Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
+- `SchemaClass` for schema-shape type inference
 
 ---
 
@@ -39,13 +41,13 @@ incoming request (each request)
 [route matching]      ← no match → 404
       │
       ▼
-[processStates]       ← populates ParamsState / QueryState / HeadersState / BodyState
+[processStates]       ← parses request data, validates declared schemas, populates ParamsState / QueryState / HeadersState / BodyState
       │
       ▼
 [beforeHandle hooks]  ← route-scoped; no args. Returning a Response short-circuits.
       │
       ▼
-[handler()]           ← no args; returns Response
+[handler()]           ← zero-arg handler, or typed schema handler registered through withSchema
       │
       ▼
 [beforeResponse hooks] ← route-scoped; receives Response. Returning a new Response replaces it.
@@ -122,6 +124,39 @@ console.log(ctx.params); // { id: "42" }
 | `HeadersState` | `Record<string, string>` | Request headers (lowercased keys)       |
 | `BodyState`    | `unknown`                | Request body (JSON only; cast required) |
 
+For routes registered through `withSchema`, these states contain validated output values before `beforeHandle` runs. If you need the raw request, read `RavenContext.getOrFailed().request` directly.
+
+## Schema Validation
+
+Core includes Standard Schema-based request validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, and `headers`; Raven validates them during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler.
+
+```typescript
+import { Raven, isValidationError, withSchema } from "@raven.js/core";
+import { z } from "zod";
+
+const app = new Raven();
+
+app.post(
+  "/users",
+  withSchema(
+    {
+      body: z.object({
+        name: z.string(),
+      }),
+    },
+    async (ctx) => Response.json(ctx.body),
+  ),
+);
+
+app.onError((error) => {
+  if (isValidationError(error)) {
+    return Response.json({ issues: error.bodyIssues }, { status: 400 });
+  }
+});
+```
+
+`SchemaClass(shape)` is also exported from core for DTO-style type inference. It exposes `_shape` on the class and instance, but does not perform runtime validation.
+
 ## Plugin
 
 A plugin is a **named object** with a `load(app, set)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration.
@@ -169,6 +204,7 @@ This is intentional:
 - A handler only needs to return a `Response` — no framework-specific types required
 - Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
 - Any plain function can be a handler with zero migration cost
+- `withSchema` keeps the same route registration style while allowing typed handler context where needed
 
 ## Why is `register()` sync and `ready()` async?
 
@@ -258,6 +294,17 @@ const { id } = ParamsState.getOrFailed();
 
 // BodyState — cast required
 const body = BodyState.getOrFailed() as { name: string };
+```
+
+## 6. Schema-aware routes write validated output back into State
+
+When a route is registered with `withSchema`, the output of each schema is written into the built-in states before `beforeHandle` runs. This means transforms such as `z.string().transform(Number)` affect both `ctx.query` and `QueryState`.
+
+```typescript
+app.beforeHandle(() => {
+  const query = QueryState.getOrFailed() as { page: number };
+  console.log(query.page); // number
+});
 ```
 
 ## 6. `onRequest` has a different signature from all other hooks
