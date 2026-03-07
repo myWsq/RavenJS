@@ -5,7 +5,7 @@ import {
   currentAppStorage,
   definePlugin,
   type StateSetter,
-} from "../../../modules/core";
+} from "../../../../modules/core";
 
 describe("Plugin System", () => {
   it("should register a plugin and call load after build()", async () => {

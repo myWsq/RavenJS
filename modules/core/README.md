@@ -14,6 +14,23 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 
 ---
 
+# SOURCE MAP
+
+For AI-oriented reading, treat `core` as a set of concept modules instead of a single implementation file:
+
+- `index.ts` — public export map
+- `app/` — `Raven` public API, hook types, plugin-facing types
+- `runtime/` — request dispatch, plugin loading, response handling, error flow
+- `state/` — AsyncLocalStorage-backed state storage, descriptors, built-in states
+- `schema/` — `withSchema`, validation, `SchemaClass`, Standard Schema contract
+- `routing/` — radix router implementation
+- `context/` — request context object
+- `error/` — framework error model
+
+Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`.
+
+---
+
 # ARCHITECTURE
 
 **Lifecycle overview**:
@@ -26,7 +43,7 @@ app setup (sync)
       │
       ▼
 await app.ready()    ← async build phase: runs plugin loads in order, then onLoaded hooks.
-      │              ← returns a FetchHandler ready for Bun.serve / Deno.serve / etc.
+      │              ← returns a FetchHandler ready for Bun.serve.
       ▼
 app ready
 ```
@@ -219,19 +236,15 @@ This separation means plugin B's `load()` can safely `await` async work and writ
 
 # GOTCHAS
 
-## 1. Hooks must be declared before routes
+## 1. Hooks are global once registered
 
 ```typescript
-// ❌ Wrong: beforeHandle will NOT apply to /users
+// Hooks apply to every matching request once registered
 app.get("/users", handler);
 app.beforeHandle(authHook);
-
-// ✓ Correct: register hooks first, then routes
-app.beforeHandle(authHook);
-app.get("/users", handler);
 ```
 
-Reason: `addRoute()` snapshots all current hooks at call time.
+Reason: hooks are evaluated during request dispatch, not snapshotted into individual routes. If a hook should only affect a subset of paths, check `RavenContext` or `request.url` inside the hook.
 
 ## 2. `register()` is sync — plugins load during `ready()`
 

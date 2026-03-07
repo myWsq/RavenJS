@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { QueryState, Raven, isValidationError, withSchema } from "../../../modules/core";
+import { QueryState, Raven, isValidationError, withSchema } from "../../../../modules/core";
 import { z } from "zod";
 
 describe("withSchema", () => {

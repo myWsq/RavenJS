@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { Raven, RavenContext } from "../../../modules/core";
+import { Raven, RavenContext } from "../../../../modules/core";
 
 describe("Raven Lifecycle Hooks", () => {
   test("should execute hooks in order and have context access", async () => {

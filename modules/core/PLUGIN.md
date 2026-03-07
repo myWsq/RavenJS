@@ -2,6 +2,15 @@
 
 A plugin is a named object with a `load()` function. Register it via `app.register()` before calling `app.ready()`.
 
+## Relevant Core Files
+
+If you are changing plugin behavior inside `modules/core`, start here:
+
+- `app/raven.ts` — public plugin APIs such as `register()`, `use()`, `onLoaded()`
+- `runtime/load-plugins.ts` — actual plugin load order and `StateSetter` creation
+- `state/descriptors.ts` — `StateSetter`, `StateView`, `defineAppState`, `defineRequestState`
+- `state/storage.ts` — scope maps and AsyncLocalStorage context
+
 ```typescript
 import { definePlugin, type Raven, type StateSetter } from "@raven.js/core";
 
