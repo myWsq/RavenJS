@@ -8,6 +8,7 @@
 - **Full Request Validation**: Validates Body, Query, Params, and Headers.
 - **Type Safety**: Infers types from schemas for the handler context.
 - **Automatic Error Handling**: Throws structured `ValidationError` on failure.
+- **SchemaClass**: Builds a class from an object of schemas for type inference only (e.g. `{ id: z.string(), price: z.number() }`); no runtime validation.
 
 ---
 
@@ -79,6 +80,26 @@ While RavenJS Core uses global state (`BodyState`, etc.) for dependency injectio
 
 - **Type Inference**: The `ctx` argument matches your schema types.
 - **Runtime Integration**: The validator reads from RavenJS's internal states automatically.
+
+## SchemaClass
+
+`SchemaClass(shape)` returns a **base class** for **type inference only**. Prefer **extending** it so the class can be used as a type and extended with methods.
+
+- **Parameter**: A shape (plain object of schemas), e.g. `{ id: z.string(), price: z.number() }` (not a single `z.object(...)`).
+- **Static and instance `_shape`**: The class and each instance expose this shape as `_shape`.
+
+```typescript
+import { SchemaClass } from "@raven.js/schema-validator";
+import { z } from "zod";
+
+class User extends SchemaClass({ name: z.string(), age: z.number() }) {}
+
+const user: User = new User({ name: "alice", age: 30 });
+user.name; // string
+user.age; // number
+user._shape; // shape object
+User._shape; // same, on the class
+```
 
 ---
 
@@ -171,6 +192,18 @@ const handler = withSchema(schema, (ctx) => {
   const apiKey = ctx.headers["x-api-key"];
   return Response.json({ name, page, apiKey });
 });
+```
+
+## SchemaClass (extend for type and methods)
+
+```typescript
+import { SchemaClass } from "@raven.js/schema-validator";
+import { z } from "zod";
+
+class Product extends SchemaClass({ id: z.string(), price: z.number() }) {}
+
+const p: Product = new Product({ id: "x", price: 99 });
+// Product is usable as a type; add methods on the class as needed
 ```
 
 ## Global Error Handling

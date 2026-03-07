@@ -119,3 +119,44 @@ export function withSchema<B, Q, P, H>(
     return handler(ctx);
   };
 }
+
+/** Infers input type for an object of schemas: { id: SchemaA, price: SchemaB } -> { id: InputA, price: InputB }. */
+type InferInputObj<T extends Record<string, StandardSchemaV1>> = {
+  [K in keyof T]: StandardSchemaV1.InferInput<T[K]>;
+};
+
+/** Infers output type for an object of schemas: { id: SchemaA, price: SchemaB } -> { id: OutputA, price: OutputB }. */
+type InferOutputObj<T extends Record<string, StandardSchemaV1>> = {
+  [K in keyof T]: StandardSchemaV1.InferOutput<T[K]>;
+};
+
+type SchemaClassCtor<T extends Record<string, StandardSchemaV1>> = {
+  new (input: InferInputObj<T>): InferOutputObj<T> & { _shape: T };
+  _shape: T;
+};
+
+/**
+ * Returns a base class from a shape (object of Standard Schemas) for type inference only. Prefer
+ * extending it so the subclass can be used as a type and extended with methods:
+ *
+ *   class Entity extends SchemaClass({ id: z.string(), name: z.string() }) {}
+ *   const e: Entity = new Entity({ id: "1", name: "foo" });
+ *
+ * No runtime validation is performed. Constructor accepts input per key; instance is typed as outputs.
+ *
+ * @param _shape - Object of schemas (shape), e.g. { id: z.string(), price: z.number() }
+ * @returns A class to extend; instances typed as { id: string, price: number, _shape }
+ */
+export function SchemaClass<T extends Record<string, StandardSchemaV1>>(
+  _shape: T,
+): SchemaClassCtor<T> {
+  const SchemaClass = class {
+    static _shape: T = _shape;
+    declare _shape: T;
+    constructor(input: InferInputObj<T>) {
+      Object.assign(this, input);
+      this._shape = _shape;
+    }
+  };
+  return SchemaClass as SchemaClassCtor<T>;
+}
