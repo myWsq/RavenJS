@@ -1,12 +1,12 @@
 ---
 name: raven-use
-description: Workflow for writing correct RavenJS code — verify state, identify modules, learn APIs, then implement. Use when creating servers, routes, hooks, validation, or using Raven modules.
+description: Workflow for writing correct RavenJS code — verify state, identify modules, learn APIs and patterns, plan structure, then implement. Use when creating servers, routes, hooks, validation, or using Raven modules.
 compatibility: Requires Raven CLI
 ---
 
 # RavenJS Use Skill
 
-A workflow for writing correct RavenJS code: check project state, identify needed modules, learn their APIs, then write.
+A workflow for writing correct RavenJS code: check project state, identify needed modules, learn their APIs and patterns, plan structure, then write.
 
 ---
 
@@ -55,17 +55,60 @@ After adding, verify from the status JSON printed by `raven add` that the module
 
 ---
 
-## Step 3 — Learn the module API
+## Step 3 — Learn the module API and pattern entrypoints
 
 For each module you will use, follow the **raven-learn** skill to load and study the guide output before writing any code.
 
-Read the full guide output and the files it references (README, source). This is the authoritative reference — do not rely on prior knowledge.
+Read the full guide output and the files it references (README, source, and relevant pattern docs). Treat the guide as the API/source map, and treat the pattern docs as the structure and boundary rules. This combined reading path is the authoritative reference — do not rely on prior knowledge.
 
 ---
 
-## Step 4 — Write the code
+## Step 4 — Make a Pattern Plan
 
-Apply the patterns from the guide output. The guide is the single source of truth — follow its GOTCHAS, ANTI-PATTERNS, and USAGE EXAMPLES sections exactly. When in doubt, re-read the guide rather than relying on prior knowledge.
+Before editing files, classify the task into one of these shapes:
+
+- `simple write` — one entity path, little or no reusable orchestration
+- `reusable write` — multi-entity or cross-entrypoint write workflow worth extracting
+- `complex read` — reusable read model that needs `Query + Projection`
+- `runtime assembly` — `app.ts`, plugin, state, scope, or hook wiring
+
+Write down a short Pattern Plan in your notes before touching files. It must answer:
+
+- which task shape applies
+- which layers are required, and which layers are explicitly not needed
+- which files or directories should be created or updated
+- where business rules, persistence, query logic, hooks, and plugins belong
+
+Apply the default-light rules from the pattern docs:
+
+- do not add more layers by default
+- only introduce `Command` for reusable multi-entity write workflows
+- only introduce `Query + Projection` for complex reusable reads
+- prefer the runtime assembly path for plugin/state/hook/app problems instead of forcing business layers
+
+---
+
+## Step 5 — Write the code
+
+Apply the Pattern Plan and the relevant guide output. Follow the pattern docs, GOTCHAS, ANTI-PATTERNS, and USAGE EXAMPLES exactly. When in doubt, re-read the guide and pattern docs rather than relying on prior knowledge.
+
+---
+
+## Step 6 — Run a pattern self-check
+
+Before finishing, review the changed code against:
+
+- `modules/core/pattern/anti-patterns.md`
+- `modules/core/pattern/conventions.md`
+
+At minimum, verify:
+
+- entities and repositories did not import Raven runtime APIs without a strong reason
+- hooks and plugins did not absorb business logic that belongs in entities, commands, or queries
+- new files follow the expected naming and placement rules
+- any deliberate deviation from the pattern is explicit and justified
+
+If the self-check finds a problem, fix it before presenting the result.
 
 ---
 
@@ -74,4 +117,6 @@ Apply the patterns from the guide output. The guide is the single source of trut
 - Run `bunx raven status` at the start of **every invocation** — never assume project state from a previous run.
 - Do not modify files inside `ravenDir` unless a framework bug is certain.
 - Do not write code until Step 3 (learn the module) is complete for all required modules.
+- Do not skip Step 4 — every RavenJS code task needs a Pattern Plan before editing.
+- Do not skip Step 6 — every RavenJS code task needs a pattern self-check before finishing.
 - Do not suggest npm packages for functionality that a Raven module already covers.

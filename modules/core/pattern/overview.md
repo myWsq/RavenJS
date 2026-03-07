@@ -2,6 +2,8 @@
 
 This document is the entrypoint for the pattern. Read this file first, then go deeper by topic.
 
+Use this document when the task is about business-facing RavenJS code structure: `interface`, `entity`, `repository`, `command`, `query`, `projection`, and `dto`.
+
 ## Reading Guide
 
 - Overview: this file

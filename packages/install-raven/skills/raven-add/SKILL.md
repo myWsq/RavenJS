@@ -1,6 +1,6 @@
 ---
 name: raven-add
-description: Install a new module into an initialized RavenJS project.Only trigger when explicitly invoked by name (e.g. "use raven-add" or called from another skill).
+description: Install a new module into an initialized RavenJS project. Only trigger when explicitly invoked by name (e.g. "use raven-add" or called from another skill).
 compatibility: Requires Raven CLI
 ---
 
@@ -66,7 +66,7 @@ Check the `dependencies` field from the `bunx raven add` output against the proj
 
 ## Step 5 — Learn the module API
 
-Follow the **raven-learn** skill to study the module before writing any code.
+Follow the **raven-learn** skill to study the module before writing any code. If the task will also create or modify RavenJS application code on top of core, finish the relevant core pattern reading that `raven-learn` points to before editing files.
 
 ---
 
@@ -74,4 +74,4 @@ Follow the **raven-learn** skill to study the module before writing any code.
 
 - Only add modules listed in the `modules` array from `bunx raven status` — do not invent module names.
 - Do not skip Step 4 — missing npm dependencies will cause runtime errors.
-- Do not write code until Step 5 (learn) is complete.
+- Do not write code until Step 5 (learn + relevant pattern reading) is complete.

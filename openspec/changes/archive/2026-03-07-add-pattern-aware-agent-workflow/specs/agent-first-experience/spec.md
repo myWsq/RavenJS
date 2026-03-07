@@ -1,10 +1,4 @@
-# Agent First Experience Specification
-
-## Purpose
-
-定义 RavenJS 作为 Agent 教学工具的定位与能力，使 AI Agent 成为主要受众。
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: RavenJS as Agent Teaching Tool
 
@@ -27,21 +21,3 @@ RavenJS SHALL be positioned as an Agent teaching tool rather than a traditional 
 - **WHEN** an Agent evolves an existing RavenJS project after learning the framework
 - **THEN** the Agent SHALL preserve or improve pattern boundaries during the update
 - **AND** the Agent SHALL avoid introducing documented anti-patterns as part of the change
-
-### Requirement: Initial code provided for bootstrap
-
-RavenJS SHALL provide initial reference code to bootstrap a project. The initial code SHALL be complete and runnable.
-
-#### Scenario: Agent installs initial code
-
-- **WHEN** an Agent uses raven-install SKILL
-- **THEN** the Agent SHALL have RavenJS code in the user's project
-
-### Requirement: Subsequent updates by Agent
-
-After initial installation, all subsequent code evolution SHALL be performed by the Agent. RavenJS SHALL NOT provide new versions as npm packages.
-
-#### Scenario: Agent evolves code over time
-
-- **WHEN** the user's project needs changes
-- **THEN** the Agent SHALL modify the RavenJS code directly in the user's project

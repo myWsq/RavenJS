@@ -4,6 +4,8 @@ Read the [overview](./overview.md) first if you want the big picture before the 
 
 This document is the compact reference for common design mistakes when applying the RavenJS entity-centric pattern.
 
+Use this document during review or final self-check to catch boundary mistakes before you finish a change.
+
 ## 1. Entity Imports Raven APIs
 
 Bad:

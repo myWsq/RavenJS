@@ -4,6 +4,8 @@ Read the [overview](./overview.md) first if you want the big picture before the 
 
 This document is the compact reference for file placement, naming, and lightweight extension rules.
 
+Use this document after you know which layers you need and want the expected directory layout, naming, and export shape.
+
 ## Directory Layout
 
 ```text

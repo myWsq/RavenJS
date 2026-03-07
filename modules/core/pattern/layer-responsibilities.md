@@ -4,6 +4,8 @@ Read the [overview](./overview.md) first if you have not established the overall
 
 This document focuses on where business-facing code lives and what each layer is allowed to do.
 
+Use this document when you need to decide whether logic belongs in `interface`, `entity`, `repository`, `command`, `query`, `projection`, or `dto`.
+
 ## Layer Map
 
 | Layer            | Owns                                                            | Should Not Own                              |

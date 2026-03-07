@@ -1,6 +1,6 @@
 ---
 name: raven-setup
-description: Configure a RavenJS project so the core module runs correctly in the user's environment.Only trigger when explicitly invoked by name (e.g. "use raven-setup" or called from another skill).
+description: Configure a RavenJS project so the core module runs correctly in the user's environment. Only trigger when explicitly invoked by name (e.g. "use raven-setup" or called from another skill).
 compatibility: Requires Raven CLI
 ---
 
@@ -63,7 +63,7 @@ From the `bunx raven status` output, check whether `core` appears in `modules` w
 
 ## Step 3 — Learn the `core` module
 
-Follow the **raven-learn** skill for the `core` module. Do not skip this step — the guide is the authoritative reference for what a valid minimal example looks like.
+Follow the **raven-learn** skill for the `core` module. Do not skip this step — it now includes both the core GUIDE path and the relevant pattern entrypoints for runtime assembly or business code structure, which are the authoritative references for what a valid RavenJS setup and codebase shape look like.
 
 ---
 

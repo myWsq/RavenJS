@@ -54,22 +54,6 @@ Raven 框架 SHALL 通过 `handle` 方法处理传入的 HTTP 请求并返回响
 - **THEN** 路由系统 SHALL 正确存储该 handler 关联的请求 schemas 与 response schema
 - **AND** 在请求处理时 SHALL 先完成请求校验，再在业务 handler 返回后尝试响应校验与 JSON 响应构造
 
-### Requirement: Response Schema Mismatch Hook
-
-框架 SHALL 提供一个专门的 response validation hook，用于在 `response` schema mismatch 时执行日志、告警或指标等观测逻辑，而不默认打断主响应链路。
-
-#### Scenario: response schema mismatch 触发专用 hook
-
-- **WHEN** 某个带 `response` schema 的 schema-aware handler 返回了不满足 schema 的值
-- **THEN** core SHALL 调用 response validation hook
-- **AND** hook SHALL 接收到包含 `responseIssues` 的结构化错误信息
-
-#### Scenario: 未注册 hook 时继续主响应
-
-- **WHEN** 某个带 `response` schema 的 schema-aware handler 返回了不满足 schema 的值，且未注册 response validation hook
-- **THEN** core SHALL 继续返回基于原始 handler 返回值构造的 JSON 响应
-- **AND** 请求 SHALL 不因该 mismatch 自动进入 `onError`
-
 ### Requirement: Schema-Aware Handler 在核心生命周期中执行校验
 
 对于通过 `withSchema` 声明的路由，core SHALL 在 `beforeHandle` 执行前完成 body/query/params/headers 的 schema 校验，并将校验输出写入对应的内建 State；若声明了 `response` schema，core SHALL 在业务 handler 返回后先尝试校验该返回值，成功时将 schema 输出包装为 `Response.json(...)`，失败时触发 response validation hook 并回退为原始返回值的 JSON 响应，然后再继续 `beforeResponse` 流程。
@@ -97,3 +81,21 @@ Raven 框架 SHALL 通过 `handle` 方法处理传入的 HTTP 请求并返回响
 - **WHEN** 声明 `response` schema 的 schema-aware handler 返回了不满足约束的值
 - **THEN** core SHALL 触发 response validation hook，并使用原始 handler 返回值构造 `Response.json(...)`
 - **AND** `beforeResponse` 钩子 SHALL 继续接收到该回退后的 Response
+
+## ADDED Requirements
+
+### Requirement: Response Schema Mismatch Hook
+
+框架 SHALL 提供一个专门的 response validation hook，用于在 `response` schema mismatch 时执行日志、告警或指标等观测逻辑，而不默认打断主响应链路。
+
+#### Scenario: response schema mismatch 触发专用 hook
+
+- **WHEN** 某个带 `response` schema 的 schema-aware handler 返回了不满足 schema 的值
+- **THEN** core SHALL 调用 response validation hook
+- **AND** hook SHALL 接收到包含 `responseIssues` 的结构化错误信息
+
+#### Scenario: 未注册 hook 时继续主响应
+
+- **WHEN** 某个带 `response` schema 的 schema-aware handler 返回了不满足 schema 的值，且未注册 response validation hook
+- **THEN** core SHALL 继续返回基于原始 handler 返回值构造的 JSON 响应
+- **AND** 请求 SHALL 不因该 mismatch 自动进入 `onError`
