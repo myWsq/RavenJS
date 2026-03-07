@@ -45,12 +45,13 @@ The Agent will install the CLI (if missing), initialize the raven root, add core
 
 Work with RavenJS primarily through skills.
 
-| Skill           | When to use                                                                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **raven‑setup** | Project not yet set up for RavenJS.                                                                                                                    |
-| **raven‑use**   | Write application code with RavenJS (routes, handlers, hooks, validation, state). Use when the user wants to build an HTTP server or use RavenJS APIs. |
-| **raven‑add**   | Add a module (e.g. core) to an already initialized project. Use only after `raven init` has been run.                                                  |
-| **raven‑learn** | Learn a module’s API, architecture, and design. Run before writing code that depends on that module.                                                   |
+| Skill            | When to use                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **raven‑setup**  | Project not yet set up for RavenJS.                                                                                                                    |
+| **raven‑use**    | Write application code with RavenJS (routes, handlers, hooks, validation, state). Use when the user wants to build an HTTP server or use RavenJS APIs. |
+| **raven‑add**    | Add a module (e.g. core) to an already initialized project. Use only after `raven init` has been run.                                                  |
+| **raven‑learn**  | Learn a module’s API, architecture, and design. Run before writing code that depends on that module.                                                   |
+| **raven‑update** | Upgrade the project-local Raven CLI, run `raven sync`, analyze the Git diff, and adapt project code when the update introduces breaking changes.       |
 
 ## Available Modules
 
@@ -65,10 +66,15 @@ The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For co
 
 ## Updating
 
-- **CLI**: Upgrade to the latest in your project:
-  ```bash
-  bun add -d @raven.js/cli@latest
+- **Recommended**: trigger the Agent skill:
   ```
+  /raven-update
+  ```
+- **What the skill does**:
+  1. Upgrades `@raven.js/cli` in the current project
+  2. Verifies the Git worktree is clean
+  3. Runs `bunx raven sync`
+  4. Analyzes the Git diff and adapts project code if the update contains breaking changes
 - **AI skills**: Re-run to overwrite with the latest skill content:
   ```bash
   npx install-raven

@@ -40,6 +40,10 @@ async function runCli(args: string[], cwd: string, env?: Record<string, string>)
   return runCommand(["bun", cliPath, ...args], cwd, env);
 }
 
+async function runGit(args: string[], cwd: string, env?: Record<string, string>) {
+  return runCommand(["git", ...args], cwd, env);
+}
+
 async function createTempDir(tempDirs: string[]) {
   const tmp = await mkdtemp(join(tmpdir(), "raven-cli-test-"));
   tempDirs.push(tmp);
@@ -52,6 +56,40 @@ async function fileExists(path: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function initGitRepo(cwd: string) {
+  let result = await runGit(["init"], cwd);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout);
+  }
+
+  result = await runGit(["config", "user.email", "raven@example.com"], cwd);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout);
+  }
+
+  result = await runGit(["config", "user.name", "Raven Test"], cwd);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout);
+  }
+}
+
+async function commitAll(cwd: string, message: string) {
+  let result = await runGit(["add", "."], cwd);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout);
+  }
+
+  result = await runGit(["commit", "-m", message, "--no-gpg-sign"], cwd, {
+    GIT_AUTHOR_NAME: "Raven Test",
+    GIT_AUTHOR_EMAIL: "raven@example.com",
+    GIT_COMMITTER_NAME: "Raven Test",
+    GIT_COMMITTER_EMAIL: "raven@example.com",
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout);
   }
 }
 
@@ -200,6 +238,8 @@ describe("CLI E2E", () => {
       const json = JSON.parse(result.stdout.trim());
       expect(json).toHaveProperty("modules");
       expect(Array.isArray(json.modules)).toBe(true);
+      expect(json).not.toHaveProperty("modifiedFiles");
+      expect(json).not.toHaveProperty("fileHashes");
       for (const m of json.modules) {
         expect(m).toHaveProperty("name");
         expect(m).toHaveProperty("installed");
@@ -319,11 +359,14 @@ describe("CLI E2E", () => {
   describe("Sync Command", () => {
     it("should remove leftover files by rebuilding installed modules", async () => {
       const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await runCli(["add", "sql"], cwd);
+      await commitAll(cwd, "baseline");
 
       const extraFile = join(cwd, "raven", "sql", "extra.ts");
       await writeFile(extraFile, "export const stale = true;\n");
+      await commitAll(cwd, "add stale file");
 
       const result = await runCli(["sync"], cwd);
 
@@ -345,12 +388,15 @@ describe("CLI E2E", () => {
 
     it("should remove module directories that are no longer in the registry", async () => {
       const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await runCli(["add", "core"], cwd);
+      await commitAll(cwd, "baseline");
 
       const legacyDir = join(cwd, "raven", "legacy-module");
       await mkdir(legacyDir, { recursive: true });
       await writeFile(join(legacyDir, "index.ts"), "export {};\n");
+      await commitAll(cwd, "add legacy module");
 
       const result = await runCli(["sync"], cwd);
 
@@ -363,12 +409,15 @@ describe("CLI E2E", () => {
 
     it("should restore missing dependsOn modules during sync", async () => {
       const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await runCli(["add", "sql"], cwd);
+      await commitAll(cwd, "baseline");
 
       const coreDir = join(cwd, "raven", "core");
       await rm(coreDir, { recursive: true, force: true });
       expect(await fileExists(coreDir)).toBe(false);
+      await commitAll(cwd, "remove core manually");
 
       const result = await runCli(["sync"], cwd);
 
@@ -382,8 +431,11 @@ describe("CLI E2E", () => {
 
     it("should keep the original root when staging fails", async () => {
       const cwd = await createTempDir(tempDirs);
+      const brokenRegistryDir = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await runCli(["add", "core"], cwd);
+      await commitAll(cwd, "baseline");
 
       const yamlPath = join(cwd, "raven", "raven.yaml");
       const coreIndexPath = join(cwd, "raven", "core", "index.ts");
@@ -394,7 +446,7 @@ describe("CLI E2E", () => {
       registry.version = "9.9.9";
       registry.modules.core.files = [...registry.modules.core.files, "missing.ts"];
 
-      const brokenRegistryPath = join(cwd, "broken-registry.json");
+      const brokenRegistryPath = join(brokenRegistryDir, "broken-registry.json");
       await writeFile(brokenRegistryPath, JSON.stringify(registry, null, 2));
 
       const result = await runCli(["--registry", brokenRegistryPath, "sync"], cwd);
@@ -407,13 +459,16 @@ describe("CLI E2E", () => {
 
     it("should roll back the original root when the final swap fails", async () => {
       const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await runCli(["add", "sql"], cwd);
+      await commitAll(cwd, "baseline");
 
       const yamlPath = join(cwd, "raven", "raven.yaml");
       const extraFile = join(cwd, "raven", "sql", "extra.ts");
       const beforeYaml = await readFile(yamlPath, "utf-8");
       await writeFile(extraFile, "export const stillHereAfterRollback = true;\n");
+      await commitAll(cwd, "add rollback marker");
 
       const result = await runCli(["sync"], cwd, {
         RAVEN_SYNC_TEST_FAIL_AFTER_BACKUP: "1",
@@ -424,6 +479,39 @@ describe("CLI E2E", () => {
       expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
       expect(await fileExists(extraFile)).toBe(true);
       expect(await fileExists(join(cwd, "raven", "sql", "index.ts"))).toBe(true);
+    });
+
+    it("should fail outside a Git worktree without modifying raven root", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "core"], cwd);
+
+      const yamlPath = join(cwd, "raven", "raven.yaml");
+      const beforeYaml = await readFile(yamlPath, "utf-8");
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Git worktree");
+      expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
+    });
+
+    it("should fail in a dirty Git worktree without modifying raven root", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+      await runCli(["add", "core"], cwd);
+      await commitAll(cwd, "baseline");
+
+      const yamlPath = join(cwd, "raven", "raven.yaml");
+      const beforeYaml = await readFile(yamlPath, "utf-8");
+      await writeFile(join(cwd, "README.local.md"), "dirty\n");
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("clean Git worktree");
+      expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
     });
   });
 

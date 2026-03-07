@@ -50,10 +50,12 @@ RavenJS is not a traditional "controller + service + repository" framework.
 Its real runtime model is:
 
 - a logic-layer app
-- direct route registration in `app.ts`
+- direct route registration in `<app_root>/app.ts`
 - plugin-based runtime composition
 - lifecycle-driven request processing
 - scoped state injection
+
+Here `<app_root>/` means the directory that contains all Raven app code. It is usually `src/`, but the pattern does not require that exact directory name.
 
 So the RavenJS-friendly version of this architecture is:
 
@@ -82,7 +84,7 @@ Query
   -> returns Projection
 
 Runtime Assembly
-  -> assembles app.ts
+  -> assembles <app_root>/app.ts
   -> provides infra dependencies
   -> writes request context state
   -> maps framework errors to HTTP responses
@@ -145,9 +147,9 @@ Rules:
 ┌──────────────────────────────────────────────────────────────┐
 │                      Runtime Assembly                        │
 │                                                              │
-│  app.ts                                                      │
-│  plugins/                                                    │
-│  scopes.ts (optional)                                        │
+│  <app_root>/app.ts                                           │
+│  <app_root>/plugins/                                         │
+│  <app_root>/scopes.ts (optional)                             │
 │                                                              │
 │  register infra plugins                                      │
 │  register context plugins                                    │

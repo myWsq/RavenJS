@@ -37,7 +37,7 @@ Use different reading paths depending on the job:
 
 - **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`
 - **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `projection`, and `dto` files: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
-- **Runtime-assembly pattern path** — wire `app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
+- **Runtime-assembly pattern path** — wire `<app_root>/app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
 - **Plugin authoring details** — after the runtime-assembly path, read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
 - **Review path** — before finishing a change, run through [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 

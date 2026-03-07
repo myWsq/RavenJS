@@ -14,7 +14,7 @@ import {
 } from "fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "path";
 import { cwd } from "process";
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import { fileURLToPath } from "url";
 
 import { spinner as makeSpinner, log } from "@clack/prompts";
@@ -63,8 +63,6 @@ interface StatusResult {
   modules: ModuleInfo[];
   version?: string;
   language?: string;
-  modifiedFiles?: string[];
-  fileHashes?: Record<string, string>;
 }
 
 interface InstalledModuleState {
@@ -83,6 +81,12 @@ interface SyncBuildResult extends ModuleWriteResult {
   desiredModules: string[];
 }
 
+interface GitCommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
 function loadCliVersion(): string {
   return process.env.RAVEN_CLI_VERSION ?? "0.0.0";
 }
@@ -92,6 +96,56 @@ function getErrorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function runGitCommand(args: string[]): GitCommandResult {
+  const proc = Bun.spawnSync({
+    cmd: ["git", ...args],
+    cwd: cwd(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  return {
+    exitCode: proc.exitCode,
+    stdout: Buffer.from(proc.stdout).toString("utf-8"),
+    stderr: Buffer.from(proc.stderr).toString("utf-8"),
+  };
+}
+
+function isGitUnavailable(result: GitCommandResult): boolean {
+  const stderr = result.stderr.toLowerCase();
+  return (
+    result.exitCode === 127 ||
+    stderr.includes("command not found") ||
+    stderr.includes("no such file or directory")
+  );
+}
+
+function ensureCleanGitWorktree(): void {
+  const insideWorktree = runGitCommand(["rev-parse", "--is-inside-work-tree"]);
+  if (insideWorktree.exitCode !== 0) {
+    if (isGitUnavailable(insideWorktree)) {
+      error("Git is required for 'raven sync'. Install Git first.");
+    }
+
+    error(
+      "raven sync requires a Git worktree. Initialize Git or create a recoverable backup first.",
+    );
+  }
+
+  const status = runGitCommand(["status", "--porcelain"]);
+  if (status.exitCode !== 0) {
+    if (isGitUnavailable(status)) {
+      error("Git is required for 'raven sync'. Install Git first.");
+    }
+
+    error(`Failed to inspect Git worktree: ${status.stderr.trim() || "unknown git error"}`);
+  }
+
+  if (status.stdout.trim() !== "") {
+    error("raven sync requires a clean Git worktree. Commit or stash changes first.");
+  }
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -664,6 +718,7 @@ async function cmdAdd(moduleName: string, options: CLIOptions) {
 
 async function cmdSync(options: CLIOptions) {
   const registry = await loadRegistry(options);
+  ensureCleanGitWorktree();
   const { ravenDir, config } = await ensureRavenInstalled(options);
   const moduleState = await getInstalledModuleState(ravenDir, registry);
 
@@ -688,15 +743,8 @@ async function cmdSync(options: CLIOptions) {
   }
 }
 
-async function computeFileHash(filePath: string): Promise<string> {
-  const content = await readFile(filePath);
-  return createHash("sha256").update(content).digest("hex");
-}
-
 async function getStatus(registry: Registry, options: CLIOptions): Promise<StatusResult> {
   const ravenDir = getRavenDir(options);
-  const modifiedFiles: string[] = [];
-  const fileHashes: Record<string, string> = {};
   const moduleStatus: ModuleInfo[] = [];
   const knownModules = getModuleNames(registry).sort();
   let currentVersion: string | undefined;
@@ -722,21 +770,6 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
         installDir: resolve(moduleDir),
       });
     }
-
-    async function traverseDir(dir: string, baseDir: string) {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = join(dir, entry.name);
-        const relativePath = fullPath.slice(baseDir.length + 1);
-        if (entry.isDirectory()) {
-          await traverseDir(fullPath, baseDir);
-        } else {
-          fileHashes[relativePath] = await computeFileHash(fullPath);
-        }
-      }
-    }
-
-    await traverseDir(ravenDir, ravenDir);
   }
 
   if (moduleStatus.length === 0) {
@@ -756,8 +789,6 @@ async function getStatus(registry: Registry, options: CLIOptions): Promise<Statu
     modules: moduleStatus,
     version: currentVersion,
     language: language ?? "English (default)",
-    modifiedFiles,
-    fileHashes,
   };
 }
 
@@ -795,14 +826,16 @@ program
 
 program
   .command("sync")
-  .description("Sync installed modules to registry, remove stale module directories atomically")
+  .description(
+    "Sync installed modules to registry in a clean Git worktree, remove stale module directories atomically",
+  )
   .action(async () => {
     await cmdSync(program.opts() as CLIOptions);
   });
 
 program
   .command("status")
-  .description("Show RavenJS installation status (core, modules)")
+  .description("Show RavenJS installation status (version, language, modules)")
   .action(async () => {
     await cmdStatus(program.opts() as CLIOptions);
   });

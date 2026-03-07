@@ -407,29 +407,14 @@ All RavenJS CLI commands SHALL output JSON format by default, with the exception
 
 ### Requirement: CLI provides structured information for Agent
 
-The CLI SHALL provide structured information to help Agents make decisions, including current version, latest version, file hashes, and modified file status (via `raven status` and `raven diff`).
+CLI SHALL 提供当前真实可消费的 Agent 状态信息：当前 Raven 版本、交互语言，以及模块的安装状态与安装目录。CLI SHALL NOT 要求 `raven status` 暴露 `latest version`、`file hashes` 或其他 diff/hash 衍生字段。
 
 #### Scenario: Agent checks status
 
 - **WHEN** an Agent runs `raven status`
-- **THEN** the output SHALL include current version, latest version (when available), and file hashes
-
-### Requirement: CLI provides guidance entry points
-
-The CLI SHALL provide entry points for Agents to fetch information, without pre-computing change analysis.
-
-#### Scenario: Agent gets guidance
-
-- **WHEN** an Agent runs `raven guide <module>`
-- **THEN** the output SHALL be the contents of `GUIDE.md` from the installed module directory (`<root>/<module>/GUIDE.md`)
-- **AND** the content SHALL be output as plain text (not wrapped in XML or JSON)
-
-#### Scenario: guide 命令在模块缺少 GUIDE.md 时报错
-
-- **WHEN** an Agent runs `raven guide <module>`
-- **AND** the module is installed but `<root>/<module>/GUIDE.md` does not exist
-- **THEN** the CLI SHALL exit with an error message
-- **AND** no guide content SHALL be output
+- **THEN** 输出 SHALL 包含当前版本、语言和 `modules` 数组
+- **AND** 每个模块条目 SHALL 至少包含 `name`、`installed` 和 `installDir`
+- **AND** 输出 SHALL NOT 包含 `latest version` 或 `file hashes` 作为必需信息
 
 ### Requirement: Configurable Raven Root
 
@@ -496,3 +481,32 @@ The system SHALL allow users to configure the RavenJS root directory via `--root
 - **WHEN** staging 已完成，但将 staging root 切换为正式 `<root>/` 时发生失败
 - **THEN** the system SHALL 自动恢复同步前的 `<root>/`
 - **AND** 命令结束后用户 SHALL 不会看到部分模块已更新、部分模块仍为旧版本的中间态
+
+### Requirement: raven sync requires a clean Git worktree
+
+`raven sync` SHALL 仅在当前目录位于 Git 工作区且工作区干净时执行。若 Git 不可用、当前目录不在 Git 工作区内，或存在未提交改动，命令 SHALL 在开始 staging 之前失败，并且不得修改 live Raven root。
+
+#### Scenario: sync proceeds in a clean Git worktree
+
+- **WHEN** 用户在 Git 工作区中运行 `raven sync`
+- **AND** `git status --porcelain` 返回空结果
+- **THEN** 命令 SHALL 继续执行现有的 sync 流程
+
+#### Scenario: sync fails outside a Git worktree
+
+- **WHEN** 用户在不属于 Git 工作区的目录中运行 `raven sync`
+- **THEN** CLI SHALL 退出并提示用户先初始化 Git 或创建可恢复备份
+- **AND** `<root>/` 下的文件 SHALL 保持不变
+
+#### Scenario: sync fails in a dirty Git worktree
+
+- **WHEN** 用户在 Git 工作区中运行 `raven sync`
+- **AND** `git status --porcelain` 返回未提交改动
+- **THEN** CLI SHALL 退出并提示用户先提交或暂存改动
+- **AND** `<root>/` 下的文件 SHALL 保持不变
+
+#### Scenario: sync fails when Git is unavailable
+
+- **WHEN** 用户运行 `raven sync` 且执行 Git 检查失败，因为系统中不存在 `git` 命令
+- **THEN** CLI SHALL 退出并提示用户安装 Git 后再执行同步
+- **AND** `<root>/` 下的文件 SHALL 保持不变

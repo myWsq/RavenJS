@@ -22,23 +22,11 @@ All RavenJS CLI commands SHALL output JSON format by default, with the exception
 
 ### Requirement: CLI provides structured information for Agent
 
-The CLI SHALL provide structured information to help Agents make decisions, including:
-
-- Current version
-- Latest available version
-- Whether user has modified files
-- File hashes
+CLI SHALL 向 Agent 提供当前真实可消费的状态信息：当前 Raven 版本、交互语言，以及模块的安装状态与安装目录。CLI SHALL NOT 要求 `raven status` 提供 `latest version`、`modified file status` 或 `file hashes` 这类旧字段。
 
 #### Scenario: Agent checks status
 
 - **WHEN** an Agent runs `raven status`
-- **THEN** the output SHALL include current version, latest version, and modified file status (file hashes)
-
-### Requirement: CLI provides guidance entry points
-
-The CLI SHALL provide entry points for Agents to fetch information, without pre-computing change analysis.
-
-#### Scenario: Agent gets guidance
-
-- **WHEN** an Agent runs `raven guide`
-- **THEN** the output SHALL provide basic context and action entry points (fetch, diff, etc.)
+- **THEN** 输出 SHALL 包含当前版本、语言和 `modules` 数组
+- **AND** 每个模块条目 SHALL 至少包含 `name`、`installed` 和 `installDir`
+- **AND** 输出 SHALL NOT 依赖 `latest version` 或 `file hashes`

@@ -64,7 +64,7 @@ Why:
 Recommended pattern:
 
 ```ts
-// database.plugin.ts
+// <app_root>/plugins/database.plugin.ts
 const DBState = defineAppState<Bun.SQL>({ name: "db" });
 
 function databasePlugin(config: Bun.SQL.Options) {
@@ -80,7 +80,7 @@ export { DBState, databasePlugin };
 ```
 
 ```ts
-// auth.plugin.ts
+// <app_root>/plugins/auth.plugin.ts
 const CurrentUserState = defineRequestState<User>({ name: "current-user" });
 
 function authPlugin() {
@@ -99,7 +99,7 @@ function authPlugin() {
 export { CurrentUserState, authPlugin };
 ```
 
-Do not create a standalone `raven/state/` directory by default.
+Do not create a standalone `<app_root>/state/` directory by default.
 
 ### What Can Be Declared Separately?
 
@@ -110,19 +110,19 @@ The thing that is sometimes worth declaring separately is a shared `ScopeKey`.
 Keep all shared scope keys in one file when you need them:
 
 ```ts
-// scopes.ts
+// <app_root>/scopes.ts
 const ANALYTICS_DB = Symbol("analytics-db");
 
 export const ScopeKeys = { ANALYTICS_DB } as const;
 ```
 
 ```ts
-// app.ts
+// <app_root>/app.ts
 app.register(databasePlugin(analyticsConfig), ScopeKeys.ANALYTICS_DB);
 ```
 
 ```ts
-// reporting.plugin.ts
+// <app_root>/plugins/reporting.plugin.ts
 const sql = DBState.in(ScopeKeys.ANALYTICS_DB).getOrFailed();
 ```
 
@@ -155,13 +155,15 @@ This matches Raven's existing plugin and state patterns.
 
 ## Runtime Registration
 
-In RavenJS, runtime assembly should usually happen in `src/raven/app.ts`.
+In RavenJS, runtime assembly should usually happen directly under `<app_root>/`, where `<app_root>` is the directory that contains all Raven app code and is usually `src/`.
+
+The default composition root is `<app_root>/app.ts`.
 
 Use this split:
 
-- register routes directly in `app.ts`
+- register routes directly in `<app_root>/app.ts`
 - use plugins for reusable runtime concerns
-- register global `onError` handling in `app.ts` or a small reusable plugin
+- register global `onError` handling in `<app_root>/app.ts` or a small reusable plugin
 - register `onResponseValidationError` when response schema mismatch should produce logs, metrics, or alerts
 - keep feature code in `interface/`, not hidden behind route plugins by default
 
@@ -172,7 +174,7 @@ In practice, plugins here usually do one of two things:
 
 Route handlers do not need to be wrapped in plugins by default.
 
-Register them directly in `src/raven/app.ts` unless there is a concrete reason to hide route registration behind a plugin.
+Register them directly in `<app_root>/app.ts` unless there is a concrete reason to hide route registration behind a plugin.
 
 ## Lifecycle Placement Rules
 
@@ -192,7 +194,7 @@ Important RavenJS constraint:
 
 ## Composition Root Pattern
 
-`src/raven/app.ts` should be the single composition root.
+`<app_root>/app.ts` should be the single composition root.
 
 It should:
 
@@ -201,7 +203,9 @@ It should:
 3. register context plugins
 4. register routes directly
 5. register global error mapping
-6. export `await app.ready()`
+6. export `app`
+
+Let the actual serving entrypoint decide when to call `await app.ready()` instead of wrapping that step inside `<app_root>/app.ts`.
 
 Example shape:
 
@@ -219,9 +223,7 @@ app.onResponseValidationError(({ error, value }) => {
 app.post("/orders", CreateOrderInterface.handler);
 app.get("/orders/:id", GetOrderInterface.handler);
 
-const fetch = await app.ready();
-
-export { fetch };
+export { app };
 ```
 
 This keeps framework assembly out of entity code and out of interface folders.
@@ -230,4 +232,4 @@ This is the default RavenJS style for this pattern:
 
 - routes are visible in one place
 - runtime concerns are still modular through plugins
-- business code stays outside `app.ts`
+- business code stays outside `<app_root>/app.ts`

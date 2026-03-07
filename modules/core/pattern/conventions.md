@@ -9,7 +9,7 @@ Use this document after you know which layers you need and want the expected dir
 ## Directory Layout
 
 ```text
-src/
+<app_root>/
 ├── interface/
 │   ├── create-order.interface.ts
 │   ├── get-order.interface.ts
@@ -51,14 +51,15 @@ src/
 │   └── external/
 │       └── payment-gateway.ts
 │
-└── raven/
-    ├── app.ts
-    ├── plugins/
-    │   ├── database.plugin.ts
-    │   ├── auth.plugin.ts
-    │   └── error.plugin.ts
-    └── scopes.ts                       # optional, shared scope keys in one file
+├── app.ts
+├── plugins/
+│   ├── database.plugin.ts
+│   ├── auth.plugin.ts
+│   └── error.plugin.ts
+└── scopes.ts                           # optional, shared scope keys in one file
 ```
+
+`<app_root>/` means the directory that contains all Raven app code. In many projects this is `src/`, but the pattern does not require that exact directory name.
 
 In `entity/`, each subdirectory is one entity module.
 In `interface/`, files are named by one API entrypoint each.
@@ -88,8 +89,8 @@ Business files keep the original rule:
 
 Use fixed entrypoint names for runtime assembly:
 
-- `src/raven/app.ts`
-- `src/infra/...`
+- `<app_root>/app.ts`
+- `<app_root>/infra/...`
 
 ## Optional Extensions
 
