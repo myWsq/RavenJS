@@ -6,6 +6,7 @@ type ValidationResults = {
   query?: StandardSchemaV1.FailureResult;
   params?: StandardSchemaV1.FailureResult;
   headers?: StandardSchemaV1.FailureResult;
+  response?: StandardSchemaV1.FailureResult;
 };
 
 type ValidationInput = {
@@ -27,6 +28,7 @@ export class ValidationError extends Error {
   public readonly queryIssues?: readonly StandardSchemaV1.Issue[];
   public readonly paramsIssues?: readonly StandardSchemaV1.Issue[];
   public readonly headersIssues?: readonly StandardSchemaV1.Issue[];
+  public readonly responseIssues?: readonly StandardSchemaV1.Issue[];
 
   constructor(results: ValidationResults) {
     const allIssues = [
@@ -34,6 +36,7 @@ export class ValidationError extends Error {
       ...(results.query?.issues ?? []),
       ...(results.params?.issues ?? []),
       ...(results.headers?.issues ?? []),
+      ...(results.response?.issues ?? []),
     ];
     const message = allIssues.map((issue) => issue.message).join(", ");
     super(message);
@@ -42,6 +45,7 @@ export class ValidationError extends Error {
     this.queryIssues = results.query?.issues;
     this.paramsIssues = results.params?.issues;
     this.headersIssues = results.headers?.issues;
+    this.responseIssues = results.response?.issues;
   }
 }
 
@@ -55,15 +59,32 @@ function isFailureResult<T>(
   return Array.isArray(result?.issues);
 }
 
-async function validateSchema<T>(
-  schema: StandardSchemaV1<unknown, T> | undefined,
+async function validateSchema<I, O>(
+  schema: StandardSchemaV1<I, O> | undefined,
   value: unknown,
-): Promise<StandardSchemaV1.Result<T> | undefined> {
+): Promise<StandardSchemaV1.Result<O> | undefined> {
   if (!schema) {
     return undefined;
   }
 
   return schema["~standard"].validate(value);
+}
+
+export async function validateResponseSchema<I, O>(
+  schema: StandardSchemaV1<I, O>,
+  value: I,
+): Promise<O> {
+  const result = await validateSchema(schema, value);
+
+  if (!result) {
+    throw new Error("Response schema validation unexpectedly returned no result.");
+  }
+
+  if (isFailureResult(result)) {
+    throw new ValidationError({ response: result });
+  }
+
+  return result.value;
 }
 
 export async function validateRequestSchemas(

@@ -1,4 +1,5 @@
 import type { AnySchemaAwareHandler } from "../schema/with-schema.ts";
+import type { ValidationError } from "../schema/validation.ts";
 import type { StateSetter } from "../state/descriptors.ts";
 import type { ScopeKey } from "../state/storage.ts";
 import type { Raven } from "./raven.ts";
@@ -16,6 +17,14 @@ export type BeforeHandleHook = () => void | Response | Promise<void | Response>;
 export type BeforeResponseHook = (response: Response) => void | Response | Promise<void | Response>;
 export type OnErrorHook = (error: Error) => Response | Promise<Response> | void | Promise<void>;
 export type OnLoadedHook = (app: Raven) => void | Promise<void>;
+export interface ResponseValidationFailure {
+  error: ValidationError;
+  value: unknown;
+}
+
+export type OnResponseValidationErrorHook = (
+  failure: ResponseValidationFailure,
+) => void | Promise<void>;
 
 export interface Plugin {
   name: string;
@@ -28,4 +37,5 @@ export interface RavenHooks {
   beforeResponse: BeforeResponseHook[];
   onError: OnErrorHook[];
   onLoaded: OnLoadedHook[];
+  onResponseValidationError: OnResponseValidationErrorHook[];
 }

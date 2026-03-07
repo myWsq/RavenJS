@@ -7,17 +7,20 @@ import type {
   OnErrorHook,
   OnLoadedHook,
   OnRequestHook,
+  OnResponseValidationErrorHook,
   Plugin,
   RavenHooks,
   RavenInstance,
   RouteHandler,
 } from "./types.ts";
 import { BodyState, HeadersState, ParamsState, QueryState } from "../state/builtins.ts";
+import { isValidationError, validateResponseSchema } from "../schema/validation.ts";
 import { currentAppStorage, type ScopeKey } from "../state/storage.ts";
 import { isSchemaAwareHandler, type SchemaAwareHandler } from "../schema/with-schema.ts";
 import { RadixRouter } from "../routing/radix-router.ts";
 import { executePluginLoad, loadPlugins } from "../runtime/load-plugins.ts";
 import { dispatchRequest } from "../runtime/dispatch-request.ts";
+import { handleResponseValidationHooks } from "../runtime/handle-response-validation.ts";
 
 export function definePlugin(plugin: Plugin): Plugin {
   return plugin;
@@ -33,6 +36,7 @@ export class Raven implements RavenInstance {
     beforeResponse: [],
     onError: [],
     onLoaded: [],
+    onResponseValidationError: [],
   };
 
   private readonly pendingPlugins: Array<{ plugin: Plugin; scopeKey?: ScopeKey }> = [];
@@ -68,13 +72,38 @@ export class Raven implements RavenInstance {
   private addRoute(method: string, path: string, handler: RouteHandler): void {
     if (isSchemaAwareHandler(handler)) {
       this.router.add(method, path, {
-        handler: () =>
-          handler.handler({
+        handler: async () => {
+          const ctx = {
             body: BodyState.get(),
             query: (QueryState.get() ?? {}) as any,
             params: (ParamsState.get() ?? {}) as any,
             headers: (HeadersState.get() ?? {}) as any,
-          }),
+          };
+          const result = await handler.handler(ctx as any);
+
+          if (!handler.schemas.response) {
+            return result as Response;
+          }
+
+          try {
+            const validatedResponse = await validateResponseSchema(
+              handler.schemas.response,
+              result,
+            );
+
+            return Response.json(validatedResponse);
+          } catch (error) {
+            if (isValidationError(error) && error.responseIssues) {
+              await handleResponseValidationHooks(
+                { error, value: result },
+                this.hooks.onResponseValidationError,
+              );
+              return Response.json(result);
+            }
+
+            throw error;
+          }
+        },
         schemas: handler.schemas,
       });
       return;
@@ -84,35 +113,35 @@ export class Raven implements RavenInstance {
   }
 
   get(path: string, handler: Handler): this;
-  get<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  get<B, Q, P, H, RI, RO>(path: string, handler: SchemaAwareHandler<B, Q, P, H, RI, RO>): this;
   get(path: string, handler: RouteHandler): this {
     this.addRoute("GET", path, handler);
     return this;
   }
 
   post(path: string, handler: Handler): this;
-  post<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  post<B, Q, P, H, RI, RO>(path: string, handler: SchemaAwareHandler<B, Q, P, H, RI, RO>): this;
   post(path: string, handler: RouteHandler): this {
     this.addRoute("POST", path, handler);
     return this;
   }
 
   put(path: string, handler: Handler): this;
-  put<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  put<B, Q, P, H, RI, RO>(path: string, handler: SchemaAwareHandler<B, Q, P, H, RI, RO>): this;
   put(path: string, handler: RouteHandler): this {
     this.addRoute("PUT", path, handler);
     return this;
   }
 
   delete(path: string, handler: Handler): this;
-  delete<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  delete<B, Q, P, H, RI, RO>(path: string, handler: SchemaAwareHandler<B, Q, P, H, RI, RO>): this;
   delete(path: string, handler: RouteHandler): this {
     this.addRoute("DELETE", path, handler);
     return this;
   }
 
   patch(path: string, handler: Handler): this;
-  patch<B, Q, P, H>(path: string, handler: SchemaAwareHandler<B, Q, P, H>): this;
+  patch<B, Q, P, H, RI, RO>(path: string, handler: SchemaAwareHandler<B, Q, P, H, RI, RO>): this;
   patch(path: string, handler: RouteHandler): this {
     this.addRoute("PATCH", path, handler);
     return this;
@@ -140,6 +169,11 @@ export class Raven implements RavenInstance {
 
   onLoaded(hook: OnLoadedHook): this {
     this.hooks.onLoaded.push(hook);
+    return this;
+  }
+
+  onResponseValidationError(hook: OnResponseValidationErrorHook): this {
+    this.hooks.onResponseValidationError.push(hook);
     return this;
   }
 }

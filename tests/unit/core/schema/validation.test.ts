@@ -2,6 +2,30 @@ import { describe, expect, it } from "bun:test";
 import { QueryState, Raven, isValidationError, withSchema } from "../../../../modules/core";
 import { z } from "zod";
 
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
+
+const typedResponseHandler = withSchema(
+  {
+    response: z.object({
+      page: z.string().transform((value) => Number(value)),
+    }),
+  },
+  async () => ({ page: "1" }),
+);
+
+type TypedResponseInput = Awaited<ReturnType<typeof typedResponseHandler.handler>>;
+type _typedResponseUsesSchemaInput = Expect<Equal<TypedResponseInput, { page: string }>>;
+
+const typedResponselessHandler = withSchema({}, async () => new Response("OK"));
+
+type TypedResponselessReturn = Awaited<ReturnType<typeof typedResponselessHandler.handler>>;
+type _responselessHandlerStillReturnsResponse = Expect<Equal<TypedResponselessReturn, Response>>;
+
+// @ts-expect-error response DTO requires a declared response schema
+withSchema({}, async () => ({ ok: true }));
+
 describe("withSchema", () => {
   it("should pass validated body to handler", async () => {
     const bodySchema = z.object({
@@ -93,7 +117,7 @@ describe("withSchema", () => {
     let beforeHandlePage: number | undefined;
     const app = new Raven();
     app.beforeHandle(() => {
-      beforeHandlePage = (QueryState.getOrFailed() as { page: number }).page;
+      beforeHandlePage = (QueryState.getOrFailed() as unknown as { page: number }).page;
     });
     app.get(
       "/test",
@@ -382,5 +406,98 @@ describe("withSchema", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toEqual({ name: "async test" });
+  });
+
+  it("should validate response schema and serialize schema output as json", async () => {
+    const responseSchema = z.object({
+      page: z.string().transform((value) => Number(value)),
+    });
+
+    let beforeResponseBody: unknown;
+    const app = new Raven();
+    app.beforeResponse(async (response) => {
+      beforeResponseBody = await response.clone().json();
+    });
+    app.get(
+      "/test",
+      withSchema({ response: responseSchema }, async () => {
+        return { page: "8" };
+      }),
+    );
+
+    const response = await (await app.ready())(new Request("http://localhost/test"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(await response.json()).toEqual({ page: 8 });
+    expect(beforeResponseBody).toEqual({ page: 8 });
+  });
+
+  it("should trigger response validation hook and fall back to raw json when response validation fails", async () => {
+    const responseSchema = z.object({
+      page: z.string().transform((value) => Number(value)),
+    });
+
+    let capturedError: Error | undefined;
+    let capturedPayload: unknown;
+    let beforeResponseBody: unknown;
+    let onErrorCalled = false;
+    const app = new Raven();
+    app.beforeResponse(async (response) => {
+      beforeResponseBody = await response.clone().json();
+    });
+    app.onResponseValidationError((failure) => {
+      capturedError = failure.error;
+      capturedPayload = failure.value;
+    });
+    app.get(
+      "/test",
+      withSchema({ response: responseSchema }, async () => {
+        return { page: 8 } as any;
+      }),
+    );
+    app.onError((err) => {
+      onErrorCalled = true;
+      capturedError = err;
+      return new Response("Error", { status: 500 });
+    });
+
+    const response = await (await app.ready())(new Request("http://localhost/test"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ page: 8 });
+    expect(beforeResponseBody).toEqual({ page: 8 });
+    expect(capturedPayload).toEqual({ page: 8 });
+    expect(onErrorCalled).toBe(false);
+    expect(isValidationError(capturedError!)).toBe(true);
+    expect((capturedError as ReturnType<typeof Object.assign>).responseIssues).toBeDefined();
+  });
+
+  it("should ignore response validation hook errors and still return fallback json", async () => {
+    const responseSchema = z.object({
+      page: z.string().transform((value) => Number(value)),
+    });
+
+    const app = new Raven();
+    const originalConsoleError = console.error;
+    try {
+      console.error = () => {};
+      app.onResponseValidationError(() => {
+        throw new Error("hook failed");
+      });
+      app.get(
+        "/test",
+        withSchema({ response: responseSchema }, async () => {
+          return { page: 9 } as any;
+        }),
+      );
+
+      const response = await (await app.ready())(new Request("http://localhost/test"));
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ page: 9 });
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 });

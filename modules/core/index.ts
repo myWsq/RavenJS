@@ -8,7 +8,9 @@ export type {
   OnErrorHook,
   OnLoadedHook,
   OnRequestHook,
+  OnResponseValidationErrorHook,
   Plugin,
+  ResponseValidationFailure,
   RavenInstance,
   RouteHandler,
 } from "./app/types.ts";

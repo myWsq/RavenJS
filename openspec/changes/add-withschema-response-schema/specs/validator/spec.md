@@ -1,0 +1,67 @@
+## MODIFIED Requirements
+
+### Requirement: Core 导出 Schema-Aware Handler 工具
+
+`@raven.js/core` SHALL 提供 `withSchema(schemas, handler)` API，用于声明 body/query/params/headers/response 的 Standard Schema，并向业务 handler 传入对应的 typed context。对于 `body`、`query`、`params`、`headers`，`ctx` SHALL 使用各自 schema 的输出类型；对于 `response`，若已声明，则业务 handler 的返回值类型 SHALL 为该 response schema 的输入类型，core 再负责把校验后的输出包装成 JSON `Response`。
+
+#### Scenario: 使用 body schema 生成 typed context
+
+- **WHEN** 开发者从 `@raven.js/core` 导入 `withSchema`，并声明 `withSchema({ body: UserSchema }, (ctx) => ...)`
+- **THEN** `ctx.body` SHALL 使用 `UserSchema` 的输出类型
+- **AND** 业务 handler SHALL 直接接收到校验后的 body 值
+
+#### Scenario: 仅声明部分请求 schema
+
+- **WHEN** 开发者只声明 `body` 和 `query` schema
+- **THEN** `ctx.body` 与 `ctx.query` SHALL 使用各自 schema 的输出值
+- **AND** `ctx.params` 与 `ctx.headers` SHALL 直接使用当前请求状态中的值
+
+#### Scenario: 定义 response schema 时切换 handler 返回类型
+
+- **WHEN** 开发者声明 `withSchema({ response: UserResponseSchema }, async () => ({ id: "1" }))`
+- **THEN** 该业务 handler 的返回值类型 SHALL 为 `UserResponseSchema` 的输入类型
+- **AND** core SHALL 使用 `UserResponseSchema` 的输出值作为最终 JSON 响应体
+
+#### Scenario: 未定义 response schema 时保持 Response 返回
+
+- **WHEN** 开发者未声明 `response` schema
+- **THEN** schema-aware handler 的返回值类型 SHALL 保持为 `Response`
+- **AND** 现有 `withSchema(..., (ctx) => new Response(...))` 用法 SHALL 保持兼容
+
+### Requirement: Core 提供结构化校验错误
+
+`@raven.js/core` SHALL 导出 `ValidationError` 与 `isValidationError`，用于表示和识别请求 schema 校验失败，以及 response schema mismatch 的结构化问题详情。
+
+#### Scenario: 单一请求数据源校验失败
+
+- **WHEN** body schema 校验失败
+- **THEN** core SHALL 抛出 `ValidationError`
+- **AND** 该错误的 `bodyIssues` SHALL 包含 body 的校验问题
+
+#### Scenario: 多个请求数据源同时校验失败
+
+- **WHEN** body 与 query schema 同时校验失败
+- **THEN** core SHALL 抛出同一个 `ValidationError`
+- **AND** 该错误 SHALL 分别保留 `bodyIssues` 与 `queryIssues`
+
+#### Scenario: response schema 校验失败
+
+- **WHEN** schema-aware handler 声明了 `response` schema，但返回值不满足该 schema
+- **THEN** core SHALL 构造可被 `isValidationError()` 识别的 `ValidationError`
+- **AND** 该错误的 `responseIssues` SHALL 包含 response 的校验问题
+- **AND** 该错误 SHALL 传递给专门的 response validation hook，而不是默认抛入 `onError`
+
+### Requirement: Schema 库无关性 (Schema Library Agnostic)
+
+Core 层 SHALL 内建 Standard Schema 协议支持，但 SHALL 不依赖任何特定 Schema 验证库。开发者可以向 core 传入任意符合 Standard Schema 的 schema 实例作为请求或响应 schema。
+
+#### Scenario: Core 无特定校验库依赖
+
+- **WHEN** 检查 `@ravenjs/core` 的 package.json
+- **THEN** SHALL 不包含 Zod、Valibot、ArkType、Ajv 等特定校验库作为必需运行时依赖
+
+#### Scenario: 使用 Standard Schema 兼容库
+
+- **WHEN** 开发者向 `withSchema` 传入任意实现 Standard Schema 的 body/query/params/headers/response schema
+- **THEN** core SHALL 调用该 schema 的 `~standard.validate` 方法
+- **AND** SHALL 在请求侧使用其输出值作为校验结果，或在响应侧使用其输出值作为 `Response.json(...)` 的 payload

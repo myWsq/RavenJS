@@ -7,7 +7,7 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 - Logic layer: `app.ready()` returns a `FetchHandler`
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
-- Built-in Standard Schema request validation via `withSchema`
+- Built-in Standard Schema request/response validation via `withSchema`
 - Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
 - `SchemaClass` for schema-shape type inference
@@ -145,7 +145,7 @@ For routes registered through `withSchema`, these states contain validated outpu
 
 ## Schema Validation
 
-Core includes Standard Schema-based request validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, and `headers`; Raven validates them during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler.
+Core includes Standard Schema-based request and response validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
 
 ```typescript
 import { Raven, isValidationError, withSchema } from "@raven.js/core";
@@ -160,10 +160,21 @@ app.post(
       body: z.object({
         name: z.string(),
       }),
+      response: z.object({
+        id: z.string().transform((value) => Number(value)),
+        name: z.string(),
+      }),
     },
-    async (ctx) => Response.json(ctx.body),
+    async (ctx) => ({
+      id: "1",
+      name: ctx.body.name,
+    }),
   ),
 );
+
+app.onResponseValidationError(({ error, value }) => {
+  console.error("Response schema mismatch", error.responseIssues, value);
+});
 
 app.onError((error) => {
   if (isValidationError(error)) {
@@ -171,6 +182,8 @@ app.onError((error) => {
   }
 });
 ```
+
+`responseIssues` is primarily useful inside `onResponseValidationError`. Request-side validation failures still go through `onError` as before.
 
 `SchemaClass(shape)` is also exported from core for DTO-style type inference. It exposes `_shape` on the class and instance, but does not perform runtime validation.
 
