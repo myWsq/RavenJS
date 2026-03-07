@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { mkdtemp, rm, readFile, access } from "fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -8,8 +8,6 @@ const repoRoot = resolve(import.meta.dir, "..", "..");
 const cliDistDir = join(repoRoot, "packages", "cli", "dist");
 const cliPath = join(cliDistDir, "raven");
 const registryPath = join(cliDistDir, "registry.json");
-const sourcePath = join(cliDistDir, "source");
-const buildScriptPath = join(repoRoot, "packages", "cli", "scripts", "build.ts");
 
 async function runCommand(cmd: string[], cwd: string, env?: Record<string, string>) {
   if (!isBun) {
@@ -29,11 +27,8 @@ async function runCommand(cmd: string[], cwd: string, env?: Record<string, strin
 }
 
 async function ensureBuilt() {
-  const registryExists = await Bun.file(registryPath).exists();
-  const sourceExists = await Bun.file(join(sourcePath, "core")).exists();
-  if (registryExists && sourceExists) return;
   const result = await runCommand(
-    ["bun", "run", buildScriptPath],
+    ["bun", "run", "scripts/build.ts"],
     join(repoRoot, "packages", "cli"),
   );
   if (result.exitCode !== 0) {
@@ -41,8 +36,8 @@ async function ensureBuilt() {
   }
 }
 
-async function runCli(args: string[], cwd: string) {
-  return runCommand(["bun", cliPath, ...args], cwd);
+async function runCli(args: string[], cwd: string, env?: Record<string, string>) {
+  return runCommand(["bun", cliPath, ...args], cwd, env);
 }
 
 async function createTempDir(tempDirs: string[]) {
@@ -58,6 +53,13 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readRegistry() {
+  return JSON.parse(await readFile(registryPath, "utf-8")) as {
+    version: string;
+    modules: Record<string, { files: string[]; dependsOn?: string[] }>;
+  };
 }
 
 describe("CLI E2E", () => {
@@ -311,6 +313,117 @@ describe("CLI E2E", () => {
 
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain("Unknown module");
+    });
+  });
+
+  describe("Sync Command", () => {
+    it("should remove leftover files by rebuilding installed modules", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "sql"], cwd);
+
+      const extraFile = join(cwd, "raven", "sql", "extra.ts");
+      await writeFile(extraFile, "export const stale = true;\n");
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      const lines = result.stdout.trim().split("\n").filter(Boolean);
+      expect(lines.length).toBe(2);
+
+      const syncResult = JSON.parse(lines[0] || "{}");
+      expect(syncResult.success).toBe(true);
+      expect(syncResult.syncedModules).toEqual(["core", "sql"]);
+      expect(syncResult.removedModules).toEqual([]);
+
+      expect(await fileExists(extraFile)).toBe(false);
+
+      const status = JSON.parse(lines[1] || "{}");
+      expect(findModule(status.modules, "core")?.installed).toBe(true);
+      expect(findModule(status.modules, "sql")?.installed).toBe(true);
+    });
+
+    it("should remove module directories that are no longer in the registry", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "core"], cwd);
+
+      const legacyDir = join(cwd, "raven", "legacy-module");
+      await mkdir(legacyDir, { recursive: true });
+      await writeFile(join(legacyDir, "index.ts"), "export {};\n");
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      const lines = result.stdout.trim().split("\n").filter(Boolean);
+      const syncResult = JSON.parse(lines[0] || "{}");
+      expect(syncResult.removedModules).toEqual(["legacy-module"]);
+      expect(await fileExists(legacyDir)).toBe(false);
+    });
+
+    it("should restore missing dependsOn modules during sync", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "sql"], cwd);
+
+      const coreDir = join(cwd, "raven", "core");
+      await rm(coreDir, { recursive: true, force: true });
+      expect(await fileExists(coreDir)).toBe(false);
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      expect(await fileExists(join(coreDir, "index.ts"))).toBe(true);
+
+      const lines = result.stdout.trim().split("\n").filter(Boolean);
+      const syncResult = JSON.parse(lines[0] || "{}");
+      expect(syncResult.syncedModules).toEqual(["core", "sql"]);
+    });
+
+    it("should keep the original root when staging fails", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "core"], cwd);
+
+      const yamlPath = join(cwd, "raven", "raven.yaml");
+      const coreIndexPath = join(cwd, "raven", "core", "index.ts");
+      const beforeYaml = await readFile(yamlPath, "utf-8");
+      const beforeCore = await readFile(coreIndexPath, "utf-8");
+
+      const registry = await readRegistry();
+      registry.version = "9.9.9";
+      registry.modules.core.files = [...registry.modules.core.files, "missing.ts"];
+
+      const brokenRegistryPath = join(cwd, "broken-registry.json");
+      await writeFile(brokenRegistryPath, JSON.stringify(registry, null, 2));
+
+      const result = await runCli(["--registry", brokenRegistryPath, "sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Missing embedded source file");
+      expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
+      expect(await readFile(coreIndexPath, "utf-8")).toBe(beforeCore);
+    });
+
+    it("should roll back the original root when the final swap fails", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await runCli(["init"], cwd);
+      await runCli(["add", "sql"], cwd);
+
+      const yamlPath = join(cwd, "raven", "raven.yaml");
+      const extraFile = join(cwd, "raven", "sql", "extra.ts");
+      const beforeYaml = await readFile(yamlPath, "utf-8");
+      await writeFile(extraFile, "export const stillHereAfterRollback = true;\n");
+
+      const result = await runCli(["sync"], cwd, {
+        RAVEN_SYNC_TEST_FAIL_AFTER_BACKUP: "1",
+      });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("Simulated sync failure after backup");
+      expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
+      expect(await fileExists(extraFile)).toBe(true);
+      expect(await fileExists(join(cwd, "raven", "sql", "index.ts"))).toBe(true);
     });
   });
 
