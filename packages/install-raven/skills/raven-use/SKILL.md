@@ -67,6 +67,7 @@ Read the full guide output and the files it references (README, source, and rele
 
 Before editing files, classify the task into one of these shapes:
 
+- `object style service` — cohesive reusable helper/service surface that is not runtime state
 - `simple write` — one entity path, little or no reusable orchestration
 - `reusable write` — multi-entity or cross-entrypoint write workflow worth extracting
 - `complex read` — reusable read model that needs `Query + Projection`
@@ -77,18 +78,20 @@ Write down a short Pattern Plan in your notes before touching files. It must ans
 - which task shape applies
 - which layers are required, and which layers are explicitly not needed
 - which files or directories should be created or updated
-- whether each reusable dependency is true runtime state or should stay a repository-style object module
+- whether each reusable dependency is true runtime state, a generic `Object Style Service`, or a specialized form such as `Repository` / `Command` / `Query`
 - where business rules, persistence, query logic, hooks, and plugins belong
 
 Apply the default-light rules from the pattern docs:
 
 - do not add more layers by default
+- use `Object Style Service` as the default shape for reusable helpers and services
 - only introduce `Command` for reusable multi-entity write workflows
 - only introduce `Query + Projection` for complex reusable reads
 - prefer the runtime assembly path for plugin/state/hook/app problems instead of forcing business layers
 - only introduce `AppState` / `RequestState` when Raven runtime must own initialization, lifetime, or scope
 - do not promote an ordinary helper or service to `AppState` just because it is shared
-- if a module can follow `Repository`'s object-export style, keep it as a plain object module instead of writing a singleton class
+- if a service only needs a cohesive function surface, keep it as an `Object Style Service`
+- if that `Object Style Service` specifically owns `Entity <-> DB`, name it `Repository`
 
 ---
 
@@ -109,7 +112,7 @@ At minimum, verify:
 
 - entities and repositories did not import Raven runtime APIs without a strong reason
 - hooks and plugins did not absorb business logic that belongs in entities, commands, or queries
-- ordinary reusable helpers were not turned into `AppState` or singleton classes without a runtime-owned lifecycle reason
+- ordinary reusable helpers were not turned into `AppState` or singleton classes when `Object Style Service` was enough
 - new files follow the expected naming and placement rules
 - any deliberate deviation from the pattern is explicit and justified
 

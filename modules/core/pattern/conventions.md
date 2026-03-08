@@ -80,6 +80,7 @@ Business files keep the original rule:
 | `.interface.ts`  | Interface                   | `create-order.interface.ts`    |
 | `.entity.ts`     | Entity                      | `order.entity.ts`              |
 | `.repository.ts` | Entity                      | `order.repository.ts`          |
+| `.service.ts`    | Object Style Service        | `order-permission.service.ts`  |
 | `.command.ts`    | Command                     | `submit-order.command.ts`      |
 | `.query.ts`      | Query                       | `list-order.query.ts`          |
 | `.projection.ts` | Projection                  | `paged-order-id.projection.ts` |
@@ -98,7 +99,7 @@ This pattern stays intentionally light.
 
 Do not add more layers by default.
 
-Do not create plugin/state wrappers for ordinary reusable modules just to make them singleton. If a helper, service, or adapter can stay a repository-style object export, keep it that way.
+Do not create plugin/state wrappers for ordinary reusable modules just to make them singleton. If a helper, service, or adapter can stay an `Object Style Service`, keep it that way.
 
 Use `Command` when a write workflow is reused across:
 
@@ -109,15 +110,21 @@ Use `Command` when a write workflow is reused across:
 
 Use `Query` when a complex query is reused across entrypoints.
 
+Object Style Service rules:
+
+- use `{name}.service.ts` when the module is a reusable service but not specifically a `Repository`, `Command`, or `Query`
+- keep the file near the domain or infra it supports; do not create a giant global service layer by default
+
 Until then:
 
 - a single interface file is enough for orchestration
 - entity is enough for business rules
-- a repository-style object export is enough for reusable helpers that do not need Raven-managed lifecycle
+- an `Object Style Service` export is enough for reusable helpers that do not need Raven-managed lifecycle
 
-Single-module object export rule:
+Object module export rule:
 
-- when a file is centered on one object module such as `CreateOrderInterface`, `OrderRepository`, `SubmitOrderCommand`, `ListOrderQuery`, or `ScopeKeys`, keep `export const Name = { memberA, memberB }` on the last line
+- when a file is centered on one object module such as `CreateOrderInterface`, `OrderPermissionService`, `OrderRepository`, `SubmitOrderCommand`, `ListOrderQuery`, or `ScopeKeys`, keep `export const Name = { memberA, memberB }` on the last line
 - define the detailed members above that line, for example `const body`, `const response`, `const handler`, `const load`, `const save`, or `const execute`
 - do not split that pattern into `const Name = ...` plus a trailing `export { Name }`
+- `Repository` is one named `Object Style Service`; `Command` and `Query` often use the same object-module shape
 - this rule is for object-style module files; classes, functions, and state declarations can keep normal named exports

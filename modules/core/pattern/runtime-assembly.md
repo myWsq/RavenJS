@@ -117,27 +117,35 @@ Before introducing `AppState` or `RequestState`, ask:
 2. does it need Raven app/request lifetime or scope isolation?
 3. must hooks or handlers read it through `State`, instead of a normal module import?
 
-If the answer is no, keep it as a normal module export.
+If the answer is no, keep it as an `Object Style Service` or another normal module export.
 
 This is the default for:
 
 - lightweight services or helpers
-- repository-style modules that only happen to be reused
+- object style services, including `Repository`, `Command`, and `Query`
 
-Reference the repository pattern here:
+RavenJS note:
 
-- write it as a plain object or function collection
-- export the module directly
-- let it read the real runtime dependency it needs, such as `DBState`
-- do not add plugin/state ceremony unless Raven runtime truly needs to own it
+- ScopedState is already the DI system
+- independent functions can call `DBState.getOrFailed()`, `CurrentUserState.getOrFailed()`, and other ScopedState readers directly when needed
+- if several related functions belong together, export them as one `Object Style Service`
+- do not add plugin/state ceremony unless Raven runtime truly needs to own the dependency itself
 
-Example of a reusable helper that does **not** need `AppState`:
+Example of an `Object Style Service` that does **not** need `AppState`:
 
 ```ts
-// <app_root>/infra/external/slug.service.ts
-const create = (title: string) => title.trim().toLowerCase().replaceAll(/\s+/g, "-");
+// <app_root>/auth/token.service.ts
+const issue = async (userId: string) => {
+  const config = AuthConfigState.getOrFailed();
+  return signToken({ sub: userId }, config.jwtSecret);
+};
 
-export const SlugService = { create };
+const verify = async (token: string) => {
+  const config = AuthConfigState.getOrFailed();
+  return verifyToken(token, config.jwtSecret);
+};
+
+export const TokenService = { issue, verify };
 ```
 
 ### What Can Be Declared Separately?
@@ -175,7 +183,7 @@ Use this split:
 
 1. `AppState` for shared runtime dependencies such as database clients
 2. `RequestState` for per-request derived context
-3. plain object modules or function collections for reusable code that does not need Raven-managed lifetime
+3. plain object style services or function collections for reusable code that does not need Raven-managed lifetime
 4. plain constructor params only inside pure object construction
 
 This keeps Raven's DI model consistent while still allowing entity objects to stay plain.

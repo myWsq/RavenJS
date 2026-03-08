@@ -239,6 +239,7 @@ ScopedState uses AsyncLocalStorage as the underlying mechanism for DI. Compared 
 - **Async-safe**: state propagates automatically through the async call chain without cross-request leakage
 - **Zero boilerplate**: handlers don't need to receive a context argument — dependencies are injected into the call chain automatically
 - **Flexible access**: unlike decorators that bake dependencies into constructor or method signatures, you can obtain injected dependencies anywhere in the call chain, only when needed — no rigid injection points
+- **Object-style services fit naturally**: reusable functions can read ScopedState on demand, so ordinary services do not need singleton class injection by default
 - **High performance**: zero-copy access, lighter than decorators or full-featured DI containers
 
 ## Why are handlers zero-argument functions?

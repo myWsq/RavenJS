@@ -4,12 +4,12 @@ This document is the entrypoint for the pattern. Read this file first, then go d
 
 The first user of this pattern is the Agent. This document should help an Agent decide where code belongs before it starts generating code.
 
-Use this document when the task is about business-facing RavenJS code structure: `interface`, `entity`, `repository`, `command`, `query`, `projection`, and `dto`.
+Use this document when the task is about business-facing RavenJS code structure: `interface`, `service`, `entity`, `repository`, `command`, `query`, `projection`, and `dto`.
 
 ## Reading Guide
 
 - Overview: this file
-- [Layer Responsibilities](./layer-responsibilities.md): handler, DTO, entity, repository, command, query, and projection rules
+- [Layer Responsibilities](./layer-responsibilities.md): handler, object style service, DTO, entity, repository, command, query, and projection rules
 - [Runtime Assembly](./runtime-assembly.md): plugins, `AppState`, `RequestState`, lifecycle placement, and composition root
 - [Conventions](./conventions.md): directory layout, naming, and optional extensions
 - [Anti-Patterns](./anti-patterns.md): common mistakes and review smells
@@ -21,8 +21,9 @@ This pattern adapts a lightweight entity-centric server architecture to RavenJS.
 It keeps the original design's core ideas:
 
 - `Interface` as the organization unit for inbound APIs
+- `Object Style Service` as the default module shape for reusable service capability
 - `Entity` as the carrier of business rules
-- `Repository` as direct persistence logic
+- `Repository` as the Object Style Service specialized for direct persistence logic
 - `Command` as the abstraction for reusable write workflows
 - `Query` as the abstraction for complex reusable queries
 - `Projection` as the read-only query result model
@@ -57,7 +58,9 @@ Its real runtime model is:
 - lifecycle-driven request processing
 - scoped state injection
 
-Ordinary reusable helpers should usually follow the `Repository` style: plain object module, direct export, no `AppState`. Only move a dependency into runtime assembly when Raven runtime must own its initialization, lifetime, or scope.
+Compared with a traditional service layer built around container-injected singleton classes, RavenJS lets independent functions read ScopedState on demand. When several related functions belong together, group them into one exported object. This is the default RavenJS service shape: `Object Style Service`.
+
+`Repository` is one named `Object Style Service`: it is the version whose responsibility is specifically `Entity <-> DB`.
 
 Here `<app_root>/` means the directory that contains all Raven app code. It is usually `src/`, but the pattern does not require that exact directory name.
 
@@ -125,36 +128,48 @@ Short rule for Agents:
 
 If a rule would still apply for queue, cron, script, or test-created input after HTTP disappears, it belongs in the entity.
 
-## Repository / Command / Query Boundary
+## Object Style Service / Repository / Command / Query Boundary
 
 The core tension of this pattern is not read/write separation.
 
-It is keeping `Repository` small and stable while still giving reusable write and query logic a home.
+It is keeping each reusable capability small and stable while still giving persistence, write orchestration, and read queries clear homes.
+
+`Object Style Service` is not a separate architectural layer.
+
+It is RavenJS's default reusable module shape:
+
+- group related functions into one exported object
+- let each function read ScopedState on demand when needed
+- do not introduce singleton service class injection by default
 
 Use this split:
 
 ```text
+Object Style Service
+  -> groups related reusable functions
+  -> may read ScopedState on demand
+
 Repository
-  -> returns Entity
-  -> persists Entity
+  -> Object Style Service specialized for Entity <-> DB
 
 Command
-  -> orchestrates write workflows
-  -> coordinates multiple Entity / Repository operations
+  -> Object Style Service specialized for reusable write workflows
 
 Query
+  -> Object Style Service specialized for reusable read models
   -> returns Projection
-  -> handles complex reusable queries
 ```
 
 Rules:
 
+- start with `Object Style Service` when you need a cohesive reusable capability
+- an `Object Style Service` may read ScopedState directly inside its functions; it does not need constructor injection or container registration by default
+- if the responsibility is specifically `Entity <-> DB`, call it `Repository`
 - `Repository` only mediates `Entity <-> DB`
 - `Repository.save(...)` should persist the entity's already-explicit state, not assign business-visible fields implicitly as a side effect
 - if a write workflow spans multiple entities and is worth reusing, use `Command`
 - `Repository` may query, but only when the result is still that model itself
 - if the result is cascading, aggregated, joined, or otherwise no longer "the model itself", use `Query + Projection`
-- if a reusable helper can follow `Repository`'s object-export style, keep it as a normal module instead of promoting it to `AppState`
 - not every write workflow needs a `Command`
 - only extract a `Command` when the write logic is both reusable and beyond a single entity path
 - not every SQL statement needs a `Query`
@@ -163,17 +178,18 @@ Rules:
 
 ## Core Concepts
 
-| Concept            | Responsibility                                                         | RavenJS Mapping                                                                |
-| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Interface Unit`   | One API entrypoint, including transport schema, output schema, handler | single exported interface object + `withSchema()` handler + route registration |
-| `Entity`           | Pure in-memory business model and behavior                             | plain TypeScript class/value object                                            |
-| `Repository`       | Persistence and hydration for an entity itself                         | object or function collection, usually reading infra from `AppState`           |
-| `Command`          | Reusable write workflow orchestration                                  | object or function collection                                                  |
-| `Query`            | Complex reusable query logic                                           | object or function collection                                                  |
-| `Projection`       | Read-only query result model                                           | `SchemaClass` model                                                            |
-| `DTO`              | Schema atom, TS type, entity-to-JSON mapper                            | `SchemaClass` + runtime `Schema` + mapper                                      |
-| `Infra`            | Database client, external gateway, cache, mailer                       | plain technical adapters                                                       |
-| `Runtime Assembly` | Composition root, plugins, colocated states, hooks, error mapping      | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
+| Concept                | Responsibility                                                         | RavenJS Mapping                                                                |
+| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Interface Unit`       | One API entrypoint, including transport schema, output schema, handler | single exported interface object + `withSchema()` handler + route registration |
+| `Object Style Service` | Cohesive reusable function surface                                     | top-level functions + trailing object export; may read ScopedState on demand   |
+| `Entity`               | Pure in-memory business model and behavior                             | plain TypeScript class/value object                                            |
+| `Repository`           | `Object Style Service` for an entity's persistence and hydration       | object module beside entity, reading infra via ScopedState when needed         |
+| `Command`              | `Object Style Service` for reusable write orchestration                | object or function collection                                                  |
+| `Query`                | `Object Style Service` for reusable read logic                         | object or function collection returning `Projection`                           |
+| `Projection`           | Read-only query result model                                           | `SchemaClass` model                                                            |
+| `DTO`                  | Schema atom, TS type, entity-to-JSON mapper                            | `SchemaClass` + runtime `Schema` + mapper                                      |
+| `Infra`                | Database client, external gateway, cache, mailer                       | plain technical adapters                                                       |
+| `Runtime Assembly`     | Composition root, plugins, colocated states, hooks, error mapping      | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
 
 ## Architecture
 
@@ -246,7 +262,9 @@ Rules:
 - Use `Query + Projection` only for complex reusable reads.
 - Keep `DTO` as the transport contract at the boundary.
 - Keep RavenJS-specific concerns inside runtime assembly.
-- Keep ordinary helpers, services, and repository-style modules as plain object exports unless Raven runtime must manage them through `State`.
+- Prefer `Object Style Service` for reusable helpers and service capabilities.
+- Treat `Repository` as one named `Object Style Service`, not as an unrelated pattern to imitate indirectly.
+- Keep ordinary helpers, services, and repositories as plain object exports unless Raven runtime must manage them through `State`.
 
 ## Next Read
 

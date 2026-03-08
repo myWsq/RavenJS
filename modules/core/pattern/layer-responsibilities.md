@@ -4,20 +4,21 @@ Read the [overview](./overview.md) first if you have not established the overall
 
 This document focuses on where business-facing code lives and what each layer is allowed to do.
 
-Use this document when you need to decide whether logic belongs in `interface`, `entity`, `repository`, `command`, `query`, `projection`, or `dto`.
+Use this document when you need to decide whether logic belongs in `interface`, `object-style-service`, `entity`, `repository`, `command`, `query`, `projection`, or `dto`.
 
 ## Layer Map
 
-| Layer            | Owns                                                               | Should Not Own                              |
-| ---------------- | ------------------------------------------------------------------ | ------------------------------------------- |
-| `Interface Unit` | transport validation, orchestration, DTO mapping, response shaping | core business rules                         |
-| `Projection`     | read-only query result structure                                   | transport contract, entity behavior         |
-| `DTO`            | transport shape, schema atoms, mapper methods                      | business rules, Raven runtime               |
-| `Entity`         | write-side business rules and behavior                             | Raven APIs, request lifecycle               |
-| `Repository`     | entity hydration and persistence                                   | reports, aggregate reads, route logic       |
-| `Command`        | reusable multi-entity write workflows                              | raw transport output, ad hoc SQL dumping    |
-| `Query`          | complex reusable read queries that return `Projection`             | DTO output, entity mutation                 |
-| `Infra`          | technical capabilities such as SQL, mail, cache, gateway, queue    | interface orchestration, transport contract |
+| Layer                  | Owns                                                               | Should Not Own                               |
+| ---------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
+| `Interface Unit`       | transport validation, orchestration, DTO mapping, response shaping | core business rules                          |
+| `Object Style Service` | cohesive reusable function surface, ScopedState-on-demand access   | hidden singleton lifecycle, fake DI ceremony |
+| `Projection`           | read-only query result structure                                   | transport contract, entity behavior          |
+| `DTO`                  | transport shape, schema atoms, mapper methods                      | business rules, Raven runtime                |
+| `Entity`               | write-side business rules and behavior                             | Raven APIs, request lifecycle                |
+| `Repository`           | entity hydration and persistence                                   | reports, aggregate reads, route logic        |
+| `Command`              | reusable multi-entity write workflows                              | raw transport output, ad hoc SQL dumping     |
+| `Query`                | complex reusable read queries that return `Projection`             | DTO output, entity mutation                  |
+| `Infra`                | technical capabilities such as SQL, mail, cache, gateway, queue    | interface orchestration, transport contract  |
 
 ## 1. Interface Unit
 
@@ -295,7 +296,53 @@ DTO rules:
 
 It is not the right default base for entities, because entities usually need stronger invariants and explicit behavior-focused construction.
 
-## 4. Entity
+## 4. Object Style Service
+
+Object Style Service is RavenJS's default module shape for a cohesive reusable service surface.
+
+Compared with a traditional singleton service injected by a container:
+
+- RavenJS does not require registering ordinary services into state or a DI container
+- independent functions can read ScopedState on demand
+- if several functions belong together, exporting one object is enough
+
+Rules:
+
+- default shape is a plain object or function collection
+- prefer top-level functions plus one trailing object export
+- read ScopedState inside each function only where it is actually needed
+- do not hide ordinary service behavior behind constructor injection or manual singleton lifecycle
+- if the service's responsibility is `Entity <-> DB`, call it `Repository`
+- if it becomes reusable write orchestration, call it `Command`
+- if it becomes reusable read logic returning `Projection`, call it `Query`
+
+Minimal example:
+
+```ts
+// order-permission.service.ts
+const canManage = async (orderId: string) => {
+  const sql = DBState.getOrFailed();
+  const currentUser = CurrentUserState.getOrFailed();
+
+  const [row] = await sql`
+    select 1
+    from orders
+    where id = ${orderId} and user_id = ${currentUser.id}
+  `;
+
+  return Boolean(row);
+};
+
+const ensureManageable = async (orderId: string) => {
+  if (!(await canManage(orderId))) {
+    throw new Error("forbidden");
+  }
+};
+
+export const OrderPermissionService = { canManage, ensureManageable };
+```
+
+## 5. Entity
 
 The entity layer is the business core for write-side behavior.
 
@@ -445,6 +492,8 @@ export { OrderEntity };
 
 ### Repository
 
+Repository is the `Object Style Service` specialized for entity hydration and persistence.
+
 Repository stays beside the owning entity module.
 
 ```ts
@@ -499,6 +548,7 @@ export const OrderRepository = { load, save };
 
 Repository rules:
 
+- repository is still an `Object Style Service`: plain object or function collection
 - use a plain object or function collection, not a class
 - keep repository with the owning entity module
 - default method set is `load`, `bulkLoad`, `save`, `bulkSave`
@@ -515,11 +565,13 @@ Repository rules:
 Pragmatic RavenJS note:
 
 - `Entity` should stay pure
+- `Repository` is one named `Object Style Service`
 - `Repository` may be Raven-aware
 - if a repository imports `DBState`, treat it as a persistence adapter that lives beside the entity layer, not as a pure entity object
-- use the same placement rule for nearby reusable helpers or services: if Raven runtime does not need to own their lifecycle, keep them as repository-style object modules instead of turning them into `AppState`
+- if a nearby helper does not own `Entity <-> DB`, keep it as `*.service.ts` or another fitting object module instead of naming it repository
+- if Raven runtime does not need to own a helper's lifecycle, keep it as an `Object Style Service` instead of turning it into `AppState`
 
-## 5. Command
+## 6. Command
 
 Command is the home for reusable write workflows.
 
@@ -559,7 +611,7 @@ const execute = async (params: { orderId: string; paymentId: string }): Promise<
 export const SubmitOrderCommand = { execute };
 ```
 
-## 6. Query
+## 7. Query
 
 Query is the home for complex reusable queries.
 
@@ -603,7 +655,7 @@ const execute = async (params: {
 export const ListOrderQuery = { execute };
 ```
 
-## 7. Infra
+## 8. Infra
 
 Infra is pure technical capability:
 
