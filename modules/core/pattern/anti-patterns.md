@@ -20,17 +20,26 @@ Why it is wrong:
 - tests get heavier
 - reuse gets harder
 
-## 2. Repository as `AppState` by Default
+## 2. Reusable Helper Wrapped as Class + `AppState`
 
 Bad:
 
 - registering every repository into `AppState` even when it is just a thin DB wrapper
+- writing a reusable helper/service as a singleton class and then registering it into `AppState()` only because it is shared
 - handler requires a large manual `deps` object for ordinary Raven runtime dependencies
 
 Why it is wrong:
 
 - it adds ceremony without buying much
-- it fights Raven's natural State-based DI style
+- it turns an ordinary module into fake runtime state
+- it hides a simple object module behind unnecessary class and plugin ceremony
+- it fights Raven's natural State-based DI style for the dependencies that truly need it
+
+Prefer:
+
+- keep ordinary reusable modules as direct object exports
+- reuse the `Repository` style when it fits: plain object module, direct export, read real infra state only where needed
+- reserve `AppState` / `RequestState` for dependencies that Raven runtime must initialize, scope, or refresh
 
 ## 3. Business Logic in Hooks
 

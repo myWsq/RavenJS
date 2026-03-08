@@ -98,6 +98,8 @@ This pattern stays intentionally light.
 
 Do not add more layers by default.
 
+Do not create plugin/state wrappers for ordinary reusable modules just to make them singleton. If a helper, service, or adapter can stay a repository-style object export, keep it that way.
+
 Use `Command` when a write workflow is reused across:
 
 - HTTP handlers
@@ -111,6 +113,7 @@ Until then:
 
 - a single interface file is enough for orchestration
 - entity is enough for business rules
+- a repository-style object export is enough for reusable helpers that do not need Raven-managed lifecycle
 
 Single-module object export rule:
 

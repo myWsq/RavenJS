@@ -517,6 +517,7 @@ Pragmatic RavenJS note:
 - `Entity` should stay pure
 - `Repository` may be Raven-aware
 - if a repository imports `DBState`, treat it as a persistence adapter that lives beside the entity layer, not as a pure entity object
+- use the same placement rule for nearby reusable helpers or services: if Raven runtime does not need to own their lifecycle, keep them as repository-style object modules instead of turning them into `AppState`
 
 ## 5. Command
 

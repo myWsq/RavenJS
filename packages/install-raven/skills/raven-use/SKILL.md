@@ -77,6 +77,7 @@ Write down a short Pattern Plan in your notes before touching files. It must ans
 - which task shape applies
 - which layers are required, and which layers are explicitly not needed
 - which files or directories should be created or updated
+- whether each reusable dependency is true runtime state or should stay a repository-style object module
 - where business rules, persistence, query logic, hooks, and plugins belong
 
 Apply the default-light rules from the pattern docs:
@@ -85,6 +86,9 @@ Apply the default-light rules from the pattern docs:
 - only introduce `Command` for reusable multi-entity write workflows
 - only introduce `Query + Projection` for complex reusable reads
 - prefer the runtime assembly path for plugin/state/hook/app problems instead of forcing business layers
+- only introduce `AppState` / `RequestState` when Raven runtime must own initialization, lifetime, or scope
+- do not promote an ordinary helper or service to `AppState` just because it is shared
+- if a module can follow `Repository`'s object-export style, keep it as a plain object module instead of writing a singleton class
 
 ---
 
@@ -105,6 +109,7 @@ At minimum, verify:
 
 - entities and repositories did not import Raven runtime APIs without a strong reason
 - hooks and plugins did not absorb business logic that belongs in entities, commands, or queries
+- ordinary reusable helpers were not turned into `AppState` or singleton classes without a runtime-owned lifecycle reason
 - new files follow the expected naming and placement rules
 - any deliberate deviation from the pattern is explicit and justified
 
@@ -119,4 +124,5 @@ If the self-check finds a problem, fix it before presenting the result.
 - Do not write code until Step 3 (learn the module) is complete for all required modules.
 - Do not skip Step 4 — every RavenJS code task needs a Pattern Plan before editing.
 - Do not skip Step 6 — every RavenJS code task needs a pattern self-check before finishing.
+- Do not choose `AppState` or a singleton class just because the code wants one shared instance.
 - Do not suggest npm packages for functionality that a Raven module already covers.

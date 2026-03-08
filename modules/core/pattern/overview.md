@@ -57,6 +57,8 @@ Its real runtime model is:
 - lifecycle-driven request processing
 - scoped state injection
 
+Ordinary reusable helpers should usually follow the `Repository` style: plain object module, direct export, no `AppState`. Only move a dependency into runtime assembly when Raven runtime must own its initialization, lifetime, or scope.
+
 Here `<app_root>/` means the directory that contains all Raven app code. It is usually `src/`, but the pattern does not require that exact directory name.
 
 So the RavenJS-friendly version of this architecture is:
@@ -152,6 +154,7 @@ Rules:
 - if a write workflow spans multiple entities and is worth reusing, use `Command`
 - `Repository` may query, but only when the result is still that model itself
 - if the result is cascading, aggregated, joined, or otherwise no longer "the model itself", use `Query + Projection`
+- if a reusable helper can follow `Repository`'s object-export style, keep it as a normal module instead of promoting it to `AppState`
 - not every write workflow needs a `Command`
 - only extract a `Command` when the write logic is both reusable and beyond a single entity path
 - not every SQL statement needs a `Query`
@@ -243,6 +246,7 @@ Rules:
 - Use `Query + Projection` only for complex reusable reads.
 - Keep `DTO` as the transport contract at the boundary.
 - Keep RavenJS-specific concerns inside runtime assembly.
+- Keep ordinary helpers, services, and repository-style modules as plain object exports unless Raven runtime must manage them through `State`.
 
 ## Next Read
 

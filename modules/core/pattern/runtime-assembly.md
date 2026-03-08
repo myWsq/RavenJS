@@ -37,6 +37,14 @@ Use `AppState` only for long-lived runtime dependencies:
 - mailer
 - feature flags
 
+Use `AppState` because Raven runtime owns their initialization, lifetime, or scope.
+
+Do not lift an ordinary reusable helper or service into `AppState` just because:
+
+- only one instance is needed
+- the module is reused in many handlers
+- the code was wrapped as a singleton service
+
 Do not use `AppState` as a business model store.
 
 ### `RequestState`
@@ -101,6 +109,37 @@ export { CurrentUserState, authPlugin };
 
 Do not create a standalone `<app_root>/state/` directory by default.
 
+### State Placement Test
+
+Before introducing `AppState` or `RequestState`, ask:
+
+1. does a plugin need to initialize it and write it through `set(...)`?
+2. does it need Raven app/request lifetime or scope isolation?
+3. must hooks or handlers read it through `State`, instead of a normal module import?
+
+If the answer is no, keep it as a normal module export.
+
+This is the default for:
+
+- lightweight services or helpers
+- repository-style modules that only happen to be reused
+
+Reference the repository pattern here:
+
+- write it as a plain object or function collection
+- export the module directly
+- let it read the real runtime dependency it needs, such as `DBState`
+- do not add plugin/state ceremony unless Raven runtime truly needs to own it
+
+Example of a reusable helper that does **not** need `AppState`:
+
+```ts
+// <app_root>/infra/external/slug.service.ts
+const create = (title: string) => title.trim().toLowerCase().replaceAll(/\s+/g, "-");
+
+export const SlugService = { create };
+```
+
 ### What Can Be Declared Separately?
 
 Usually not `State` itself.
@@ -130,13 +169,14 @@ If a scope key is only used inside one plugin, keep it inline instead of extract
 
 ### Preferred Access Pattern
 
-At Raven runtime, dependency injection should primarily happen through `State`.
+At Raven runtime, dependency injection for true runtime-managed dependencies should primarily happen through `State`.
 
 Use this split:
 
 1. `AppState` for shared runtime dependencies such as database clients
 2. `RequestState` for per-request derived context
-3. plain constructor params only inside pure object construction
+3. plain object modules or function collections for reusable code that does not need Raven-managed lifetime
+4. plain constructor params only inside pure object construction
 
 This keeps Raven's DI model consistent while still allowing entity objects to stay plain.
 

@@ -40,7 +40,7 @@ Use the module guide first. Then decide whether the upcoming task is about Raven
 Pattern reading path:
 
 - Business code (`interface`, `entity`, `repository`, `command`, `query`, `projection`, `dto`) → `{coreInstallDir}/pattern/overview.md`, then the relevant sections in `layer-responsibilities.md`, `conventions.md`, and `anti-patterns.md`
-- Runtime assembly (`app.ts`, plugins, states, scopes, hooks`) → `{coreInstallDir}/pattern/runtime-assembly.md`, then `anti-patterns.md` before finishing the learning pass
+- Runtime assembly (`app.ts`, plugins, states, scopes, hooks`) → `{coreInstallDir}/pattern/runtime-assembly.md`, then `anti-patterns.md`before finishing the learning pass. Use this path only when Raven runtime must own initialization, lifetime, or scope; do not route an ordinary reusable helper here just because it is shared. If it behaves like`Repository`, prefer the object-module path instead.
 
 Do not bulk-read every pattern document by default. Pick the path that matches the task.
 
