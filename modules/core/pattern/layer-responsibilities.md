@@ -4,7 +4,7 @@ Read the [overview](./overview.md) first if you have not established the overall
 
 This document focuses on where business-facing code lives and what each layer is allowed to do.
 
-Use this document when you need to decide whether logic belongs in `interface`, `object-style-service`, `entity`, `repository`, `command`, `query`, `projection`, or `dto`.
+Use this document when you need to decide whether logic belongs in `interface`, `object-style-service`, `entity`, `repository`, `command`, `query`, `dto`, or explicit query-result mapping.
 
 ## Layer Map
 
@@ -12,12 +12,11 @@ Use this document when you need to decide whether logic belongs in `interface`, 
 | ---------------------- | ------------------------------------------------------------------ | -------------------------------------------- |
 | `Interface Unit`       | transport validation, orchestration, DTO mapping, response shaping | core business rules                          |
 | `Object Style Service` | cohesive reusable function surface, ScopedState-on-demand access   | hidden singleton lifecycle, fake DI ceremony |
-| `Projection`           | read-only query result structure                                   | transport contract, entity behavior          |
-| `DTO`                  | transport shape, schema atoms, mapper methods                      | business rules, Raven runtime                |
+| `DTO`                  | transport shape, schema atoms, mapper methods, named read results  | business rules, Raven runtime                |
 | `Entity`               | write-side business rules and behavior                             | Raven APIs, request lifecycle                |
 | `Repository`           | entity hydration and persistence                                   | reports, aggregate reads, route logic        |
 | `Command`              | reusable multi-entity write workflows                              | raw transport output, ad hoc SQL dumping     |
-| `Query`                | complex reusable read queries that return `Projection`             | DTO output, entity mutation                  |
+| `Query`                | complex reusable read queries that return DTOs or DTO-ready data   | entity mutation, ad hoc transport ceremony   |
 | `Infra`                | technical capabilities such as SQL, mail, cache, gateway, queue    | interface orchestration, transport contract  |
 
 ## 1. Interface Unit
@@ -57,7 +56,7 @@ Repository/query rule at the interface layer:
 
 - if you need an `Entity`, go through `Repository`
 - if a reusable write workflow spans multiple entities, go through `Command`
-- if you need a reusable complex query result, go through `Query + Projection`
+- if you need a reusable complex query result, go through `Query + DTO` or explicit result mapping
 - simple one-off SQL may stay in the handler
 - do not create a `Command` unless the write workflow is both reusable and beyond a single entity path
 - do not create a `Query` unless the SQL is both complex and worth reusing
@@ -152,7 +151,7 @@ In practice:
 - `entity` decides business meaning
 - `repository` persists explicit state
 
-Projection path example:
+Read-query path example:
 
 ```ts
 const query = z.object({
@@ -163,12 +162,12 @@ const query = z.object({
 const response = z.object(ListOrderDTO._shape);
 
 const handler = withSchema({ query, response }, async (ctx) => {
-  const projection = await ListOrderQuery.execute({
+  const dto = await ListOrderQuery.execute({
     page: ctx.query.page,
     pageSize: ctx.query.pageSize,
   });
 
-  return ListOrderDTO.fromProjection(projection);
+  return dto;
 });
 
 export const ListOrderInterface = { query, response, handler };
@@ -202,35 +201,7 @@ Response schema rule in RavenJS:
 - when the route needs custom HTTP details such as `201`, headers, cookies, or non-JSON responses, keep returning a manual `Response`
 - if the response schema mismatches at runtime, Raven triggers `onResponseValidationError` and falls back to the raw `Response.json(dto)` path instead of failing the request
 
-## 2. Projection
-
-Projection is the query result model.
-
-It is parallel to DTO, but it is not the external contract.
-
-Projection rules:
-
-- Projection is anemic and read-only
-- Projection may use `SchemaClass`
-- Projection has no forward creation logic
-- Projection is only produced by `Query`
-- Projection may be converted to DTO
-- Projection files are named by the result model itself, for example `paged-order-id.projection.ts`
-
-Recommended shape:
-
-```ts
-class PagedOrderIdProjection extends SchemaClass({
-  ids: z.array(z.string()),
-  total: z.number(),
-  page: z.number(),
-  pageSize: z.number(),
-}) {}
-
-export { PagedOrderIdProjection };
-```
-
-## 3. DTO
+## 2. DTO
 
 DTO stays the single schema atom source.
 
@@ -240,7 +211,9 @@ Instead, prefer:
 
 - a DTO class declared with `SchemaClass(...)`
 - a runtime `Schema` derived from that DTO shape
-- `fromEntity` or `fromEntities` mapper methods
+- `fromEntity`, `fromEntities`, or read-result mapper methods when mapping is still useful
+
+If a reusable read path needs its own named result model, model it as a DTO under `dto/` instead of creating a separate read-result layer.
 
 Recommended shape:
 
@@ -286,6 +259,7 @@ DTO rules:
 
 - DTO may aggregate multiple entities
 - DTO may nest other DTO schema atoms
+- DTO may also model reusable read results such as paged lists, summaries, or search output
 - DTO should expose schema atoms through `_shape`
 - build `z.object(DTO._shape)` only at the usage site when a full runtime schema is actually needed
 - DTO is required for both write responses and read views
@@ -296,7 +270,7 @@ DTO rules:
 
 It is not the right default base for entities, because entities usually need stronger invariants and explicit behavior-focused construction.
 
-## 4. Object Style Service
+## 3. Object Style Service
 
 Object Style Service is RavenJS's default module shape for a cohesive reusable service surface.
 
@@ -314,7 +288,7 @@ Rules:
 - do not hide ordinary service behavior behind constructor injection or manual singleton lifecycle
 - if the service's responsibility is `Entity <-> DB`, call it `Repository`
 - if it becomes reusable write orchestration, call it `Command`
-- if it becomes reusable read logic returning `Projection`, call it `Query`
+- if it becomes reusable read logic returning DTOs or DTO-ready result data, call it `Query`
 
 Minimal example:
 
@@ -342,7 +316,7 @@ const ensureManageable = async (orderId: string) => {
 export const OrderPermissionService = { canManage, ensureManageable };
 ```
 
-## 5. Entity
+## 4. Entity
 
 The entity layer is the business core for write-side behavior.
 
@@ -555,7 +529,7 @@ Repository rules:
 - do not expand repository into list/search/report style methods
 - if an extra finder is unavoidable, it must still return the model itself
 - `load` means the record must exist; if nullable semantics are needed, add a separate `find`
-- if a result is no longer the model itself, it belongs to `Query + Projection`, not `Repository`
+- if a result is no longer the model itself, it belongs to `Query + DTO` or explicit result mapping, not `Repository`
 - repository may query, but only when it still returns the model itself
 - in RavenJS, repository may directly read infra state such as `DBState`
 - do not put request lifecycle logic into repository implementation
@@ -571,7 +545,7 @@ Pragmatic RavenJS note:
 - if a nearby helper does not own `Entity <-> DB`, keep it as `*.service.ts` or another fitting object module instead of naming it repository
 - if Raven runtime does not need to own a helper's lifecycle, keep it as an `Object Style Service` instead of turning it into `AppState`
 
-## 6. Command
+## 5. Command
 
 Command is the home for reusable write workflows.
 
@@ -611,28 +585,25 @@ const execute = async (params: { orderId: string; paymentId: string }): Promise<
 export const SubmitOrderCommand = { execute };
 ```
 
-## 7. Query
+## 6. Query
 
 Query is the home for complex reusable queries.
 
 Rules:
 
 - Query files are flat and named by query intent, for example `list-order.query.ts`
-- Query always returns `Projection`
-- even `ids` or `ids + meta` should be wrapped in `Projection`
+- Query returns DTOs or DTO-ready result data
+- if a query result needs a reusable named shape, define it in `dto/`
 - Query is for complex and reusable queries
 - simple one-off SQL should usually stay in the handler
-- Query must not return DTO directly
+- Query may return a DTO directly when that DTO is already the intended response contract
 - Query must not hydrate Entity directly
 
 Minimal example:
 
 ```ts
 // list-order.query.ts
-const execute = async (params: {
-  page: number;
-  pageSize: number;
-}): Promise<PagedOrderIdProjection> => {
+const execute = async (params: { page: number; pageSize: number }): Promise<PagedOrderIdDTO> => {
   const sql = DBState.getOrFailed();
   const rows = await sql`
     select id
@@ -644,7 +615,7 @@ const execute = async (params: {
 
   const [{ count }] = await sql`select count(*)::int as count from orders`;
 
-  return new PagedOrderIdProjection({
+  return new PagedOrderIdDTO({
     ids: rows.map((row) => row.id),
     total: count,
     page: params.page,
@@ -655,7 +626,7 @@ const execute = async (params: {
 export const ListOrderQuery = { execute };
 ```
 
-## 8. Infra
+## 7. Infra
 
 Infra is pure technical capability:
 

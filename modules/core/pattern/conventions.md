@@ -25,14 +25,11 @@ Use this document after you know which layers you need and want the expected dir
 │   ├── search-order.query.ts
 │   └── list-user-order.query.ts
 │
-├── projection/
-│   ├── paged-order-id.projection.ts
-│   ├── order-summary.projection.ts
-│   └── user-order-stat.projection.ts
-│
 ├── dto/
 │   ├── order-item.dto.ts
 │   ├── order.dto.ts
+│   ├── paged-order-id.dto.ts
+│   ├── user-order-stat.dto.ts
 │   └── user-profile.dto.ts
 │
 ├── entity/
@@ -65,7 +62,7 @@ In `entity/`, each subdirectory is one entity module.
 In `interface/`, files are named by one API entrypoint each.
 In `command/`, files are named by write intent.
 In `query/`, files are named by query intent.
-In `projection/`, files are named by the result model itself.
+In `dto/`, files may be named by the transport contract itself or by a reusable query result shape such as `paged-order-id.dto.ts`.
 
 ## Naming Rules
 
@@ -75,18 +72,17 @@ Business files keep the original rule:
 {module-name}.{type}.ts
 ```
 
-| Suffix           | Layer                       | Example                        |
-| ---------------- | --------------------------- | ------------------------------ |
-| `.interface.ts`  | Interface                   | `create-order.interface.ts`    |
-| `.entity.ts`     | Entity                      | `order.entity.ts`              |
-| `.repository.ts` | Entity                      | `order.repository.ts`          |
-| `.service.ts`    | Object Style Service        | `order-permission.service.ts`  |
-| `.command.ts`    | Command                     | `submit-order.command.ts`      |
-| `.query.ts`      | Query                       | `list-order.query.ts`          |
-| `.projection.ts` | Projection                  | `paged-order-id.projection.ts` |
-| `.dto.ts`        | DTO                         | `order.dto.ts`                 |
-| `.plugin.ts`     | Runtime Assembly            | `auth.plugin.ts`               |
-| `scopes.ts`      | Runtime Assembly (optional) | `scopes.ts`                    |
+| Suffix           | Layer                       | Example                       |
+| ---------------- | --------------------------- | ----------------------------- |
+| `.interface.ts`  | Interface                   | `create-order.interface.ts`   |
+| `.entity.ts`     | Entity                      | `order.entity.ts`             |
+| `.repository.ts` | Entity                      | `order.repository.ts`         |
+| `.service.ts`    | Object Style Service        | `order-permission.service.ts` |
+| `.command.ts`    | Command                     | `submit-order.command.ts`     |
+| `.query.ts`      | Query                       | `list-order.query.ts`         |
+| `.dto.ts`        | DTO / named query result    | `order.dto.ts`                |
+| `.plugin.ts`     | Runtime Assembly            | `auth.plugin.ts`              |
+| `scopes.ts`      | Runtime Assembly (optional) | `scopes.ts`                   |
 
 Use fixed entrypoint names for runtime assembly:
 
@@ -109,6 +105,7 @@ Use `Command` when a write workflow is reused across:
 - agent-invoked tasks
 
 Use `Query` when a complex query is reused across entrypoints.
+If a complex query needs a dedicated result model, place it in `dto/` instead of introducing a separate read-model layer.
 
 Object Style Service rules:
 

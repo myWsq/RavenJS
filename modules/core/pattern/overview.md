@@ -4,12 +4,12 @@ This document is the entrypoint for the pattern. Read this file first, then go d
 
 The first user of this pattern is the Agent. This document should help an Agent decide where code belongs before it starts generating code.
 
-Use this document when the task is about business-facing RavenJS code structure: `interface`, `service`, `entity`, `repository`, `command`, `query`, `projection`, and `dto`.
+Use this document when the task is about business-facing RavenJS code structure: `interface`, `service`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping.
 
 ## Reading Guide
 
 - Overview: this file
-- [Layer Responsibilities](./layer-responsibilities.md): handler, object style service, DTO, entity, repository, command, query, and projection rules
+- [Layer Responsibilities](./layer-responsibilities.md): handler, object style service, DTO, entity, repository, command, and query rules
 - [Runtime Assembly](./runtime-assembly.md): plugins, `AppState`, `RequestState`, lifecycle placement, and composition root
 - [Conventions](./conventions.md): directory layout, naming, and optional extensions
 - [Anti-Patterns](./anti-patterns.md): common mistakes and review smells
@@ -26,8 +26,7 @@ It keeps the original design's core ideas:
 - `Repository` as the Object Style Service specialized for direct persistence logic
 - `Command` as the abstraction for reusable write workflows
 - `Query` as the abstraction for complex reusable queries
-- `Projection` as the read-only query result model
-- `DTO` as the only schema atom source, preferably declared with `SchemaClass`
+- `DTO` as the schema atom source, preferably declared with `SchemaClass`, including named read result shapes when a query needs one
 
 It adds one RavenJS-specific layer:
 
@@ -42,9 +41,8 @@ The goal is to keep business code pure while still fitting RavenJS's real archit
 - clear repository/query boundaries:
   `Repository` handles entity persistence,
   `Command` orchestrates reusable write workflows,
-  `Query` returns `Projection` for complex reusable queries,
-  `Projection` models query results,
-  and `DTO` remains the external contract
+  `Query` owns complex reusable reads,
+  and `DTO` remains the external contract plus any named read result model
 
 ## Core Idea
 
@@ -71,8 +69,8 @@ Interface Unit
   -> owns transport validation
   -> simple write path: uses Entity + Repository
   -> reusable write path: uses Command
-  -> query path: uses Query + Projection
-  -> maps result to DTO
+  -> query path: uses Query + DTO / explicit result mapping
+  -> returns DTO
 
 Entity
   -> owns write-side entities and repositories
@@ -82,13 +80,9 @@ Command
   -> orchestrates multi-entity write workflows
   -> may define transaction boundaries
 
-Projection
-  -> models query results
-  -> stays read-only and anemic
-
 Query
   -> holds complex reusable SQL / ORM queries
-  -> returns Projection
+  -> returns DTO or DTO-ready result data
 
 Runtime Assembly
   -> assembles <app_root>/app.ts
@@ -157,7 +151,7 @@ Command
 
 Query
   -> Object Style Service specialized for reusable read models
-  -> returns Projection
+  -> returns DTO or DTO-ready result data
 ```
 
 Rules:
@@ -169,7 +163,7 @@ Rules:
 - `Repository.save(...)` should persist the entity's already-explicit state, not assign business-visible fields implicitly as a side effect
 - if a write workflow spans multiple entities and is worth reusing, use `Command`
 - `Repository` may query, but only when the result is still that model itself
-- if the result is cascading, aggregated, joined, or otherwise no longer "the model itself", use `Query + Projection`
+- if the result is cascading, aggregated, joined, or otherwise no longer "the model itself", use `Query + DTO` or explicit result mapping
 - not every write workflow needs a `Command`
 - only extract a `Command` when the write logic is both reusable and beyond a single entity path
 - not every SQL statement needs a `Query`
@@ -185,9 +179,8 @@ Rules:
 | `Entity`               | Pure in-memory business model and behavior                             | plain TypeScript class/value object                                            |
 | `Repository`           | `Object Style Service` for an entity's persistence and hydration       | object module beside entity, reading infra via ScopedState when needed         |
 | `Command`              | `Object Style Service` for reusable write orchestration                | object or function collection                                                  |
-| `Query`                | `Object Style Service` for reusable read logic                         | object or function collection returning `Projection`                           |
-| `Projection`           | Read-only query result model                                           | `SchemaClass` model                                                            |
-| `DTO`                  | Schema atom, TS type, entity-to-JSON mapper                            | `SchemaClass` + runtime `Schema` + mapper                                      |
+| `Query`                | `Object Style Service` for reusable read logic                         | object or function collection returning DTO or DTO-ready result data           |
+| `DTO`                  | Schema atom, TS type, entity-to-JSON mapper / named read result shape  | `SchemaClass` + runtime `Schema` + mapper                                      |
 | `Infra`                | Database client, external gateway, cache, mailer                       | plain technical adapters                                                       |
 | `Runtime Assembly`     | Composition root, plugins, colocated states, hooks, error mapping      | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
 
@@ -215,13 +208,13 @@ Rules:
 └───────────────┬──────────────────────────────┬───────────────┘
                 │                              │
                 ▼                              ▼
-┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
-│        Entity        │  │       Command        │  │        Query         │  │      Projection      │  │         DTO          │
-│                      │  │                      │  │                      │  │                      │  │                      │
-│  order/              │  │  submit-order...ts  │  │  list-order.query.ts │  │  paged-order-id...  │  │  order.dto.ts        │
-│  order-item/         │  │  pay-order...ts     │  │  search-order...ts   │  │  order-summary...   │  │  order-item.dto.ts   │
-│  user/               │  │                      │  │                      │  │                      │  │  user-profile.dto.ts │
-└────────────┬─────────┘  └────────────┬─────────┘  └────────────┬─────────┘  └────────────┬─────────┘  └──────────────────────┘
+┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│        Entity        │  │       Command        │  │        Query         │  │         DTO          │
+│                      │  │                      │  │                      │  │                      │
+│  order/              │  │  submit-order...ts  │  │  list-order.query.ts │  │  order.dto.ts        │
+│  order-item/         │  │  pay-order...ts     │  │  search-order...ts   │  │  order-item.dto.ts   │
+│  user/               │  │                      │  │                      │  │  paged-order-id...   │
+└────────────┬─────────┘  └────────────┬─────────┘  └────────────┬─────────┘  └────────────┬─────────┘
              │                         │                         │                           │
              └─────────────────────────┴─────────────────────────┴──────────────┬────────────┘
                                                                                  ▼
@@ -246,8 +239,8 @@ Rules:
 
 1. Interface performs transport validation on query, params, or headers.
 2. Handler calls a `Query` when the read is complex and reusable.
-3. Query returns a `Projection`.
-4. Handler maps the projection to a DTO.
+3. Query returns a DTO or DTO-ready result data.
+4. Handler returns that DTO directly or performs the final DTO mapping.
 5. Handler builds the response.
 
 ## Adoption Rules
@@ -259,7 +252,7 @@ Rules:
 - Keep repository focused on entity persistence and hydration.
 - Prefer invariants that are explicit in code before persistence; avoid patterns that require `save()` to backfill ids or similar fields invisibly.
 - Use `Command` only for reusable multi-entity write workflows.
-- Use `Query + Projection` only for complex reusable reads.
+- Use `Query + DTO` or explicit result mapping only for complex reusable reads.
 - Keep `DTO` as the transport contract at the boundary.
 - Keep RavenJS-specific concerns inside runtime assembly.
 - Prefer `Object Style Service` for reusable helpers and service capabilities.

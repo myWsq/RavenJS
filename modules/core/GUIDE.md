@@ -10,7 +10,7 @@ To understand the public API, runtime entrypoints, and source layout, read:
 
 Use the docs above to learn the public surface and source map. When the task is about how RavenJS code should be organized, switch to the pattern docs:
 
-- Business code (`interface`, `entity`, `repository`, `command`, `query`, `projection`, `dto`) → [pattern/overview.md](./pattern/overview.md), then [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md), [pattern/conventions.md](./pattern/conventions.md), and [pattern/anti-patterns.md](./pattern/anti-patterns.md)
+- Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result mapping) → [pattern/overview.md](./pattern/overview.md), then [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md), [pattern/conventions.md](./pattern/conventions.md), and [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 - Runtime assembly (`<app_root>/app.ts`, plugins, states, scopes, hooks) → [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
 - Review or final self-check → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 

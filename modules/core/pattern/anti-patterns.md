@@ -65,7 +65,7 @@ Allowed:
 
 - simple one-off SQL may stay in the handler
 - reusable write workflows should move into `Command`
-- complex reusable queries should move into `Query + Projection`
+- complex reusable queries should move into `Query + DTO` or explicit result mapping
 
 ## 5. Business Rules in Request Schema
 
