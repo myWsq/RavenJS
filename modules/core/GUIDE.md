@@ -14,6 +14,14 @@ Use the docs above to learn the public surface and source map. When the task is 
 - Runtime assembly (`<app_root>/app.ts`, plugins, states, scopes, hooks) → [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
 - Review or final self-check → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 
+For Agents, apply this boundary language while reading the pattern docs:
+
+- `transport validation` lives in interface schema
+- `domain invariants` live in entity behavior
+- `persistence constraints` live in repository / DB
+
+Quick test: if a rule still matters after HTTP disappears, it belongs in the entity.
+
 # SOURCE MAP
 
 | Document                                                                         | Read when…                                                                                                |

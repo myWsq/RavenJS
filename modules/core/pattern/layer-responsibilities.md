@@ -8,16 +8,16 @@ Use this document when you need to decide whether logic belongs in `interface`, 
 
 ## Layer Map
 
-| Layer            | Owns                                                            | Should Not Own                              |
-| ---------------- | --------------------------------------------------------------- | ------------------------------------------- |
-| `Interface Unit` | validation, orchestration, DTO mapping, response shaping        | core business rules                         |
-| `Projection`     | read-only query result structure                                | transport contract, entity behavior         |
-| `DTO`            | transport shape, schema atoms, mapper methods                   | business rules, Raven runtime               |
-| `Entity`         | write-side business rules and behavior                          | Raven APIs, request lifecycle               |
-| `Repository`     | entity hydration and persistence                                | reports, aggregate reads, route logic       |
-| `Command`        | reusable multi-entity write workflows                           | raw transport output, ad hoc SQL dumping    |
-| `Query`          | complex reusable read queries that return `Projection`          | DTO output, entity mutation                 |
-| `Infra`          | technical capabilities such as SQL, mail, cache, gateway, queue | interface orchestration, transport contract |
+| Layer            | Owns                                                               | Should Not Own                              |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------------------- |
+| `Interface Unit` | transport validation, orchestration, DTO mapping, response shaping | core business rules                         |
+| `Projection`     | read-only query result structure                                   | transport contract, entity behavior         |
+| `DTO`            | transport shape, schema atoms, mapper methods                      | business rules, Raven runtime               |
+| `Entity`         | write-side business rules and behavior                             | Raven APIs, request lifecycle               |
+| `Repository`     | entity hydration and persistence                                   | reports, aggregate reads, route logic       |
+| `Command`        | reusable multi-entity write workflows                              | raw transport output, ad hoc SQL dumping    |
+| `Query`          | complex reusable read queries that return `Projection`             | DTO output, entity mutation                 |
+| `Infra`          | technical capabilities such as SQL, mail, cache, gateway, queue    | interface orchestration, transport contract |
 
 ## 1. Interface Unit
 
@@ -37,7 +37,7 @@ Inside that object:
 
 The handler does:
 
-1. validate input
+1. perform transport validation on input
 2. for entity paths, construct or load entities
 3. for entity paths, call entity behavior or invoke a command
 4. persist through repository, invoke a command, or execute a query
@@ -45,6 +45,12 @@ The handler does:
 6. either return the DTO through `withSchema(...response)` or build a manual `Response` when status / headers must be customized
 
 The handler does not own core business rules.
+
+Agent-first rule:
+
+- if the rule still matters after HTTP disappears, it is not interface logic
+- if the rule is about request shape, parsing, coercion, or basic format, it can stay in schema
+- if the rule is about business meaning, state transitions, or entrypoint-independent invariants, it belongs in the entity
 
 Repository/query rule at the interface layer:
 
@@ -103,6 +109,10 @@ Request/response schema rules in RavenJS:
 - reuse DTO fields explicitly from `DTO._shape`
 - do not assume request field names must match DTO field names
 - pass real runtime schemas to `withSchema()`, not `SchemaClass` itself
+- keep request schema limited to transport validation
+- do not put domain invariants into request schema
+- do not call repository, gateway, or other infra from request schema
+- use parsing or coercion only for transport concerns; do not use schema transforms to bypass entity behavior
 
 If the route needs a custom status code or custom headers, keep the same object export shape but switch the handler back to a manual `Response`:
 
@@ -134,6 +144,12 @@ This keeps the handler:
 - business-light
 
 The business rule still lives in the entity.
+
+In practice:
+
+- `schema` checks shape
+- `entity` decides business meaning
+- `repository` persists explicit state
 
 Projection path example:
 
@@ -295,6 +311,7 @@ Rules:
 - pure TypeScript only
 - no `Request`, `Response`, `RavenContext`, `BodyState`, `AppState`, or hooks
 - entity should be a rich model with business behavior, not a data bag
+- entity is the default home for domain invariants
 - each entity should live in its own module
 - repository stays with the entity module that owns write-side persistence
 - repository only mediates entity persistence and reverse persistence
@@ -316,7 +333,7 @@ Forward construction should go through `static create(...)`.
 Why:
 
 - request input is incomplete and business-oriented
-- this is where invariant checks usually belong
+- this is where domain invariants usually belong
 - default fields such as `id`, `status`, `createdAt`, `updatedAt` are often assigned here
 - if an identifier is needed by downstream mapping or persistence, assign it explicitly here rather than relying on `save()` to mutate the entity later
 
@@ -331,7 +348,7 @@ Why:
 
 Typical rule:
 
-- `create(...)` validates and initializes
+- `create(...)` enforces domain invariants and initializes
 - `constructor(record)` restores
 - `load()` uses the constructor
 - handler write paths use `create(...)`

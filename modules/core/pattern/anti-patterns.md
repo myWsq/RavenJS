@@ -58,7 +58,31 @@ Allowed:
 - reusable write workflows should move into `Command`
 - complex reusable queries should move into `Query + Projection`
 
-## 5. Massive All-in-One Plugin
+## 5. Business Rules in Request Schema
+
+Bad:
+
+- using request schema `refine()` or async validation to encode domain invariants
+- querying a repository or gateway from request schema
+- relying on schema transforms so the handler can skip entity creation or entity mutators
+
+Why it is wrong:
+
+- transport validation and business meaning become mixed together
+- business rules become tied to HTTP instead of applying across queue, cron, script, or tests
+- Agents lose a stable rule for deciding whether logic belongs in schema or entity
+
+Use this test:
+
+- if the rule still matters after HTTP disappears, it belongs in the entity
+
+Prefer:
+
+- keep request schema for shape, parsing, coercion, and basic format checks
+- put domain invariants and state transitions in `Entity.create(...)` or entity methods
+- let handlers orchestrate, not redefine business rules
+
+## 6. Massive All-in-One Plugin
 
 Bad:
 
@@ -73,7 +97,7 @@ Related smell:
 
 - moving ordinary route registration into plugins without gaining reuse or isolation
 
-## 6. Using `onRequest` for Route-Aware Logic
+## 7. Using `onRequest` for Route-Aware Logic
 
 Bad:
 
@@ -84,7 +108,7 @@ Why it is wrong:
 - route context is not fully assembled there
 - use `beforeHandle` instead
 
-## 7. Repository `save()` Mutates Business Fields Implicitly
+## 8. Repository `save()` Mutates Business Fields Implicitly
 
 Bad:
 

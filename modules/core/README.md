@@ -43,6 +43,8 @@ Use different reading paths depending on the job:
 
 Use the API / source path to understand what core exposes. Use the pattern paths to decide where new code belongs and how it should be organized.
 
+For business-code tasks, the pattern is Agent-first: use interface schema for `transport validation`, entity behavior for `domain invariants`, and repository / DB for `persistence constraints`. If a rule still matters after HTTP disappears, it belongs in the entity.
+
 ---
 
 # ARCHITECTURE
@@ -155,11 +157,11 @@ console.log(ctx.params); // { id: "42" }
 | `HeadersState` | `Record<string, string>` | Request headers (lowercased keys)       |
 | `BodyState`    | `unknown`                | Request body (JSON only; cast required) |
 
-For routes registered through `withSchema`, these states contain validated output values before `beforeHandle` runs. If you need the raw request, read `RavenContext.getOrFailed().request` directly.
+For routes registered through `withSchema`, these states contain validated output values before `beforeHandle` runs. Treat those schemas as transport validation only. If you need the raw request, read `RavenContext.getOrFailed().request` directly.
 
 ## Schema Validation
 
-Core includes Standard Schema-based request and response validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
+Core includes Standard Schema-based request and response validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. In the RavenJS pattern, these schemas are for transport validation: shape, parsing, coercion, and basic format checks. Domain invariants still belong in entities. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
 
 ```typescript
 import { Raven, isValidationError, withSchema } from "@raven.js/core";
@@ -175,12 +177,12 @@ app.post(
         name: z.string(),
       }),
       response: z.object({
-        id: z.string().transform((value) => Number(value)),
+        id: z.number(),
         name: z.string(),
       }),
     },
     async (ctx) => ({
-      id: "1",
+      id: 1,
       name: ctx.body.name,
     }),
   ),
@@ -198,6 +200,8 @@ app.onError((error) => {
 ```
 
 `responseIssues` is primarily useful inside `onResponseValidationError`. Request-side validation failures still go through `onError` as before.
+
+If you use schema transforms or coercion, keep them transport-scoped. Do not use request schema to encode business rules that should live in entity factories or entity mutators.
 
 `SchemaClass(shape)` is also exported from core for DTO-style type inference. It exposes `_shape` on the class and instance, but does not perform runtime validation.
 
@@ -338,7 +342,7 @@ const body = BodyState.getOrFailed() as { name: string };
 
 ## 6. Schema-aware routes write validated output back into State
 
-When a route is registered with `withSchema`, the output of each schema is written into the built-in states before `beforeHandle` runs. This means transforms such as `z.string().transform(Number)` affect both `ctx.query` and `QueryState`.
+When a route is registered with `withSchema`, the output of each schema is written into the built-in states before `beforeHandle` runs. This means transport transforms such as `z.string().transform(Number)` affect both `ctx.query` and `QueryState`.
 
 ```typescript
 app.beforeHandle(() => {

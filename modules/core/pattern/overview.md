@@ -2,6 +2,8 @@
 
 This document is the entrypoint for the pattern. Read this file first, then go deeper by topic.
 
+The first user of this pattern is the Agent. This document should help an Agent decide where code belongs before it starts generating code.
+
 Use this document when the task is about business-facing RavenJS code structure: `interface`, `entity`, `repository`, `command`, `query`, `projection`, and `dto`.
 
 ## Reading Guide
@@ -34,7 +36,7 @@ The goal is to keep business code pure while still fitting RavenJS's real archit
 
 - plugins for reusable runtime composition
 - plugin-local `AppState` / `RequestState`
-- `withSchema()` for request validation and optional response shaping
+- `withSchema()` for transport validation and optional response shaping
 - lifecycle hooks for cross-cutting concerns
 - clear repository/query boundaries:
   `Repository` handles entity persistence,
@@ -61,7 +63,7 @@ So the RavenJS-friendly version of this architecture is:
 
 ```text
 Interface Unit
-  -> validates input
+  -> owns transport validation
   -> simple write path: uses Entity + Repository
   -> reusable write path: uses Command
   -> query path: uses Query + Projection
@@ -91,6 +93,35 @@ Runtime Assembly
 ```
 
 This keeps business concepts stable and keeps Raven-specific concerns in one place.
+
+## Agent-First Boundary Rules
+
+When an Agent is deciding where logic belongs, use this order:
+
+```text
+1. Can the request be parsed and shaped safely?
+   -> Interface schema / transport validation
+
+2. Does the rule still matter after HTTP disappears?
+   -> Entity / domain invariants
+
+3. Is the database enforcing storage-specific constraints?
+   -> Repository / DB / persistence constraints
+```
+
+Use these fixed meanings:
+
+- `transport validation`: request-source splitting, field shape, parsing, coercion, and basic format checks
+- `domain invariants`: business meaning, state transitions, lifecycle rules, and cross-field domain constraints
+- `persistence constraints`: uniqueness, foreign keys, and other storage-level constraints
+
+Short rule for Agents:
+
+- schema checks shape
+- entity decides business meaning
+- repository persists explicit state
+
+If a rule would still apply for queue, cron, script, or test-created input after HTTP disappears, it belongs in the entity.
 
 ## Repository / Command / Query Boundary
 
@@ -129,17 +160,17 @@ Rules:
 
 ## Core Concepts
 
-| Concept            | Responsibility                                                     | RavenJS Mapping                                                                |
-| ------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `Interface Unit`   | One API entrypoint, including input schema, output schema, handler | single exported interface object + `withSchema()` handler + route registration |
-| `Entity`           | Pure in-memory business model and behavior                         | plain TypeScript class/value object                                            |
-| `Repository`       | Persistence and hydration for an entity itself                     | object or function collection, usually reading infra from `AppState`           |
-| `Command`          | Reusable write workflow orchestration                              | object or function collection                                                  |
-| `Query`            | Complex reusable query logic                                       | object or function collection                                                  |
-| `Projection`       | Read-only query result model                                       | `SchemaClass` model                                                            |
-| `DTO`              | Schema atom, TS type, entity-to-JSON mapper                        | `SchemaClass` + runtime `Schema` + mapper                                      |
-| `Infra`            | Database client, external gateway, cache, mailer                   | plain technical adapters                                                       |
-| `Runtime Assembly` | Composition root, plugins, colocated states, hooks, error mapping  | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
+| Concept            | Responsibility                                                         | RavenJS Mapping                                                                |
+| ------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Interface Unit`   | One API entrypoint, including transport schema, output schema, handler | single exported interface object + `withSchema()` handler + route registration |
+| `Entity`           | Pure in-memory business model and behavior                             | plain TypeScript class/value object                                            |
+| `Repository`       | Persistence and hydration for an entity itself                         | object or function collection, usually reading infra from `AppState`           |
+| `Command`          | Reusable write workflow orchestration                                  | object or function collection                                                  |
+| `Query`            | Complex reusable query logic                                           | object or function collection                                                  |
+| `Projection`       | Read-only query result model                                           | `SchemaClass` model                                                            |
+| `DTO`              | Schema atom, TS type, entity-to-JSON mapper                            | `SchemaClass` + runtime `Schema` + mapper                                      |
+| `Infra`            | Database client, external gateway, cache, mailer                       | plain technical adapters                                                       |
+| `Runtime Assembly` | Composition root, plugins, colocated states, hooks, error mapping      | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
 
 ## Architecture
 
@@ -186,7 +217,7 @@ Rules:
 
 ### Write Path
 
-1. Interface validates request input.
+1. Interface performs transport validation on request input.
 2. Handler either constructs an entity directly or delegates to a `Command`.
 3. Entity owns the business rule transitions.
 4. Repository persists the entity's current explicit state.
@@ -194,7 +225,7 @@ Rules:
 
 ### Read Path
 
-1. Interface validates query, params, or headers.
+1. Interface performs transport validation on query, params, or headers.
 2. Handler calls a `Query` when the read is complex and reusable.
 3. Query returns a `Projection`.
 4. Handler maps the projection to a DTO.
@@ -203,7 +234,9 @@ Rules:
 ## Adoption Rules
 
 - Keep handler code schema-aware and business-light.
+- Keep request schema focused on transport validation, not domain invariants.
 - Keep entity code pure TypeScript.
+- Keep entity as the single home for entrypoint-independent business rules.
 - Keep repository focused on entity persistence and hydration.
 - Prefer invariants that are explicit in code before persistence; avoid patterns that require `save()` to backfill ids or similar fields invisibly.
 - Use `Command` only for reusable multi-entity write workflows.
