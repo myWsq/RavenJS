@@ -4,8 +4,7 @@
   "private": true,
   "workspaces": {
     "packages": [
-      "packages/*",
-      "modules/*"
+      "packages/*"
     ]
   },
   "type": "module",
@@ -20,7 +19,6 @@
     "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",
     "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts",
     "release": "bun run scripts/release.ts",
-    "generate:modules": "bun run scripts/generate-modules-table.ts",
     "prepare": "husky",
     "fmt": "oxfmt"
   },

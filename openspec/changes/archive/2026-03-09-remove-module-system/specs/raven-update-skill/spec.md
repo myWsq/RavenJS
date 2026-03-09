@@ -1,10 +1,4 @@
-# raven-update-skill Specification
-
-## Purpose
-
-TBD - created by archiving change add-raven-update-skill. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: install-raven distributes raven-update skill
 
@@ -16,39 +10,6 @@ TBD - created by archiving change add-raven-update-skill. Update Purpose after a
 - **THEN** 安装结果 SHALL 包含 `raven-update/SKILL.md`
 - **AND** 该 skill SHALL 与 `raven-setup`、`raven-learn`、`raven-use` 一起被安装
 - **AND** 默认分发结果 SHALL NOT 包含 `raven-add`
-
-### Requirement: raven-update skill upgrades the project-local CLI before sync
-
-`raven-update` skill SHALL 指导 Agent 先升级项目内的 `@raven.js/cli`，再使用项目本地 CLI 执行 `bunx raven sync`，而不是依赖已移除或不存在的历史命令。
-
-#### Scenario: Bun missing blocks the update skill
-
-- **WHEN** Agent 执行 `raven-update` skill 且 `bun --version` 失败
-- **THEN** skill SHALL 停止执行
-- **AND** skill SHALL 提示用户先安装 Bun
-
-#### Scenario: skill upgrades CLI before sync
-
-- **WHEN** Agent 按照 `raven-update` skill 执行升级流程且 Bun 可用
-- **THEN** skill SHALL 指导 Agent 先运行 `bun add -d @raven.js/cli@latest`
-- **AND** 随后 SHALL 使用项目本地 CLI 执行 `bunx raven sync`
-
-### Requirement: raven-update skill requires a clean Git baseline
-
-`raven-update` skill SHALL 在执行 CLI 升级或 `sync` 之前检查当前目录位于 Git 工作区且工作区干净，以保证升级 diff 只反映本次更新。
-
-#### Scenario: dirty worktree stops the skill
-
-- **WHEN** Agent 执行 `raven-update` skill 且 `git status --porcelain` 返回非空
-- **THEN** skill SHALL 停止执行
-- **AND** skill SHALL 提示用户先提交、暂存或备份当前改动
-- **AND** skill SHALL NOT 运行 `bunx raven sync`
-
-#### Scenario: non-git directory stops the skill
-
-- **WHEN** Agent 执行 `raven-update` skill 且当前目录不在 Git 工作区内
-- **THEN** skill SHALL 停止执行
-- **AND** skill SHALL 提示用户先初始化 Git 或创建可恢复备份
 
 ### Requirement: raven-update skill analyzes diffs and adapts breaking changes
 

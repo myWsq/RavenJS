@@ -1,10 +1,4 @@
-# Module Guide Requirement Specification
-
-## Purpose
-
-定义 registry 模块必须提供 GUIDE.md 的约束，以及 registry 生成时的校验行为。
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Raven 核心教学资产必须提供 GUIDE.md
 
@@ -21,3 +15,11 @@ RavenJS 唯一受管理的核心教学资产 SHALL 在其源码目录下提供 `
 - **WHEN** CLI 构建脚本扫描 Raven core 源码目录
 - **AND** 该目录下存在 `GUIDE.md`
 - **THEN** 脚本 SHALL 正常生成内嵌源码产物
+
+## REMOVED Requirements
+
+### Requirement: Registry 模块必须提供 GUIDE.md
+
+**Reason**: RavenJS 2.0 不再围绕 registry 模块集合组织产品与构建流程，因此不再要求“每个模块”都具备独立 GUIDE。
+
+**Migration**: 保留 core 的 `GUIDE.md` 作为唯一强制学习入口；示例插件如需额外说明，可在其目录中自行提供 README，但不参与构建校验。

@@ -1,10 +1,4 @@
-# CLI Embedded Source Specification
-
-## Purpose
-
-定义 CLI 构建时内嵌模块源码、运行时从内嵌路径读取的能力，使 CLI 离线可用，无需运行时网络访问。
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Build embeds core source into dist
 
@@ -49,3 +43,17 @@ CLI SHALL 从 `join(__dirname, "source", ...)` 对应的内嵌路径读取 Raven
 - **WHEN** 任一受管理文件在 `dist/source/` 下不存在
 - **THEN** CLI 报错并提示缺失文件
 - **AND** 不尝试网络下载作为 fallback
+
+## REMOVED Requirements
+
+### Requirement: Build embeds module source into dist
+
+**Reason**: RavenJS 2.0 不再围绕可安装模块集合构建 CLI，而是围绕固定的 core 与示例资产集合构建。
+
+**Migration**: 改为验证 `dist/source/core/` 与 `dist/source/examples/` 是否生成，而不是验证每个模块都有独立的 `dist/source/<module>/`。
+
+### Requirement: CLI reads modules from embedded source
+
+**Reason**: CLI 运行时不再按模块名读取源码，而是直接读取固定受管理资产路径。
+
+**Migration**: 受管理资产统一从 `dist/source/core/` 与 `dist/source/examples/` 读取，不再使用 `raven add <module>` 流程。

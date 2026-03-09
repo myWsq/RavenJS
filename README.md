@@ -33,7 +33,7 @@ bunx install-raven
 /raven-setup
 ```
 
-The Agent will install the CLI (if missing), initialize the raven root, add core, and verify the setup.
+The Agent will install the CLI (if missing), initialize the raven root, install the managed core reference tree, and verify the setup.
 
 **3. Write code via Agent**
 
@@ -49,20 +49,21 @@ Work with RavenJS primarily through skills.
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **raven‑setup**  | Project not yet set up for RavenJS.                                                                                                                    |
 | **raven‑use**    | Write application code with RavenJS (routes, handlers, hooks, validation, state). Use when the user wants to build an HTTP server or use RavenJS APIs. |
-| **raven‑add**    | Add a module (e.g. core) to an already initialized project. Use only after `raven init` has been run.                                                  |
-| **raven‑learn**  | Learn a module’s API, architecture, and design. Run before writing code that depends on that module.                                                   |
+| **raven‑learn**  | Learn RavenJS core API, architecture, patterns, and official example plugins before writing code.                                                      |
 | **raven‑update** | Upgrade the project-local Raven CLI, run `raven sync`, analyze the Git diff, and adapt project code when the update introduces breaking changes.       |
 
-## Available Modules
+## Core Reference
 
-| Module | Description                                                                                                                        | Docs                             |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `core` | RavenJS core framework providing HTTP services, routing, hooks, state management, and built-in Standard Schema request validation. | [README](modules/core/README.md) |
-| `sql`  | RavenJS SQL module providing SQL database integration. Use this module when you need to interact with a SQL database.              | [README](modules/sql/README.md)  |
+- RavenJS ships a single managed core reference tree with HTTP services, routing, hooks, state management, and built-in Standard Schema request validation.
+- Source docs: [README](packages/core/README.md)
+
+## Example Plugins
+
+- SQL plugin example: [README](examples/sql-plugin/README.md)
 
 ## CLI
 
-The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For command details, options, and output format see [packages/cli/README.md](packages/cli/README.md). Modules are installed from the CLI’s embedded source; no network fetch is required.
+The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For command details, options, and output format see [packages/cli/README.md](packages/cli/README.md). The managed core tree and example assets are installed from the CLI’s embedded source; no network fetch is required.
 
 ## Updating
 
@@ -116,9 +117,9 @@ bun run benchmark:e2e
 bun run benchmark:compare
 ```
 
-### Local registry
+### Local manifest
 
-Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local `registry.json`.
+Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local embedded-source manifest JSON.
 
 ## Release
 

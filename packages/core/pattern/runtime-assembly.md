@@ -8,6 +8,8 @@ Use this document when the task is about `app.ts`, plugins, states, scopes, or l
 
 State stays in this document because it is part of RavenJS runtime assembly, not a separate architectural layer.
 
+For a concrete runtime-managed database plugin, read `<raven_root>/examples/sql-plugin/index.ts` after this document.
+
 ## Runtime Assembly
 
 This is the RavenJS-specific layer.
@@ -106,6 +108,8 @@ function authPlugin() {
 
 export { CurrentUserState, authPlugin };
 ```
+
+The SQL example shipped with Raven uses this exact pattern at `<raven_root>/examples/sql-plugin/index.ts`.
 
 Do not create a standalone `<app_root>/state/` directory by default.
 

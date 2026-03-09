@@ -38,6 +38,7 @@ Use different reading paths depending on the job:
 - **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`
 - **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping files: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 - **Runtime-assembly pattern path** — wire `<app_root>/app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
+- **Example plugin path** — after the runtime-assembly docs, read `<raven_root>/examples/sql-plugin/GUIDE.md` to see a concrete SQL plugin example built with `definePlugin`, `defineAppState`, and `Bun.SQL`
 - **Plugin authoring details** — after the runtime-assembly path, read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
 - **Review path** — before finishing a change, run through [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 
@@ -225,6 +226,8 @@ The second argument to `load` is a **`StateSetter`** — a scope-bound function 
 `app.register()` accepts an optional `scopeKey` string to isolate state for that registration. Use this when registering the same plugin multiple times with independent state; read scoped values via `state.in(scopeKey)`.
 
 `app.onLoaded(hook)` registers hooks that run during `ready()`, after all plugin loads complete. Use them for one-time initialization that shouldn't block plugin registration.
+
+For a concrete database plugin example, inspect `<raven_root>/examples/sql-plugin/index.ts`.
 
 → **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
 

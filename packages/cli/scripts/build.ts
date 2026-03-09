@@ -1,103 +1,52 @@
 #!/usr/bin/env bun
-import { readdir, readFile, writeFile, mkdir, copyFile, rm } from "fs/promises";
-import { join, dirname } from "path";
+import { access, copyFile, mkdir, readFile, readdir, rm, writeFile } from "fs/promises";
+import { dirname, join } from "path";
 
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
-const MODULES_DIR = join(ROOT_DIR, "modules");
+const CORE_DIR = join(ROOT_DIR, "packages", "core");
+const EXAMPLES_DIR = join(ROOT_DIR, "examples");
 const DIST_DIR = join(CLI_DIR, "dist");
 const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
 const SOURCE_IN_DIST = join(DIST_DIR, "source");
 
-const RAVENJS_PREFIXES = ["@ravenjs/", "@raven.js/"];
+const EXCLUDED_NAMES = new Set(["node_modules", "package.json"]);
 
-/** Module files excluded from registry and source copy (paths relative to module dir) */
-const EXCLUDED_MODULE_FILES = new Set(["package.json"]);
-const EXCLUDED_MODULE_DIRS = new Set(["node_modules"]);
-
-function extractDependsOn(pkg: {
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-}): string[] {
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  const dependsOn: string[] = [];
-  for (const key of Object.keys(deps)) {
-    const prefix = RAVENJS_PREFIXES.find((p) => key.startsWith(p));
-    if (prefix) {
-      const moduleName = key.slice(prefix.length);
-      if (moduleName && !dependsOn.includes(moduleName)) {
-        dependsOn.push(moduleName);
-      }
-    }
-  }
-  return dependsOn;
-}
-
-function detectCycle(modules: Record<string, { dependsOn: string[] }>): string[] | null {
-  const visited = new Set<string>();
-  const recStack = new Set<string>();
-  const path: string[] = [];
-  function visit(name: string): string[] | null {
-    if (recStack.has(name)) {
-      const idx = path.indexOf(name);
-      return path.slice(idx).concat(name);
-    }
-    if (visited.has(name)) return null;
-    visited.add(name);
-    recStack.add(name);
-    path.push(name);
-
-    const mod = modules[name];
-    if (mod?.dependsOn) {
-      for (const dep of mod.dependsOn) {
-        if (modules[dep]) {
-          const cycle = visit(dep);
-          if (cycle) return cycle;
-        }
-      }
-    }
-    path.pop();
-    recStack.delete(name);
-    return null;
-  }
-
-  for (const name of Object.keys(modules)) {
-    const cycle = visit(name);
-    if (cycle) return cycle;
-  }
-  return null;
-}
-
-interface ModuleInfo {
+interface ManagedDirInfo {
   files: string[];
-  dependencies: Record<string, string>;
-  dependsOn: string[];
-  description?: string;
 }
 
-interface Registry {
+interface SourceManifest {
   version: string;
-  modules: Record<string, ModuleInfo>;
+  core: ManagedDirInfo;
+  examples: Record<string, ManagedDirInfo>;
 }
 
-async function getModuleFiles(moduleDir: string): Promise<string[]> {
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function getFiles(rootDir: string): Promise<string[]> {
   const files: string[] = [];
 
   async function walk(currentDir: string, currentRelDir = ""): Promise<void> {
     const entries = await readdir(currentDir, { withFileTypes: true });
 
     for (const entry of entries) {
+      if (EXCLUDED_NAMES.has(entry.name)) {
+        continue;
+      }
+
       const relPath = currentRelDir ? join(currentRelDir, entry.name) : entry.name;
       const absPath = join(currentDir, entry.name);
 
       if (entry.isDirectory()) {
-        if (!EXCLUDED_MODULE_DIRS.has(entry.name)) {
-          await walk(absPath, relPath);
-        }
-        continue;
-      }
-
-      if (EXCLUDED_MODULE_FILES.has(relPath)) {
+        await walk(absPath, relPath);
         continue;
       }
 
@@ -105,92 +54,74 @@ async function getModuleFiles(moduleDir: string): Promise<string[]> {
     }
   }
 
-  await walk(moduleDir);
+  await walk(rootDir);
   return files.sort();
 }
 
-async function scanModules(): Promise<Record<string, ModuleInfo>> {
-  const modules: Record<string, ModuleInfo> = {};
-  const entries = await readdir(MODULES_DIR, { withFileTypes: true });
+async function ensureCoreGuideExists(): Promise<void> {
+  const guidePath = join(CORE_DIR, "GUIDE.md");
+  if (!(await pathExists(guidePath))) {
+    console.error("Error: packages/core is missing GUIDE.md.");
+    process.exit(1);
+  }
+}
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+async function scanExamples(): Promise<Record<string, ManagedDirInfo>> {
+  const examples: Record<string, ManagedDirInfo> = {};
 
-    const moduleDir = join(MODULES_DIR, entry.name);
-    const packageJsonPath = join(moduleDir, "package.json");
-
-    try {
-      const content = await readFile(packageJsonPath, "utf-8");
-      const pkg = JSON.parse(content);
-
-      const files = await getModuleFiles(moduleDir);
-      if (files.length === 0) {
-        console.warn(
-          `Warning: ${entry.name} has no module files (excluding ${[...EXCLUDED_MODULE_FILES].join(", ")}), skipping`,
-        );
-        continue;
-      }
-
-      const guidePath = join(moduleDir, "GUIDE.md");
-      const guideExists = await Bun.file(guidePath).exists();
-      if (!guideExists) {
-        console.error(
-          `Error: Module '${entry.name}' is missing GUIDE.md. Each registry module must provide GUIDE.md.`,
-        );
-        process.exit(1);
-      }
-
-      const dependsOn = extractDependsOn(pkg);
-      modules[entry.name] = {
-        files,
-        dependencies: pkg.dependencies || {},
-        dependsOn,
-        description: pkg.description,
-      };
-    } catch {
-      console.warn(`Warning: Could not read package.json for ${entry.name}`);
-    }
+  if (!(await pathExists(EXAMPLES_DIR))) {
+    return examples;
   }
 
-  return modules;
+  const entries = await readdir(EXAMPLES_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const exampleDir = join(EXAMPLES_DIR, entry.name);
+    const files = await getFiles(exampleDir);
+    if (files.length === 0) {
+      continue;
+    }
+
+    examples[entry.name] = { files };
+  }
+
+  return examples;
 }
 
 async function getVersion(): Promise<string> {
   const content = await readFile(join(CLI_DIR, "package.json"), "utf-8");
   const pkg = JSON.parse(content) as { version?: string };
-  if (pkg.version) return pkg.version;
-  return "0.0.0";
+  return pkg.version ?? "0.0.0";
 }
 
-async function generateRegistry(outputPaths: string[]): Promise<Record<string, ModuleInfo>> {
-  const version = await getVersion();
-  const modules = await scanModules();
+async function generateManifest(outputPaths: string[]): Promise<SourceManifest> {
+  await ensureCoreGuideExists();
 
-  const cycle = detectCycle(modules);
-  if (cycle) {
-    console.error(`Error: Circular dependency detected: ${cycle.join(" -> ")}`);
-    process.exit(1);
-  }
+  const manifest: SourceManifest = {
+    version: await getVersion(),
+    core: { files: await getFiles(CORE_DIR) },
+    examples: await scanExamples(),
+  };
 
-  const registry: Registry = { version, modules };
-  const content = JSON.stringify(registry, null, 2);
-
-  for (const p of outputPaths) {
-    await mkdir(dirname(p), { recursive: true });
-    await writeFile(p, content);
+  const content = JSON.stringify(manifest, null, 2);
+  for (const outputPath of outputPaths) {
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, content);
   }
 
   console.log(
-    `Registry generated (version: ${version}, modules: ${Object.keys(modules).join(", ")})`,
+    `Source manifest generated (version: ${manifest.version}, examples: ${
+      Object.keys(manifest.examples).join(", ") || "none"
+    })`,
   );
 
-  return modules;
+  return manifest;
 }
 
-async function copyModuleSources(
-  modules: Record<string, ModuleInfo>,
-  outputDirs: string[],
-): Promise<void> {
+async function copyManagedSources(manifest: SourceManifest, outputDirs: string[]): Promise<void> {
   for (const outDir of outputDirs) {
     await rm(outDir, { recursive: true, force: true });
     await mkdir(outDir, { recursive: true });
@@ -198,14 +129,23 @@ async function copyModuleSources(
 
   const copies: Promise<void>[] = [];
 
-  for (const [moduleName, moduleInfo] of Object.entries(modules)) {
-    const srcModuleDir = join(MODULES_DIR, moduleName);
+  for (const file of manifest.core.files) {
+    const srcPath = join(CORE_DIR, file);
+    for (const outDir of outputDirs) {
+      const destPath = join(outDir, "core", file);
+      copies.push(
+        mkdir(dirname(destPath), { recursive: true }).then(() => copyFile(srcPath, destPath)),
+      );
+    }
+  }
 
-    for (const file of moduleInfo.files) {
-      const srcPath = join(srcModuleDir, file);
+  for (const [exampleName, example] of Object.entries(manifest.examples)) {
+    const exampleDir = join(EXAMPLES_DIR, exampleName);
 
+    for (const file of example.files) {
+      const srcPath = join(exampleDir, file);
       for (const outDir of outputDirs) {
-        const destPath = join(outDir, moduleName, file);
+        const destPath = join(outDir, "examples", exampleName, file);
         copies.push(
           mkdir(dirname(destPath), { recursive: true }).then(() => copyFile(srcPath, destPath)),
         );
@@ -215,17 +155,20 @@ async function copyModuleSources(
 
   await Promise.all(copies);
 
-  const totalFiles = Object.values(modules).reduce((sum, m) => sum + m.files.length, 0);
+  const totalFiles =
+    manifest.core.files.length +
+    Object.values(manifest.examples).reduce((sum, example) => sum + example.files.length, 0);
+
   console.log(
-    `Module sources copied (${Object.keys(modules).length} modules, ${totalFiles} files)`,
+    `Managed sources copied (core files: ${manifest.core.files.length}, total files: ${totalFiles})`,
   );
 }
 
 async function main() {
   const registryOnly = process.argv.includes("--registry-only");
 
-  const modules = await generateRegistry([REGISTRY_IN_DIST]);
-  await copyModuleSources(modules, [SOURCE_IN_DIST]);
+  const manifest = await generateManifest([REGISTRY_IN_DIST]);
+  await copyManagedSources(manifest, [SOURCE_IN_DIST]);
 
   if (registryOnly) {
     return;
@@ -243,7 +186,7 @@ async function main() {
   console.log("CLI built to dist/raven");
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

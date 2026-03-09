@@ -4,7 +4,7 @@ A plugin is a named object with a `load()` function. Register it via `app.regist
 
 ## Relevant Core Files
 
-If you are changing plugin behavior inside `modules/core`, start here:
+If you are changing plugin behavior inside `packages/core`, start here:
 
 - `app/raven.ts` — public plugin APIs such as `register()`, `use()`, `onLoaded()`
 - `runtime/load-plugins.ts` — actual plugin load order and `StateSetter` creation

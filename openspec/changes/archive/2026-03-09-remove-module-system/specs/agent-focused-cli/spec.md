@@ -1,24 +1,4 @@
-# Agent Focused CLI Specification
-
-## Purpose
-
-定义 CLI 面向 Agent 的输出格式与结构化信息，使 Agent 能程序化消费 CLI 输出。
-
-## Requirements
-
-### Requirement: All CLI outputs in JSON format
-
-All RavenJS CLI commands SHALL output JSON format by default, with the exception of `raven init` and `raven guide`.
-
-#### Scenario: CLI command outputs JSON
-
-- **WHEN** an Agent runs any RavenJS CLI command except `raven init` and `raven guide`
-- **THEN** the output SHALL be valid JSON
-
-#### Scenario: raven init for human use
-
-- **WHEN** a human runs `raven init`
-- **THEN** the output SHALL be human-friendly (non-JSON)
+## MODIFIED Requirements
 
 ### Requirement: CLI provides structured information for Agent
 

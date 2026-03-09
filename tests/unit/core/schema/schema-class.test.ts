@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { SchemaClass } from "../../../../modules/core";
+import { SchemaClass } from "../../../../packages/core";
 import { z } from "zod";
 
 describe("SchemaClass", () => {

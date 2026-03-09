@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { RadixRouter } from "../../../../modules/core";
+import { RadixRouter } from "../../../../packages/core";
 
 describe("RadixRouter", () => {
   it("should match static routes", () => {
