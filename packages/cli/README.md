@@ -10,11 +10,11 @@ bun add -d @raven.js/cli
 
 ## Commands
 
-| Command             | Description                                                                                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bunx raven init`   | Initialize the Raven root, write `raven.yaml`, install the managed `core/` reference tree, and install examples.                                         |
-| `bunx raven sync`   | Rebuild the managed `core/` tree and `examples/` assets from the embedded source, removing legacy module dirs atomically. Requires a clean Git worktree. |
-| `bunx raven status` | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                                                 |
+| Command             | Description                                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `bunx raven init`   | Initialize the Raven root, write `raven.yaml`, and install the managed `core/` reference tree.                                    |
+| `bunx raven sync`   | Rebuild the managed `core/` tree from the embedded source, removing legacy module dirs atomically. Requires a clean Git worktree. |
+| `bunx raven status` | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                          |
 
 ## Options
 
@@ -26,7 +26,7 @@ bun add -d @raven.js/cli
 
 ## Offline behavior
 
-The CLI embeds the managed core source and example assets at build time (`dist/source/core/`, `dist/source/examples/`). `raven init` and `raven sync` read only from this embedded source and do not perform network requests.
+The CLI embeds the managed core source at build time (`dist/source/core/`). `raven init` and `raven sync` read only from this embedded source and do not perform network requests.
 
 ## Recommended update flow
 
@@ -40,6 +40,6 @@ The skill performs this flow for the Agent and enforces the safety checks in the
 
 ## Sync semantics
 
-`raven sync` treats `<root>/core/` and `<root>/examples/` as CLI-managed Raven assets. It recreates those managed directories from the embedded source, removes files that no longer exist in the embedded source, removes legacy top-level module directories such as `sql/`, and swaps the rebuilt root into place only after staging succeeds.
+`raven sync` treats `<root>/core/` as CLI-managed Raven assets. It recreates the managed directory from the embedded source, removes files that no longer exist in the embedded source, removes legacy top-level module directories such as `sql/`, and swaps the rebuilt root into place only after staging succeeds.
 
 `raven sync` refuses to run unless the current directory is inside a Git worktree and the worktree is clean. This keeps the post-sync diff attributable to the update itself and avoids mixing framework regeneration with unrelated local edits.

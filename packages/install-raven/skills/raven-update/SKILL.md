@@ -49,7 +49,7 @@ Run:
 bunx raven sync
 ```
 
-`raven sync` rebuilds the managed `raven/core/` tree and official example assets from embedded source.
+`raven sync` rebuilds the managed `raven/core/` tree from embedded source.
 
 ## Step 4 — Analyze the update diff
 
@@ -63,7 +63,6 @@ Then inspect impacted project files as needed:
 
 - search Raven imports and references in project code
 - read the updated installed docs from `raven/core/`
-- read example assets from `raven/examples/` when they are relevant to the change
 
 ## Step 5 — Adapt breaking changes
 
@@ -86,7 +85,7 @@ Run the smallest relevant validation available in the project:
 Tell the user:
 
 - the CLI dependency changes
-- the Raven changes under `raven/core/` and `raven/examples/`
+- the Raven changes under `raven/core/`
 - whether any breaking changes were detected
 - which project files were adapted
 - which validation was run and the result

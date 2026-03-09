@@ -26,7 +26,7 @@ Handle the result:
 
 Follow the **raven-learn** skill first.
 
-Read the core guide, the files it references, and the relevant pattern docs. If the task needs a concrete plugin example, also read from `{rootDir}/examples/`.
+Read the core guide, the files it references, and the relevant pattern docs. If the task needs a concrete plugin example, see the SQL plugin example in `{installDir}/pattern/runtime-assembly.md`.
 
 ## Step 2 — Make a Pattern Plan
 

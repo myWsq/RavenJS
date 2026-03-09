@@ -59,7 +59,7 @@ Work with RavenJS primarily through skills.
 
 ## Example Plugins
 
-- SQL plugin example: [README](examples/sql-plugin/README.md)
+- SQL plugin example: see [pattern/runtime-assembly.md](packages/core/pattern/runtime-assembly.md)
 
 ## CLI
 

@@ -41,7 +41,6 @@ interface ManagedDirInfo {
 interface SourceManifest {
   version: string;
   core: ManagedDirInfo;
-  examples: Record<string, ManagedDirInfo>;
 }
 
 interface RavenYamlConfig {
@@ -198,10 +197,6 @@ function getCoreDir(rootDir: string): string {
   return join(rootDir, "core");
 }
 
-function getExamplesDir(rootDir: string): string {
-  return join(rootDir, "examples");
-}
-
 async function verboseLog(message: string, options?: CLIOptions) {
   if (options?.verbose) {
     console.log(message);
@@ -323,24 +318,10 @@ async function installCore(manifest: SourceManifest, ravenDir: string, options?:
   }
 }
 
-async function installExamples(manifest: SourceManifest, ravenDir: string, options?: CLIOptions) {
-  for (const [exampleName, example] of Object.entries(manifest.examples)) {
-    const sourceRoot = join(__dirname, "source", "examples", exampleName);
-    const exampleDir = join(getExamplesDir(ravenDir), exampleName);
-
-    for (const file of example.files) {
-      await copyManagedFile(join(sourceRoot, file), join(exampleDir, file), options, ravenDir);
-    }
-  }
-}
-
 function getManagedOutputPaths(manifest: SourceManifest, ravenDir: string): string[] {
   const corePaths = manifest.core.files.map((file) => join(getCoreDir(ravenDir), file));
-  const examplePaths = Object.entries(manifest.examples).flatMap(([exampleName, example]) =>
-    example.files.map((file) => join(getExamplesDir(ravenDir), exampleName, file)),
-  );
 
-  return [join(ravenDir, "raven.yaml"), ...corePaths, ...examplePaths].sort();
+  return [join(ravenDir, "raven.yaml"), ...corePaths].sort();
 }
 
 async function installManagedAssets(
@@ -349,7 +330,6 @@ async function installManagedAssets(
   options?: CLIOptions,
 ): Promise<void> {
   await installCore(manifest, ravenDir, options);
-  await installExamples(manifest, ravenDir, options);
 }
 
 async function getManagedState(ravenDir: string): Promise<ManagedState> {
@@ -373,7 +353,7 @@ async function getManagedState(ravenDir: string): Promise<ManagedState> {
     }
 
     if (entry.isDirectory()) {
-      if (entry.name === "core" || entry.name === "examples") {
+      if (entry.name === "core") {
         continue;
       }
       legacyDirs.push(entry.name);
@@ -511,7 +491,6 @@ async function cmdInit(options: CLIOptions) {
   const manifest = await loadManifest(options);
   const ravenDir = getRavenDir(options);
   const coreDir = getCoreDir(ravenDir);
-  const examplesDir = getExamplesDir(ravenDir);
   const modifiedFiles: string[] = [];
 
   const doInit = async () => {
@@ -519,9 +498,6 @@ async function cmdInit(options: CLIOptions) {
     const ravenYamlPath = join(ravenDir, "raven.yaml");
     const yamlExists = await pathExists(ravenYamlPath);
     const coreInstalled = (await pathExists(coreDir)) && !(await isDirEmpty(coreDir));
-    const examplesInstalled =
-      Object.keys(manifest.examples).length === 0 ||
-      ((await pathExists(examplesDir)) && !(await isDirEmpty(examplesDir)));
 
     await verboseLog(`Initializing RavenJS in ${cwd()}`, options);
 
@@ -537,13 +513,6 @@ async function cmdInit(options: CLIOptions) {
     if (!coreInstalled) {
       await installCore(manifest, ravenDir, options);
       modifiedFiles.push(...manifest.core.files.map((file) => join(coreDir, file)));
-    }
-
-    if (!examplesInstalled) {
-      await installExamples(manifest, ravenDir, options);
-      for (const [exampleName, example] of Object.entries(manifest.examples)) {
-        modifiedFiles.push(...example.files.map((file) => join(examplesDir, exampleName, file)));
-      }
     }
   };
 
@@ -620,7 +589,7 @@ program
 
 program
   .command("sync")
-  .description("Sync the managed Raven core and examples in a clean Git worktree.")
+  .description("Sync the managed Raven core in a clean Git worktree.")
   .action(async () => {
     await cmdSync(program.opts() as CLIOptions);
   });

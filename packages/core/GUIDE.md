@@ -12,7 +12,7 @@ Use the docs above to learn the public surface and source map. When the task is 
 
 - Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result mapping) → [pattern/overview.md](./pattern/overview.md), then [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md), [pattern/conventions.md](./pattern/conventions.md), and [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 - Runtime assembly (`<app_root>/app.ts`, plugins, states, scopes, hooks) → [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
-- Concrete plugin example → read `<raven_root>/examples/sql-plugin/GUIDE.md` for a minimal database plugin that combines `defineAppState`, `definePlugin`, and `Bun.SQL`
+- Concrete plugin example → see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a minimal database plugin that combines `defineAppState`, `definePlugin`, and `Bun.SQL`
 - Review or final self-check → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 
 For Agents, apply this boundary language while reading the pattern docs:

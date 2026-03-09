@@ -5,7 +5,6 @@ import { dirname, join } from "path";
 const CLI_DIR = join(import.meta.dir, "..");
 const ROOT_DIR = join(CLI_DIR, "..", "..");
 const CORE_DIR = join(ROOT_DIR, "packages", "core");
-const EXAMPLES_DIR = join(ROOT_DIR, "examples");
 const DIST_DIR = join(CLI_DIR, "dist");
 const REGISTRY_IN_DIST = join(DIST_DIR, "registry.json");
 const SOURCE_IN_DIST = join(DIST_DIR, "source");
@@ -19,7 +18,6 @@ interface ManagedDirInfo {
 interface SourceManifest {
   version: string;
   core: ManagedDirInfo;
-  examples: Record<string, ManagedDirInfo>;
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -66,31 +64,6 @@ async function ensureCoreGuideExists(): Promise<void> {
   }
 }
 
-async function scanExamples(): Promise<Record<string, ManagedDirInfo>> {
-  const examples: Record<string, ManagedDirInfo> = {};
-
-  if (!(await pathExists(EXAMPLES_DIR))) {
-    return examples;
-  }
-
-  const entries = await readdir(EXAMPLES_DIR, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-
-    const exampleDir = join(EXAMPLES_DIR, entry.name);
-    const files = await getFiles(exampleDir);
-    if (files.length === 0) {
-      continue;
-    }
-
-    examples[entry.name] = { files };
-  }
-
-  return examples;
-}
-
 async function getVersion(): Promise<string> {
   const content = await readFile(join(CLI_DIR, "package.json"), "utf-8");
   const pkg = JSON.parse(content) as { version?: string };
@@ -103,7 +76,6 @@ async function generateManifest(outputPaths: string[]): Promise<SourceManifest> 
   const manifest: SourceManifest = {
     version: await getVersion(),
     core: { files: await getFiles(CORE_DIR) },
-    examples: await scanExamples(),
   };
 
   const content = JSON.stringify(manifest, null, 2);
@@ -112,11 +84,7 @@ async function generateManifest(outputPaths: string[]): Promise<SourceManifest> 
     await writeFile(outputPath, content);
   }
 
-  console.log(
-    `Source manifest generated (version: ${manifest.version}, examples: ${
-      Object.keys(manifest.examples).join(", ") || "none"
-    })`,
-  );
+  console.log(`Source manifest generated (version: ${manifest.version})`);
 
   return manifest;
 }
@@ -139,29 +107,9 @@ async function copyManagedSources(manifest: SourceManifest, outputDirs: string[]
     }
   }
 
-  for (const [exampleName, example] of Object.entries(manifest.examples)) {
-    const exampleDir = join(EXAMPLES_DIR, exampleName);
-
-    for (const file of example.files) {
-      const srcPath = join(exampleDir, file);
-      for (const outDir of outputDirs) {
-        const destPath = join(outDir, "examples", exampleName, file);
-        copies.push(
-          mkdir(dirname(destPath), { recursive: true }).then(() => copyFile(srcPath, destPath)),
-        );
-      }
-    }
-  }
-
   await Promise.all(copies);
 
-  const totalFiles =
-    manifest.core.files.length +
-    Object.values(manifest.examples).reduce((sum, example) => sum + example.files.length, 0);
-
-  console.log(
-    `Managed sources copied (core files: ${manifest.core.files.length}, total files: ${totalFiles})`,
-  );
+  console.log(`Managed sources copied (core files: ${manifest.core.files.length})`);
 }
 
 async function main() {

@@ -8,7 +8,7 @@ Use this document when the task is about `app.ts`, plugins, states, scopes, or l
 
 State stays in this document because it is part of RavenJS runtime assembly, not a separate architectural layer.
 
-For a concrete runtime-managed database plugin, read `<raven_root>/examples/sql-plugin/index.ts` after this document.
+Below is a concrete SQL plugin example that uses this exact pattern.
 
 ## Runtime Assembly
 
@@ -109,7 +109,44 @@ function authPlugin() {
 export { CurrentUserState, authPlugin };
 ```
 
-The SQL example shipped with Raven uses this exact pattern at `<raven_root>/examples/sql-plugin/index.ts`.
+The SQL example shipped with Raven uses this exact pattern:
+
+```ts
+// SQL Plugin Example
+// Minimal pattern for wrapping Bun.SQL with Raven's plugin + state APIs:
+// 1. declare an AppState
+// 2. create a definePlugin(...)
+// 3. initialize the shared client in load(app, set)
+// 4. read the client from handlers via ClientState.getOrFailed()
+
+import { defineAppState, definePlugin } from "@raven.js/core";
+
+export const ClientState = defineAppState<Bun.SQL>();
+
+export function sqlPlugin(config: Bun.SQL.Options) {
+  return definePlugin({
+    name: "raven-sql",
+    load(_app, set) {
+      set(ClientState, new Bun.SQL(config));
+    },
+  });
+}
+```
+
+Usage:
+
+```ts
+import { Raven } from "@raven.js/core";
+import { ClientState, sqlPlugin } from "./plugins/sql.plugin";
+
+const app = new Raven().register(sqlPlugin("sqlite://./app.db"));
+
+app.get("/users", async () => {
+  const sql = ClientState.getOrFailed();
+  const rows = await sql`SELECT * FROM users LIMIT 10`;
+  return Response.json(rows);
+});
+```
 
 Do not create a standalone `<app_root>/state/` directory by default.
 

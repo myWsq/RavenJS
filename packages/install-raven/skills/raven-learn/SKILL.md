@@ -14,7 +14,6 @@ Run `bunx raven status` and parse the JSON output.
 
 - If `installed` is `false`, stop and suggest using **raven-setup** first.
 - If `installed` is `true`, use `installDir` as the core directory path (absolute path).
-- Use `rootDir` to locate bundled example assets such as `examples/sql-plugin/`.
 
 ## Step 1 — Read the core GUIDE
 
@@ -31,12 +30,7 @@ Use the core guide first. Then decide whether the upcoming task is about busines
 
 ## Step 3 — Read example assets when relevant
 
-If the task needs a concrete plugin example, read from `{rootDir}/examples/`.
-
-Current official example:
-
-- `{rootDir}/examples/sql-plugin/README.md`
-- `{rootDir}/examples/sql-plugin/index.ts`
+If the task needs a concrete plugin example, read the SQL plugin example section in `{installDir}/pattern/runtime-assembly.md`.
 
 ## Guardrails
 

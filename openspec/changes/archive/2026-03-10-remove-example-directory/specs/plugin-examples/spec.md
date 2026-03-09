@@ -1,10 +1,18 @@
-# plugin-examples Specification
+## REMOVED Requirements
 
-## Purpose
+### Requirement: Example plugins are shipped as teaching assets, not installable modules
 
-TBD - created by archiving change remove-module-system. Update Purpose after archive.
+**Reason**: 移除物理 `examples/` 目录，将示例内容整合到文档中，简化项目结构。
 
-## Requirements
+**Migration**: 示例代码将直接嵌入到 plugin 相关文档中（如 `packages/core/GUIDE.md` 或 pattern 文档），无需独立目录。
+
+### Requirement: RavenJS provides a SQL plugin example
+
+**Reason**: 移除物理 `examples/sql-plugin/` 目录，将 SQL plugin 示例代码整合到文档中。
+
+**Migration**: SQL plugin 示例代码将嵌入到 `packages/core/pattern/runtime-assembly.md` 或相关 GUIDE 文档中，保持教学价值但无需独立文件。
+
+## ADDED Requirements
 
 ### Requirement: Plugin 示例以文档形式存在
 

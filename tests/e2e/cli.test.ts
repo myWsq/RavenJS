@@ -97,7 +97,6 @@ async function readManifest() {
   return JSON.parse(await readFile(registryPath, "utf-8")) as {
     version: string;
     core: { files: string[] };
-    examples: Record<string, { files: string[] }>;
   };
 }
 
@@ -135,7 +134,7 @@ describe("CLI E2E", () => {
   });
 
   describe("Init Command", () => {
-    it("should init with default root and install core plus examples", async () => {
+    it("should init with default root and install core", async () => {
       const cwd = await createTempDir(tempDirs);
       const result = await runCli(["init"], cwd);
 
@@ -144,7 +143,6 @@ describe("CLI E2E", () => {
       const ravenDir = join(cwd, "raven");
       expect(await fileExists(join(ravenDir, "raven.yaml"))).toBe(true);
       expect(await fileExists(join(ravenDir, "core", "index.ts"))).toBe(true);
-      expect(await fileExists(join(ravenDir, "examples", "sql-plugin", "index.ts"))).toBe(true);
     });
 
     it("should init with custom root directory", async () => {
@@ -218,16 +216,14 @@ describe("CLI E2E", () => {
   });
 
   describe("Sync Command", () => {
-    it("should remove leftover files by rebuilding core and examples", async () => {
+    it("should remove leftover files by rebuilding core", async () => {
       const cwd = await createTempDir(tempDirs);
       await initGitRepo(cwd);
       await runCli(["init"], cwd);
       await commitAll(cwd, "baseline");
 
       const staleCoreFile = join(cwd, "raven", "core", "extra.ts");
-      const staleExampleFile = join(cwd, "raven", "examples", "sql-plugin", "extra.ts");
       await writeFile(staleCoreFile, "export const stale = true;\n");
-      await writeFile(staleExampleFile, "export const stale = true;\n");
       await commitAll(cwd, "add stale files");
 
       const result = await runCli(["sync"], cwd);
@@ -240,7 +236,6 @@ describe("CLI E2E", () => {
       expect(syncResult.success).toBe(true);
       expect(syncResult.removedDirectories).toEqual([]);
       expect(await fileExists(staleCoreFile)).toBe(false);
-      expect(await fileExists(staleExampleFile)).toBe(false);
     });
 
     it("should remove legacy module directories during sync", async () => {
@@ -313,7 +308,7 @@ describe("CLI E2E", () => {
       await commitAll(cwd, "baseline");
 
       const yamlPath = join(cwd, "raven", "raven.yaml");
-      const markerFile = join(cwd, "raven", "examples", "sql-plugin", "marker.ts");
+      const markerFile = join(cwd, "raven", "core", "marker.ts");
       const beforeYaml = await readFile(yamlPath, "utf-8");
       await writeFile(markerFile, "export const keepMe = true;\n");
       await commitAll(cwd, "add rollback marker");
