@@ -251,6 +251,7 @@ The default composition root is `<app_root>/app.ts`.
 Use this split:
 
 - register routes directly in `<app_root>/app.ts`
+- prefer `registerContractRoute(app, Contract, Handler)` so route metadata still comes from `contract.ts`
 - use plugins for reusable runtime concerns
 - register global `onError` handling in `<app_root>/app.ts` or a small reusable plugin
 - register `onResponseValidationError` when response schema mismatch should produce logs, metrics, or alerts
@@ -264,6 +265,7 @@ In practice, plugins here usually do one of two things:
 Route handlers do not need to be wrapped in plugins by default.
 
 Register them directly in `<app_root>/app.ts` unless there is a concrete reason to hide route registration behind a plugin.
+Do not wrap contract-driven route registration into a plugin just to avoid calling `registerContractRoute(...)` explicitly.
 
 ## Lifecycle Placement Rules
 
@@ -299,6 +301,8 @@ Let the actual serving entrypoint decide when to call `await app.ready()` instea
 Example shape:
 
 ```ts
+import { Raven, registerContractRoute } from "@raven.js/core";
+
 const app = new Raven();
 
 app.register(databasePlugin(process.env.DATABASE_URL!));
@@ -309,8 +313,8 @@ app.onResponseValidationError(({ error, value }) => {
   console.error("Response schema mismatch", error.responseIssues, value);
 });
 
-app.post("/orders", CreateOrderInterface.handler);
-app.get("/orders/:id", GetOrderInterface.handler);
+registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
+registerContractRoute(app, GetOrderContract, GetOrderHandler);
 
 export { app };
 ```
@@ -322,3 +326,4 @@ This is the default RavenJS style for this pattern:
 - routes are visible in one place
 - runtime concerns are still modular through plugins
 - business code stays outside `<app_root>/app.ts`
+- `contract.ts` remains the only source of `method`, `path`, and `schemas`

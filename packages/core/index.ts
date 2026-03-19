@@ -1,4 +1,16 @@
 export { Raven, definePlugin } from "./app/raven.ts";
+export {
+  defineContract,
+  type AnyContract,
+  type Contract,
+  type ContractSchemas,
+  type HttpMethod,
+  type InferContractBodyInput,
+  type InferContractHeadersInput,
+  type InferContractParamsInput,
+  type InferContractQueryInput,
+  type InferContractResponseOutput,
+} from "./contract/index.ts";
 
 export type {
   BeforeHandleHook,
@@ -39,6 +51,7 @@ export {
 export { currentAppStorage, requestStorage, type ScopeKey } from "./state/storage.ts";
 
 export { RadixRouter, type RouteMatch } from "./routing/radix-router.ts";
+export { registerContractRoute } from "./routing/register-contract-route.ts";
 
 export {
   isSchemaAwareHandler,

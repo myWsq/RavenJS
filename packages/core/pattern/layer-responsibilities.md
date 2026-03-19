@@ -23,17 +23,18 @@ Use this document when you need to decide whether logic belongs in `interface`, 
 
 An interface unit is the inbound API organization unit.
 
-In RavenJS, the default shape is one file per interface:
+In RavenJS, the default shape is one directory per interface:
 
-- `{name}.interface.ts`
+- `interface/{entry}/{entry}.contract.ts`
+- `interface/{entry}/{entry}.handler.ts`
 
-That file usually exports a single object such as `CreateOrderInterface`.
+Inside that directory:
 
-Inside that object:
-
+- `contract.ts` is the only source of `method`, `path`, `schemas`, and contract-related type inference
 - request schemas are defined by source: `body`, `query`, `params`, `headers`
 - `response` is defined from DTO schema atoms when the route returns default JSON
-- `handler` is usually exported through `withSchema()`
+- `handler.ts` exports `XxxHandler`, usually through `withSchema(Contract.schemas, ...)`
+- `<app_root>/app.ts` registers the route through `registerContractRoute(app, Contract, Handler)`
 
 The handler does:
 
@@ -62,25 +63,42 @@ Repository/query rule at the interface layer:
 - do not create a `Query` unless the SQL is both complex and worth reusing
 - DTO is still required at the interface boundary
 
-Recommended single-file shape:
+Recommended contract-first shape:
 
 ```ts
-// create-order.interface.ts
-const body = z.object({
-  userId: z.string(),
-  items: z.array(
-    z.object({
-      productId: OrderItemDTO._shape.productId,
-      productName: OrderItemDTO._shape.productName,
-      unitPrice: OrderItemDTO._shape.unitPrice,
-      quantity: OrderItemDTO._shape.quantity,
+// interface/create-order/create-order.contract.ts
+import { defineContract, type InferContractBodyInput } from "@raven.js/core/contract";
+import { z } from "zod";
+
+export const CreateOrderContract = defineContract({
+  method: "POST",
+  path: "/orders",
+  schemas: {
+    body: z.object({
+      userId: z.string(),
+      items: z.array(
+        z.object({
+          productId: OrderItemDTO._shape.productId,
+          productName: OrderItemDTO._shape.productName,
+          unitPrice: OrderItemDTO._shape.unitPrice,
+          quantity: OrderItemDTO._shape.quantity,
+        }),
+      ),
     }),
-  ),
+    response: z.object(OrderDTO._shape),
+  },
 });
 
-const response = z.object(OrderDTO._shape);
+export type CreateOrderInput = InferContractBodyInput<typeof CreateOrderContract>;
+```
 
-const handler = withSchema({ body, response }, async (ctx) => {
+```ts
+// interface/create-order/create-order.handler.ts
+import { withSchema } from "@raven.js/core";
+
+import { CreateOrderContract } from "./create-order.contract.ts";
+
+export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async (ctx) => {
   const order = OrderEntity.create({
     userId: ctx.body.userId,
   });
@@ -96,16 +114,20 @@ const handler = withSchema({ body, response }, async (ctx) => {
   await OrderRepository.save(order);
   return OrderDTO.fromEntity(order);
 });
+```
 
-export const CreateOrderInterface = { body, response, handler };
+```ts
+// <app_root>/app.ts
+import { registerContractRoute } from "@raven.js/core";
+
+registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
 ```
 
 Request/response schema rules in RavenJS:
 
 - split request schemas by source: `body`, `query`, `params`, `headers`
-- export schema parts as properties of the interface object, for example `CreateOrderInterface.body`
-- keep `response` beside the request schemas when the route returns default JSON
 - only declare the parts the interface actually needs
+- keep `response` beside the request schemas when the route returns default JSON
 - reuse DTO fields explicitly from `DTO._shape`
 - do not assume request field names must match DTO field names
 - pass real runtime schemas to `withSchema()`, not `SchemaClass` itself
@@ -114,16 +136,33 @@ Request/response schema rules in RavenJS:
 - do not call repository, gateway, or other infra from request schema
 - use parsing or coercion only for transport concerns; do not use schema transforms to bypass entity behavior
 
-If the route needs a custom status code or custom headers, keep the same object export shape but switch the handler back to a manual `Response`:
+Contract/handler boundary rules:
+
+- `contract.ts` owns `method`, `path`, `schemas`, and contract inference
+- `handler.ts` owns `withSchema(contract.schemas, ...)` and orchestration
+- `handler.ts` should not redefine route metadata already present in `contract.ts`
+- `contract.ts` must stay frontend-safe
+- frontend should import contract value directly when it needs `method`, `path`, `schemas`, or request/response inference
+- frontend should not depend on `handler.ts`
+
+Type-direction rules:
+
+- contract-side request inference reads schema input
+- contract-side response inference reads schema output
+- handler-side `ctx.body/query/params/headers` read schema output
+- handler-side return type for declared `response` schema reads response schema input
+
+If the route needs a custom status code or custom headers, keep the same directory shape but switch the handler back to a manual `Response`:
 
 ```ts
-const body = z.object({
-  userId: z.string(),
-});
+// interface/create-order/create-order.handler.ts
+import { z } from "zod";
+
+import { CreateOrderContract } from "./create-order.contract.ts";
 
 const response = z.object(OrderDTO._shape);
 
-const handler = withSchema({ body }, async (ctx) => {
+export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async (ctx) => {
   const order = OrderEntity.create({
     userId: ctx.body.userId,
   });
@@ -132,8 +171,6 @@ const handler = withSchema({ body }, async (ctx) => {
   const dto = OrderDTO.fromEntity(order);
   return Response.json(response.parse(dto), { status: 201 });
 });
-
-export const CreateOrderInterface = { body, response, handler };
 ```
 
 This keeps the handler:
@@ -154,14 +191,19 @@ In practice:
 Read-query path example:
 
 ```ts
-const query = z.object({
-  page: z.number(),
-  pageSize: z.number(),
+export const ListOrderContract = defineContract({
+  method: "GET",
+  path: "/orders",
+  schemas: {
+    query: z.object({
+      page: z.number(),
+      pageSize: z.number(),
+    }),
+    response: z.object(ListOrderDTO._shape),
+  },
 });
 
-const response = z.object(ListOrderDTO._shape);
-
-const handler = withSchema({ query, response }, async (ctx) => {
+export const ListOrderHandler = withSchema(ListOrderContract.schemas, async (ctx) => {
   const dto = await ListOrderQuery.execute({
     page: ctx.query.page,
     pageSize: ctx.query.pageSize,
@@ -169,21 +211,24 @@ const handler = withSchema({ query, response }, async (ctx) => {
 
   return dto;
 });
-
-export const ListOrderInterface = { query, response, handler };
 ```
 
 Command path example:
 
 ```ts
-const body = z.object({
-  orderId: z.string(),
-  paymentId: z.string(),
+export const SubmitOrderContract = defineContract({
+  method: "POST",
+  path: "/orders/submit",
+  schemas: {
+    body: z.object({
+      orderId: z.string(),
+      paymentId: z.string(),
+    }),
+    response: z.object(OrderDTO._shape),
+  },
 });
 
-const response = z.object(OrderDTO._shape);
-
-const handler = withSchema({ body, response }, async (ctx) => {
+export const SubmitOrderHandler = withSchema(SubmitOrderContract.schemas, async (ctx) => {
   const order = await SubmitOrderCommand.execute({
     orderId: ctx.body.orderId,
     paymentId: ctx.body.paymentId,
@@ -191,8 +236,6 @@ const handler = withSchema({ body, response }, async (ctx) => {
 
   return OrderDTO.fromEntity(order);
 });
-
-export const SubmitOrderInterface = { body, response, handler };
 ```
 
 Response schema rule in RavenJS:

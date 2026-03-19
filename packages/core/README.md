@@ -7,6 +7,7 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 - Logic layer: `app.ready()` returns a `FetchHandler`
 - Radix tree router (path parameters)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
+- Contract-first interface helpers via `defineContract` and `registerContractRoute`
 - Built-in Standard Schema request/response validation via `withSchema`
 - Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
 - Plugin system
@@ -19,11 +20,12 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 For AI-oriented reading, treat `core` as a set of concept modules instead of a single implementation file:
 
 - `index.ts` — public export map
+- `contract/` — frontend-safe contract definition helpers and transport type inference
 - `app/` — `Raven` public API, hook types, plugin-facing types
 - `runtime/` — request dispatch, plugin loading, response handling, error flow
 - `state/` — AsyncLocalStorage-backed state storage, descriptors, built-in states
 - `schema/` — `withSchema`, validation, `SchemaClass`, Standard Schema contract
-- `routing/` — radix router implementation
+- `routing/` — radix router implementation and explicit route-registration helpers
 - `context/` — request context object
 - `error/` — framework error model
 
@@ -36,7 +38,7 @@ Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/dispa
 Use different reading paths depending on the job:
 
 - **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`
-- **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping files: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
+- **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping files, especially the `contract.ts` / `handler.ts` split: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 - **Runtime-assembly pattern path** — wire `<app_root>/app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
 - **Example plugin path** — after the runtime-assembly docs, see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a concrete plugin built with `definePlugin`, `defineAppState`, and `Bun.SQL`
 - **Plugin authoring details** — after the runtime-assembly path, read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
@@ -44,7 +46,7 @@ Use different reading paths depending on the job:
 
 Use the API / source path to understand what core exposes. Use the pattern paths to decide where new code belongs and how it should be organized.
 
-For business-code tasks, the pattern is Agent-first: use interface schema for `transport validation`, entity behavior for `domain invariants`, and repository / DB for `persistence constraints`. If a rule still matters after HTTP disappears, it belongs in the entity.
+For business-code tasks, the pattern is Agent-first: use contract schema for `transport validation`, entity behavior for `domain invariants`, and repository / DB for `persistence constraints`. If a rule still matters after HTTP disappears, it belongs in the entity.
 
 ---
 
@@ -205,6 +207,77 @@ app.onError((error) => {
 If you use schema transforms or coercion, keep them transport-scoped. Do not use request schema to encode business rules that should live in entity factories or entity mutators.
 
 `SchemaClass(shape)` is also exported from core for DTO-style type inference. It exposes `_shape` on the class and instance, but does not perform runtime validation.
+
+## Contract-First Interface Pattern
+
+Use `defineContract` to keep `method`, `path`, and `schemas` in a single frontend-safe contract value. The recommended split is:
+
+- `interface/<entry>/<entry>.contract.ts`
+- `interface/<entry>/<entry>.handler.ts`
+- `<app_root>/app.ts` registers the route with `registerContractRoute(...)`
+
+`contract.ts` should import `defineContract` and any `InferContract*` tools from the frontend-safe `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. frontend should import contract value directly, not handler.
+
+Backend example:
+
+```typescript
+import { defineContract } from "@raven.js/core/contract";
+import { registerContractRoute, withSchema } from "@raven.js/core";
+import { z } from "zod";
+
+export const CreateOrderContract = defineContract({
+  method: "POST",
+  path: "/orders",
+  schemas: {
+    body: z.object({
+      quantity: z.string().transform((value) => Number(value)),
+    }),
+    response: z.object({
+      id: z.string(),
+      quantity: z.string().transform((value) => Number(value)),
+    }),
+  },
+});
+
+export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async (ctx) => ({
+  id: "order_1",
+  quantity: String(ctx.body.quantity),
+}));
+
+registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
+```
+
+frontend example:
+
+```typescript
+import {
+  type InferContractBodyInput,
+  type InferContractResponseOutput,
+} from "@raven.js/core/contract";
+import { CreateOrderContract } from "../../../backend/src/interface/create-order/create-order.contract.ts";
+
+type CreateOrderInput = InferContractBodyInput<typeof CreateOrderContract>;
+type CreateOrderResponse = InferContractResponseOutput<typeof CreateOrderContract>;
+
+export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResponse> {
+  const response = await fetch(CreateOrderContract.path, {
+    method: CreateOrderContract.method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  return response.json();
+}
+```
+
+Type-direction rule:
+
+- contract-side request inference reads schema input
+- contract-side response inference reads schema output
+- handler-side `ctx` reads schema output
+- handler-side return type for declared `response` schema reads schema input
+
+This is why `contract.ts` and its dependency tree must remain frontend-safe.
 
 ## Plugin
 

@@ -135,3 +135,42 @@ Prefer:
 - assign ids and other create-time defaults explicitly during forward construction
 - let `save()` persist the current explicit state
 - if persistence-generated values must be observed, expose them via an explicit reload or hydration step
+
+## 9. Frontend Imports `handler.ts` or Root Server Entry
+
+Bad:
+
+- frontend imports `CreateOrderHandler`
+- frontend imports `@raven.js/core` root entry just to reach contract metadata
+- `contract.ts` imports Raven runtime modules, state, or hooks
+
+Why it is wrong:
+
+- frontend and backend stop sharing the real contract value cleanly
+- `contract.ts` can no longer stay frontend-safe
+- contract reuse falls back to copied path strings or type-only imports
+
+Prefer:
+
+- keep `contract.ts` as the only source of `method`, `path`, and `schemas`
+- import `defineContract` and `InferContract*` from the frontend-safe contract helper entry
+- let frontend import contract value directly and let backend keep runtime concerns in `handler.ts` and `app.ts`
+
+## 10. Single-File Interface or `index.ts` Aggregation by Default
+
+Bad:
+
+- `create-order.interface.ts` contains route metadata, schema, and handler in one file
+- `interface/create-order/index.ts` re-exports contract and handler as a hidden aggregation layer
+
+Why it is wrong:
+
+- contract ownership becomes ambiguous
+- Agents lose a stable rule for deciding whether a change belongs in `contract.ts`, `handler.ts`, or `app.ts`
+- frontend-safe reuse gets harder because the visible import path no longer clearly points to the contract source
+
+Prefer:
+
+- one entrypoint directory per interface
+- exactly one `{entry}.contract.ts` plus one `{entry}.handler.ts`
+- route registration in `<app_root>/app.ts` through `registerContractRoute(...)`

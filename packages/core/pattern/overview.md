@@ -9,9 +9,9 @@ Use this document when the task is about business-facing RavenJS code structure:
 ## Reading Guide
 
 - Overview: this file
-- [Layer Responsibilities](./layer-responsibilities.md): handler, object style service, DTO, entity, repository, command, and query rules
+- [Layer Responsibilities](./layer-responsibilities.md): contract, handler, object style service, DTO, entity, repository, command, and query rules
 - [Runtime Assembly](./runtime-assembly.md): plugins, `AppState`, `RequestState`, lifecycle placement, and composition root
-- [Conventions](./conventions.md): directory layout, naming, and optional extensions
+- [Conventions](./conventions.md): directory layout, naming, and lightweight extension rules
 - [Anti-Patterns](./anti-patterns.md): common mistakes and review smells
 
 ## Purpose
@@ -28,7 +28,13 @@ It keeps the original design's core ideas:
 - `Query` as the abstraction for complex reusable queries
 - `DTO` as the schema atom source, preferably declared with `SchemaClass`, including named read result shapes when a query needs one
 
-It adds one RavenJS-specific layer:
+It adds RavenJS-specific interface guidance:
+
+- `contract.ts` as the only source of transport contract and route metadata
+- `handler.ts` as the only place that binds `withSchema(contract.schemas, ...)` to orchestration code
+- `registerContractRoute(...)` as the recommended route registration helper inside `<app_root>/app.ts`
+
+It also keeps one RavenJS-specific layer:
 
 - `Runtime Assembly` for app composition, plugin wiring, state injection, lifecycle hooks, and error mapping
 
@@ -36,8 +42,9 @@ The goal is to keep business code pure while still fitting RavenJS's real archit
 
 - plugins for reusable runtime composition
 - plugin-local `AppState` / `RequestState`
+- `defineContract()` for frontend-safe transport contract reuse
 - `withSchema()` for transport validation and optional response shaping
-- lifecycle hooks for cross-cutting concerns
+- `registerContractRoute()` for explicit route registration in the composition root
 - clear repository/query boundaries:
   `Repository` handles entity persistence,
   `Command` orchestrates reusable write workflows,
@@ -66,11 +73,12 @@ So the RavenJS-friendly version of this architecture is:
 
 ```text
 Interface Unit
-  -> owns transport validation
+  -> contract.ts owns method / path / schemas
+  -> handler.ts owns withSchema(contract.schemas, ...) + orchestration
   -> simple write path: uses Entity + Repository
   -> reusable write path: uses Command
   -> query path: uses Query + DTO / explicit result mapping
-  -> returns DTO
+  -> frontend may import contract value directly
 
 Entity
   -> owns write-side entities and repositories
@@ -88,6 +96,7 @@ Runtime Assembly
   -> assembles <app_root>/app.ts
   -> provides infra dependencies
   -> writes request context state
+  -> registers routes through registerContractRoute(...)
   -> maps framework errors to HTTP responses
 ```
 
@@ -99,7 +108,7 @@ When an Agent is deciding where logic belongs, use this order:
 
 ```text
 1. Can the request be parsed and shaped safely?
-   -> Interface schema / transport validation
+   -> contract schema / transport validation
 
 2. Does the rule still matter after HTTP disappears?
    -> Entity / domain invariants
@@ -116,7 +125,7 @@ Use these fixed meanings:
 
 Short rule for Agents:
 
-- schema checks shape
+- contract schema checks shape
 - entity decides business meaning
 - repository persists explicit state
 
@@ -172,17 +181,17 @@ Rules:
 
 ## Core Concepts
 
-| Concept                | Responsibility                                                         | RavenJS Mapping                                                                |
-| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Interface Unit`       | One API entrypoint, including transport schema, output schema, handler | single exported interface object + `withSchema()` handler + route registration |
-| `Object Style Service` | Cohesive reusable function surface                                     | top-level functions + trailing object export; may read ScopedState on demand   |
-| `Entity`               | Pure in-memory business model and behavior                             | plain TypeScript class/value object                                            |
-| `Repository`           | `Object Style Service` for an entity's persistence and hydration       | object module beside entity, reading infra via ScopedState when needed         |
-| `Command`              | `Object Style Service` for reusable write orchestration                | object or function collection                                                  |
-| `Query`                | `Object Style Service` for reusable read logic                         | object or function collection returning DTO or DTO-ready result data           |
-| `DTO`                  | Schema atom, TS type, entity-to-JSON mapper / named read result shape  | `SchemaClass` + runtime `Schema` + mapper                                      |
-| `Infra`                | Database client, external gateway, cache, mailer                       | plain technical adapters                                                       |
-| `Runtime Assembly`     | Composition root, plugins, colocated states, hooks, error mapping      | `definePlugin`, plugin-local `AppState`, `RequestState`, lifecycle hooks       |
+| Concept                | Responsibility                                                                  | RavenJS Mapping                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `Interface Unit`       | One API entrypoint, including transport contract, handler, and route metadata   | one entrypoint directory + `XxxContract` + `XxxHandler` + `registerContractRoute(...)`  |
+| `Object Style Service` | Cohesive reusable function surface                                              | top-level functions + trailing object export; may read ScopedState on demand            |
+| `Entity`               | Pure in-memory business model and behavior                                      | plain TypeScript class/value object                                                     |
+| `Repository`           | `Object Style Service` for an entity's persistence and hydration                | object module beside entity, reading infra via ScopedState when needed                  |
+| `Command`              | `Object Style Service` for reusable write orchestration                         | object or function collection                                                           |
+| `Query`                | `Object Style Service` for reusable read logic                                  | object or function collection returning DTO or DTO-ready result data                    |
+| `DTO`                  | Schema atom, TS type, entity-to-JSON mapper / named read result shape           | `SchemaClass` + runtime `Schema` + mapper                                               |
+| `Infra`                | Database client, external gateway, cache, mailer                                | plain technical adapters                                                                |
+| `Runtime Assembly`     | Composition root, plugins, colocated states, hooks, explicit route registration | `definePlugin`, plugin-local `AppState`, `RequestState`, `registerContractRoute`, hooks |
 
 ## Architecture
 
@@ -196,7 +205,7 @@ Rules:
 │                                                              │
 │  register infra plugins                                      │
 │  register context plugins                                    │
-│  register routes directly                                    │
+│  registerContractRoute(...)                                  │
 │  register global error mapping                               │
 └───────────────┬──────────────────────────────────────────────┘
                 │
@@ -204,7 +213,9 @@ Rules:
 ┌──────────────────────────────────────────────────────────────┐
 │                       Interface Unit                         │
 │                                                              │
-│  create-order.interface.ts                                   │
+│  interface/create-order/                                     │
+│    create-order.contract.ts                                  │
+│    create-order.handler.ts                                   │
 └───────────────┬──────────────────────────────┬───────────────┘
                 │                              │
                 ▼                              ▼
@@ -229,23 +240,28 @@ Rules:
 
 ### Write Path
 
-1. Interface performs transport validation on request input.
-2. Handler either constructs an entity directly or delegates to a `Command`.
-3. Entity owns the business rule transitions.
-4. Repository persists the entity's current explicit state.
-5. Handler maps the final result to a DTO and either returns that DTO through `withSchema(...response)` or builds a manual `Response` when HTTP details must be customized.
+1. `contract.ts` declares `method`, `path`, and transport schemas.
+2. `handler.ts` binds `withSchema(contract.schemas, ...)`.
+3. Handler either constructs an entity directly or delegates to a `Command`.
+4. Entity owns the business rule transitions.
+5. Repository persists the entity's current explicit state.
+6. Handler maps the final result to a DTO and either returns that DTO through `withSchema(...response)` or builds a manual `Response` when HTTP details must be customized.
+7. `<app_root>/app.ts` registers the route with `registerContractRoute(app, Contract, Handler)`.
 
 ### Read Path
 
-1. Interface performs transport validation on query, params, or headers.
-2. Handler calls a `Query` when the read is complex and reusable.
-3. Query returns a DTO or DTO-ready result data.
-4. Handler returns that DTO directly or performs the final DTO mapping.
-5. Handler builds the response.
+1. `contract.ts` declares query / params / headers schema and optional response schema.
+2. `handler.ts` performs orchestration with validated schema output.
+3. Handler calls a `Query` when the read is complex and reusable.
+4. Query returns a DTO or DTO-ready result data.
+5. Handler returns that DTO directly or performs the final DTO mapping.
+6. frontend may reuse the same contract value for `method`, `path`, `schemas`, and type inference.
 
 ## Adoption Rules
 
-- Keep handler code schema-aware and business-light.
+- Keep `contract.ts` as the only source of transport contract and route metadata.
+- Keep `contract.ts` frontend-safe. It must not import Raven runtime, state, hooks, or other server-only modules.
+- Keep `handler.ts` schema-aware and business-light.
 - Keep request schema focused on transport validation, not domain invariants.
 - Keep entity code pure TypeScript.
 - Keep entity as the single home for entrypoint-independent business rules.
@@ -258,6 +274,7 @@ Rules:
 - Prefer `Object Style Service` for reusable helpers and service capabilities.
 - Treat `Repository` as one named `Object Style Service`, not as an unrelated pattern to imitate indirectly.
 - Keep ordinary helpers, services, and repositories as plain object exports unless Raven runtime must manage them through `State`.
+- Let frontend import contract value directly. Do not make frontend depend on `handler.ts`.
 
 ## Next Read
 

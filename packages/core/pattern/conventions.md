@@ -11,9 +11,15 @@ Use this document after you know which layers you need and want the expected dir
 ```text
 <app_root>/
 ├── interface/
-│   ├── create-order.interface.ts
-│   ├── get-order.interface.ts
-│   └── get-user-profile.interface.ts
+│   ├── create-order/
+│   │   ├── create-order.contract.ts
+│   │   └── create-order.handler.ts
+│   ├── get-order/
+│   │   ├── get-order.contract.ts
+│   │   └── get-order.handler.ts
+│   └── get-user-profile/
+│       ├── get-user-profile.contract.ts
+│       └── get-user-profile.handler.ts
 │
 ├── command/
 │   ├── submit-order.command.ts
@@ -59,7 +65,7 @@ Use this document after you know which layers you need and want the expected dir
 `<app_root>/` means the directory that contains all Raven app code. In many projects this is `src/`, but the pattern does not require that exact directory name.
 
 In `entity/`, each subdirectory is one entity module.
-In `interface/`, files are named by one API entrypoint each.
+In `interface/`, each subdirectory is one API entrypoint, and that directory always contains exactly one `contract.ts` plus one `handler.ts`.
 In `command/`, files are named by write intent.
 In `query/`, files are named by query intent.
 In `dto/`, files may be named by the transport contract itself or by a reusable query result shape such as `paged-order-id.dto.ts`.
@@ -72,9 +78,18 @@ Business files keep the original rule:
 {module-name}.{type}.ts
 ```
 
+For `interface/`, apply that rule inside each entrypoint directory:
+
+```text
+interface/{entrypoint-name}/
+  {entrypoint-name}.contract.ts
+  {entrypoint-name}.handler.ts
+```
+
 | Suffix           | Layer                       | Example                       |
 | ---------------- | --------------------------- | ----------------------------- |
-| `.interface.ts`  | Interface                   | `create-order.interface.ts`   |
+| `.contract.ts`   | Interface contract          | `create-order.contract.ts`    |
+| `.handler.ts`    | Interface handler           | `create-order.handler.ts`     |
 | `.entity.ts`     | Entity                      | `order.entity.ts`             |
 | `.repository.ts` | Entity                      | `order.repository.ts`         |
 | `.service.ts`    | Object Style Service        | `order-permission.service.ts` |
@@ -88,6 +103,16 @@ Use fixed entrypoint names for runtime assembly:
 
 - `<app_root>/app.ts`
 - `<app_root>/infra/...`
+
+Interface directory rules:
+
+- one entrypoint directory per route contract
+- no `index.ts` inside the entrypoint directory
+- `contract.ts` is the only source of `method`, `path`, `schemas`, and contract-related type inference
+- `handler.ts` only exports `XxxHandler`
+- `handler.ts` should use `withSchema(Contract.schemas, ...)`
+- `app.ts` should register the route with `registerContractRoute(app, Contract, Handler)`
+- `contract.ts` and everything it imports must stay frontend-safe
 
 ## Optional Extensions
 
@@ -114,14 +139,21 @@ Object Style Service rules:
 
 Until then:
 
-- a single interface file is enough for orchestration
+- one interface directory is enough for orchestration
 - entity is enough for business rules
 - an `Object Style Service` export is enough for reusable helpers that do not need Raven-managed lifecycle
 
+Contract and handler export rules:
+
+- `contract.ts` should directly export `const XxxContract = defineContract(...)`
+- `handler.ts` should directly export `const XxxHandler = withSchema(XxxContract.schemas, ...)`
+- do not wrap contract and handler into a trailing `XxxInterface = { ... }` object
+- do not add `index.ts` to re-export the two files
+
 Object module export rule:
 
-- when a file is centered on one object module such as `CreateOrderInterface`, `OrderPermissionService`, `OrderRepository`, `SubmitOrderCommand`, `ListOrderQuery`, or `ScopeKeys`, keep `export const Name = { memberA, memberB }` on the last line
-- define the detailed members above that line, for example `const body`, `const response`, `const handler`, `const load`, `const save`, or `const execute`
+- when a file is centered on one object module such as `OrderPermissionService`, `OrderRepository`, `SubmitOrderCommand`, `ListOrderQuery`, or `ScopeKeys`, keep `export const Name = { memberA, memberB }` on the last line
+- define the detailed members above that line, for example `const load`, `const save`, or `const execute`
 - do not split that pattern into `const Name = ...` plus a trailing `export { Name }`
 - `Repository` is one named `Object Style Service`; `Command` and `Query` often use the same object-module shape
-- this rule is for object-style module files; classes, functions, and state declarations can keep normal named exports
+- this rule is for object-style module files; `contract.ts`, `handler.ts`, classes, functions, and state declarations can keep direct named exports
