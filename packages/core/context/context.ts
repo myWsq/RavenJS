@@ -9,15 +9,15 @@ export class Context {
     this.url = new URL(request.url);
   }
 
-  get method(): string {
+  get method(): Request["method"] {
     return this.request.method;
   }
 
-  get headers(): Headers {
+  get headers(): Request["headers"] {
     return this.request.headers;
   }
 
-  get body(): ReadableStream<Uint8Array> | null {
+  get body(): Request["body"] {
     return this.request.body;
   }
 }
