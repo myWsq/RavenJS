@@ -29,6 +29,8 @@ Run:
 bun add -d @raven.js/cli@latest
 ```
 
+The resulting `package.json` or lockfile changes are expected output of this upgrade step. Do not stop the flow just because these files become dirty after the upgrade starts.
+
 ## Step 2 — Verify Raven is initialized
 
 Run:
@@ -49,7 +51,7 @@ Run:
 bunx raven sync
 ```
 
-`raven sync` rebuilds the managed `raven/core/` tree from embedded source.
+`raven sync` rebuilds the managed `raven/core/` tree from embedded source. It checks that managed Raven paths are clean before syncing, rather than requiring the entire repository to be clean again after the CLI upgrade.
 
 ## Step 4 — Analyze the update diff
 

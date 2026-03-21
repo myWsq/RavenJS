@@ -165,7 +165,7 @@ function isGitUnavailable(result: GitCommandResult): boolean {
   );
 }
 
-function ensureCleanGitWorktree(): void {
+function ensureGitWorktreeForSync(): void {
   const insideWorktree = runGitCommand(["rev-parse", "--is-inside-work-tree"]);
   if (insideWorktree.exitCode !== 0) {
     if (isGitUnavailable(insideWorktree)) {
@@ -176,8 +176,30 @@ function ensureCleanGitWorktree(): void {
       "raven sync requires a Git worktree. Initialize Git or create a recoverable backup first.",
     );
   }
+}
 
-  const status = runGitCommand(["status", "--porcelain"]);
+function toGitPathspec(path: string): string {
+  return relative(cwd(), path).replace(/\\/g, "/");
+}
+
+function getManagedGitPathspecs(ravenDir: string, managedState: ManagedState): string[] {
+  const pathspecs = [
+    join(ravenDir, "raven.yaml"),
+    getCoreDir(ravenDir),
+    ...managedState.legacyDirs.map((dir) => join(ravenDir, dir)),
+  ];
+
+  return [...new Set(pathspecs.map(toGitPathspec))].sort();
+}
+
+function ensureManagedRavenPathsClean(ravenDir: string, managedState: ManagedState): void {
+  const status = runGitCommand([
+    "status",
+    "--porcelain",
+    "--untracked-files=all",
+    "--",
+    ...getManagedGitPathspecs(ravenDir, managedState),
+  ]);
   if (status.exitCode !== 0) {
     if (isGitUnavailable(status)) {
       error("Git is required for 'raven sync'. Install Git first.");
@@ -187,7 +209,10 @@ function ensureCleanGitWorktree(): void {
   }
 
   if (status.stdout.trim() !== "") {
-    error("raven sync requires a clean Git worktree. Commit or stash changes first.");
+    const rootLabel = toGitPathspec(ravenDir);
+    error(
+      `raven sync requires clean managed Raven paths. Commit, stash, or back up changes under ${rootLabel}/raven.yaml, ${rootLabel}/core/, and managed legacy directories first.`,
+    );
   }
 }
 
@@ -550,9 +575,10 @@ async function cmdInit(options: CLIOptions) {
 
 async function cmdSync(options: CLIOptions) {
   const manifest = await loadManifest(options);
-  ensureCleanGitWorktree();
+  ensureGitWorktreeForSync();
   const { ravenDir, config } = await ensureRavenInitialized(options);
   const managedState = await getManagedState(ravenDir);
+  ensureManagedRavenPathsClean(ravenDir, managedState);
 
   try {
     const syncBuild = await buildSyncRoot(ravenDir, config, manifest, options);
@@ -595,7 +621,7 @@ program
 
 program
   .command("sync")
-  .description("Sync the managed Raven core in a clean Git worktree.")
+  .description("Sync the managed Raven core in a Git worktree with clean managed Raven paths.")
   .action(async () => {
     await cmdSync(program.opts() as CLIOptions);
   });

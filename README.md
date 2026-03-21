@@ -72,9 +72,9 @@ The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For co
   /raven-update
   ```
 - **What the skill does**:
-  1. Upgrades `@raven.js/cli` in the current project
-  2. Verifies the Git worktree is clean
-  3. Runs `bunx raven sync`
+  1. Verifies the Git worktree is clean before starting the upgrade
+  2. Upgrades `@raven.js/cli` in the current project
+  3. Runs `bunx raven sync`, which only requires managed Raven paths to be clean
   4. Analyzes the Git diff and adapts project code if the update contains breaking changes
 - **AI skills**: Re-run to overwrite with the latest skill content:
   ```bash

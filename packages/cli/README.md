@@ -10,12 +10,12 @@ bun add -d @raven.js/cli
 
 ## Commands
 
-| Command                     | Description                                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `bunx raven init`           | Initialize the Raven root, write `raven.yaml`, and install the managed `core/` reference tree.                                    |
-| `bunx raven sync`           | Rebuild the managed `core/` tree from the embedded source, removing legacy module dirs atomically. Requires a clean Git worktree. |
-| `bunx raven status`         | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                          |
-| `bunx raven build-contract` | Build distributable contract artifacts (`raven-contract.json`, `openapi.json`, `openapi.yml`) from backend raw contracts.         |
+| Command                     | Description                                                                                                                                               |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bunx raven init`           | Initialize the Raven root, write `raven.yaml`, and install the managed `core/` reference tree.                                                            |
+| `bunx raven sync`           | Rebuild the managed `core/` tree from the embedded source, removing legacy module dirs atomically. Requires a Git worktree and clean managed Raven paths. |
+| `bunx raven status`         | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                                                  |
+| `bunx raven build-contract` | Build distributable contract artifacts (`raven-contract.json`, `openapi.json`, `openapi.yml`) from backend raw contracts.                                 |
 
 ## Options
 
@@ -97,9 +97,10 @@ This keeps the contract package as the distribution boundary while leaving backe
 
 Use the `raven-update` skill as the default RavenJS upgrade entry point:
 
-1. `bun add -d @raven.js/cli@latest`
-2. `bunx raven sync`
-3. Analyze the resulting Git diff and adapt project code if the update introduces breaking changes
+1. Verify the Git worktree is clean before starting the upgrade
+2. `bun add -d @raven.js/cli@latest`
+3. `bunx raven sync`
+4. Analyze the resulting Git diff and adapt project code if the update introduces breaking changes
 
 The skill performs this flow for the Agent and enforces the safety checks in the right order.
 
@@ -107,4 +108,4 @@ The skill performs this flow for the Agent and enforces the safety checks in the
 
 `raven sync` treats `<root>/core/` as CLI-managed Raven assets. It recreates the managed directory from the embedded source, removes files that no longer exist in the embedded source, removes legacy top-level module directories such as `sql/`, and swaps the rebuilt root into place only after staging succeeds.
 
-`raven sync` refuses to run unless the current directory is inside a Git worktree and the worktree is clean. This keeps the post-sync diff attributable to the update itself and avoids mixing framework regeneration with unrelated local edits.
+`raven sync` refuses to run unless the current directory is inside a Git worktree and the managed Raven paths are clean. The protected paths are `<root>/raven.yaml`, `<root>/core/`, and legacy managed directories that sync will delete. Unrelated repo edits such as `package.json`, lockfiles, app source, or passthrough files under `<root>/` do not block sync.

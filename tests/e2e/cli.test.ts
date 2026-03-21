@@ -358,6 +358,44 @@ describe("CLI E2E", () => {
       expect(await fileExists(join(coreDir, "index.ts"))).toBe(true);
     });
 
+    it("should sync when unrelated repo files are dirty", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+      await commitAll(cwd, "baseline");
+
+      await writeFile(
+        join(cwd, "package.json"),
+        JSON.stringify({ name: "sync-test", private: true }, null, 2),
+      );
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      const lines = result.stdout.trim().split("\n").filter(Boolean);
+      const syncResult = JSON.parse(lines[0] || "{}");
+      expect(syncResult.success).toBe(true);
+      expect(await fileExists(join(cwd, "raven", "core", "index.ts"))).toBe(true);
+    });
+
+    it("should sync when passthrough files under raven root are dirty", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+
+      const passthroughPath = join(cwd, "raven", "notes.md");
+      await writeFile(passthroughPath, "baseline note\n");
+      await commitAll(cwd, "baseline with passthrough file");
+
+      const dirtyPassthrough = "local passthrough change\n";
+      await writeFile(passthroughPath, dirtyPassthrough);
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).toBe(0);
+      expect(await readFile(passthroughPath, "utf-8")).toBe(dirtyPassthrough);
+    });
+
     it("should keep the original root when staging fails", async () => {
       const cwd = await createTempDir(tempDirs);
       const brokenRegistryDir = await createTempDir(tempDirs);
@@ -406,6 +444,63 @@ describe("CLI E2E", () => {
       expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
       expect(await fileExists(markerFile)).toBe(true);
       expect(await fileExists(join(cwd, "raven", "core", "index.ts"))).toBe(true);
+    });
+
+    it("should fail when raven.yaml is dirty without modifying the live root", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+      await commitAll(cwd, "baseline");
+
+      const yamlPath = join(cwd, "raven", "raven.yaml");
+      const dirtyYaml = `${await readFile(yamlPath, "utf-8")}# local change\n`;
+      await writeFile(yamlPath, dirtyYaml);
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("clean managed Raven paths");
+      expect(await readFile(yamlPath, "utf-8")).toBe(dirtyYaml);
+    });
+
+    it("should fail when managed core files are dirty without modifying the live root", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+      await commitAll(cwd, "baseline");
+
+      const coreIndexPath = join(cwd, "raven", "core", "index.ts");
+      const dirtyCore = `${await readFile(coreIndexPath, "utf-8")}\n// local change\n`;
+      await writeFile(coreIndexPath, dirtyCore);
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("clean managed Raven paths");
+      expect(await readFile(coreIndexPath, "utf-8")).toBe(dirtyCore);
+    });
+
+    it("should fail when legacy directories are dirty without modifying the live root", async () => {
+      const cwd = await createTempDir(tempDirs);
+      await initGitRepo(cwd);
+      await runCli(["init"], cwd);
+      await commitAll(cwd, "baseline");
+
+      const legacyDir = join(cwd, "raven", "sql");
+      const legacyFile = join(legacyDir, "index.ts");
+      await mkdir(legacyDir, { recursive: true });
+      await writeFile(legacyFile, "export const version = 1;\n");
+      await commitAll(cwd, "add legacy directory");
+
+      const dirtyLegacy = "export const version = 2;\n";
+      await writeFile(legacyFile, dirtyLegacy);
+
+      const result = await runCli(["sync"], cwd);
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("clean managed Raven paths");
+      expect(await fileExists(legacyDir)).toBe(true);
+      expect(await readFile(legacyFile, "utf-8")).toBe(dirtyLegacy);
     });
 
     it("should fail outside a Git worktree without modifying raven root", async () => {
