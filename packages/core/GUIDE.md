@@ -12,9 +12,9 @@ Use the docs above to learn the public surface and source map. When the task is 
 
 - Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result mapping) → [pattern/overview.md](./pattern/overview.md), then [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md), [pattern/conventions.md](./pattern/conventions.md), and [pattern/anti-patterns.md](./pattern/anti-patterns.md)
   The default interface shape is `interface/<entry>/<entry>.contract.ts` + `<entry>.handler.ts`.
-  Same-project frontend may import the raw contract value directly; cross-project consumers should prefer generated artifact/OpenAPI outputs from `raven build-contract`.
+  Same-project frontend may import the raw contract value directly; when another process or project needs API documentation, prefer `app.exportOpenAPI(...)` from the app composition root.
 - Runtime assembly (`<app_root>/app.ts`, plugins, states, scopes, hooks) → [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
-  The default route registration helper is `registerContractRoute(app, Contract, Handler)`.
+  The default route registration helper is `registerContractRoute(app, Contract, Handler)`, and the default OpenAPI exposure path is `app.exportOpenAPI(...)`.
 - Concrete plugin example → see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a minimal database plugin that combines `defineAppState`, `definePlugin`, and `Bun.SQL`
 - Review or final self-check → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 
@@ -42,7 +42,7 @@ Quick test: if a rule still matters after HTTP disappears, it belongs in the ent
 | [schema/validation.ts](./schema/validation.ts)                                   | You need `ValidationError` or request/response validation flow.                                                                |
 | [schema/schema-class.ts](./schema/schema-class.ts)                               | You need `SchemaClass` DTO-style inference.                                                                                    |
 | [schema/standard-schema.ts](./schema/standard-schema.ts)                         | You need to integrate Zod/Valibot or implement Standard Schema support.                                                        |
-| [schema/standard-json-schema.ts](./schema/standard-json-schema.ts)               | You need Standard JSON Schema conversion for contract artifact build or OpenAPI emission.                                      |
+| [schema/standard-json-schema.ts](./schema/standard-json-schema.ts)               | You need Standard JSON Schema conversion for runtime OpenAPI emission.                                                         |
 | [routing/radix-router.ts](./routing/radix-router.ts)                             | You need to understand or extend route matching.                                                                               |
 | [routing/register-contract-route.ts](./routing/register-contract-route.ts)       | You need the recommended explicit contract-aware route registration helper.                                                    |
 | [context/context.ts](./context/context.ts)                                       | You need the request context shape.                                                                                            |

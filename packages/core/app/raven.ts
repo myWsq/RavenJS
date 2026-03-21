@@ -13,7 +13,20 @@ import type {
   RavenInstance,
   RouteHandler,
 } from "./types.ts";
+import {
+  buildOpenAPIDocument,
+  DEFAULT_OPENAPI_PATH,
+  type OpenAPIDocument,
+  type OpenAPIExportOptions,
+  type OpenAPIWarning,
+} from "./openapi.ts";
+import {
+  makeRegisteredRouteKey,
+  normalizeRoutePathShape,
+  type RegisteredRoute,
+} from "./route-manifest.ts";
 import { BodyState, HeadersState, ParamsState, QueryState } from "../state/builtins.ts";
+import type { AnyContract, HttpMethod } from "../contract/index.ts";
 import { isValidationError, validateResponseSchema } from "../schema/validation.ts";
 import { currentAppStorage, type ScopeKey } from "../state/storage.ts";
 import { isSchemaAwareHandler, type SchemaAwareHandler } from "../schema/with-schema.ts";
@@ -28,6 +41,7 @@ export function definePlugin(plugin: Plugin): Plugin {
 
 export class Raven implements RavenInstance {
   private readonly router = new RadixRouter<RouteData>();
+  private readonly routeManifest = new Map<string, RegisteredRoute>();
   public readonly scopedStateMaps = new Map<ScopeKey, Map<symbol, any>>();
 
   private readonly hooks: RavenHooks = {
@@ -41,6 +55,9 @@ export class Raven implements RavenInstance {
 
   private readonly pendingPlugins: Array<{ plugin: Plugin; scopeKey?: ScopeKey }> = [];
   private buildPromise: Promise<FetchHandler> | null = null;
+  private openAPIExportOptions: OpenAPIExportOptions | null = null;
+  private openAPIDocumentCache: OpenAPIDocument | null = null;
+  private openAPIDocumentDirty = true;
 
   register(plugin: Plugin, scopeKey?: ScopeKey): this {
     this.pendingPlugins.push({ plugin, scopeKey });
@@ -69,9 +86,9 @@ export class Raven implements RavenInstance {
     return this.buildPromise;
   }
 
-  private addRoute(method: string, path: string, handler: RouteHandler): void {
+  private createRouteData(handler: RouteHandler): RouteData {
     if (isSchemaAwareHandler(handler)) {
-      this.router.add(method, path, {
+      return {
         handler: async () => {
           const ctx = {
             body: BodyState.get(),
@@ -105,11 +122,88 @@ export class Raven implements RavenInstance {
           }
         },
         schemas: handler.schemas,
-      });
-      return;
+      };
     }
 
-    this.router.add(method, path, { handler });
+    return { handler };
+  }
+
+  private markOpenAPIDocumentDirty(): void {
+    this.openAPIDocumentDirty = true;
+  }
+
+  private addRoute(
+    method: HttpMethod,
+    path: string,
+    handler: RouteHandler,
+    contract?: AnyContract,
+  ): void {
+    const registrationKey = makeRegisteredRouteKey(method, path);
+    const existingRoute = this.routeManifest.get(registrationKey);
+    if (existingRoute) {
+      throw new Error(
+        `Route conflict for ${method} ${path}: existing route ${existingRoute.method} ${existingRoute.path} already uses normalized path ${existingRoute.normalizedPath}`,
+      );
+    }
+
+    const routeData = this.createRouteData(handler);
+    this.routeManifest.set(registrationKey, {
+      method,
+      path,
+      normalizedPath: normalizeRoutePathShape(path),
+      data: routeData,
+      contract,
+    });
+    this.router.add(method, path, routeData);
+    this.markOpenAPIDocumentDirty();
+  }
+
+  private getOrBuildOpenAPIDocument(): OpenAPIDocument {
+    if (!this.openAPIExportOptions) {
+      throw new Error("OpenAPI export is not configured for this app");
+    }
+
+    if (!this.openAPIDocumentDirty && this.openAPIDocumentCache) {
+      return this.openAPIDocumentCache;
+    }
+
+    const { document, warnings } = buildOpenAPIDocument(
+      [...this.routeManifest.values()],
+      this.openAPIExportOptions,
+    );
+    for (const warning of warnings) {
+      this.warnOpenAPIExport(warning);
+    }
+
+    this.openAPIDocumentCache = document;
+    this.openAPIDocumentDirty = false;
+    return document;
+  }
+
+  private warnOpenAPIExport(warning: OpenAPIWarning): void {
+    console.warn(`[Raven OpenAPI] Skipped ${warning.method} ${warning.path}: ${warning.reason}`);
+  }
+
+  registerContractRoute(contract: AnyContract, handler: RouteHandler): this {
+    this.addRoute(contract.method, contract.path, handler, contract);
+    return this;
+  }
+
+  exportOpenAPI(options: OpenAPIExportOptions = {}): this {
+    if (this.openAPIExportOptions) {
+      throw new Error(
+        `OpenAPI export is already configured at ${this.openAPIExportOptions.path ?? DEFAULT_OPENAPI_PATH}`,
+      );
+    }
+
+    const path = options.path ?? DEFAULT_OPENAPI_PATH;
+    this.openAPIExportOptions = {
+      path,
+      info: options.info,
+    };
+    this.get(path, () => Response.json(this.getOrBuildOpenAPIDocument()));
+    this.markOpenAPIDocumentDirty();
+    return this;
   }
 
   get(path: string, handler: Handler): this;

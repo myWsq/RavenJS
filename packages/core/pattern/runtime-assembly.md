@@ -252,6 +252,7 @@ Use this split:
 
 - register routes directly in `<app_root>/app.ts`
 - prefer `registerContractRoute(app, Contract, Handler)` so route metadata still comes from `contract.ts`
+- expose API documentation from `<app_root>/app.ts` with `app.exportOpenAPI(...)` when the app should publish OpenAPI
 - use plugins for reusable runtime concerns
 - register global `onError` handling in `<app_root>/app.ts` or a small reusable plugin
 - register `onResponseValidationError` when response schema mismatch should produce logs, metrics, or alerts
@@ -315,6 +316,12 @@ app.onResponseValidationError(({ error, value }) => {
 
 registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
 registerContractRoute(app, GetOrderContract, GetOrderHandler);
+app.exportOpenAPI({
+  info: {
+    title: "Orders API",
+    version: "1.0.0",
+  },
+});
 
 export { app };
 ```
@@ -327,3 +334,4 @@ This is the default RavenJS style for this pattern:
 - runtime concerns are still modular through plugins
 - business code stays outside `<app_root>/app.ts`
 - `contract.ts` remains the only source of `method`, `path`, and `schemas`
+- OpenAPI exposure still derives from the routes actually registered on this app

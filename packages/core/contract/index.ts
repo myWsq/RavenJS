@@ -50,35 +50,6 @@ export interface MaterializedContractSchemas {
   response?: Record<string, unknown>;
 }
 
-export interface RavenContractSchemaRef {
-  readonly $ref: string;
-}
-
-export interface RavenContractSchemaRefs {
-  body?: RavenContractSchemaRef;
-  query?: RavenContractSchemaRef;
-  params?: RavenContractSchemaRef;
-  headers?: RavenContractSchemaRef;
-  response?: RavenContractSchemaRef;
-}
-
-export interface RavenContractArtifact {
-  readonly id: string;
-  readonly exportName: string;
-  readonly sourcePath: string;
-  readonly method: HttpMethod;
-  readonly path: string;
-  readonly schemas: RavenContractSchemaRefs;
-}
-
-export interface RavenContractBundle {
-  readonly version: 1;
-  readonly schemaTarget: StandardJSONSchemaV1.Target;
-  readonly generatedAt: string;
-  readonly contracts: readonly RavenContractArtifact[];
-  readonly schemas: Readonly<Record<string, Record<string, unknown>>>;
-}
-
 type InferSchemaInput<Schema, Fallback = never> =
   Schema extends StandardSchemaV1<infer Input, any> ? Input : Fallback;
 

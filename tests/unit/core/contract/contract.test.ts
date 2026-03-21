@@ -186,13 +186,9 @@ describe("defineContract", () => {
 });
 
 describe("registerContractRoute", () => {
-  it("should dispatch to the app method that matches the contract method", () => {
+  it("should delegate contract registration to the app", () => {
     const app = {
-      get: mock(() => app),
-      post: mock(() => app),
-      put: mock(() => app),
-      delete: mock(() => app),
-      patch: mock(() => app),
+      registerContractRoute: mock(() => app),
     };
 
     const handler = withSchema({}, async () => new Response("ok"));
@@ -205,11 +201,7 @@ describe("registerContractRoute", () => {
     const returnedApp = registerContractRoute(app, contract, handler);
 
     expect(returnedApp).toBe(app);
-    expect(app.patch).toHaveBeenCalledWith("/orders/:id", handler);
-    expect(app.get).not.toHaveBeenCalled();
-    expect(app.post).not.toHaveBeenCalled();
-    expect(app.put).not.toHaveBeenCalled();
-    expect(app.delete).not.toHaveBeenCalled();
+    expect(app.registerContractRoute).toHaveBeenCalledWith(contract, handler);
   });
 
   it("should preserve request parsing and response serialization when registering schema-aware handlers", async () => {
@@ -264,5 +256,55 @@ describe("registerContractRoute", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ page: 9 });
     expect(validationHookCalled).toBe(true);
+  });
+
+  it("should reject duplicate routes with the same method and path", () => {
+    const app = new Raven();
+    const handler = withSchema({}, async () => new Response("ok"));
+
+    app.get("/orders/:id", handler);
+
+    expect(() => app.get("/orders/:id", handler)).toThrow("Route conflict for GET /orders/:id");
+  });
+
+  it("should reject duplicate routes with the same normalized path shape", () => {
+    const app = new Raven();
+    const handler = withSchema({}, async () => new Response("ok"));
+
+    app.get("/orders/:id", handler);
+
+    expect(() => app.get("/orders/:orderId", handler)).toThrow(
+      "Route conflict for GET /orders/:orderId",
+    );
+  });
+
+  it("should attach contract metadata to the app route manifest", () => {
+    const app = new Raven();
+    const contract = defineContract({
+      method: "GET",
+      path: "/orders/:id",
+      schemas: {
+        params: z.object({
+          id: z.string(),
+        }),
+      },
+    });
+
+    registerContractRoute(
+      app,
+      contract,
+      withSchema(contract.schemas, async () => new Response("ok")),
+    );
+
+    const routes = [...((app as any).routeManifest as Map<string, unknown>).values()] as Array<{
+      contract?: unknown;
+      normalizedPath: string;
+      path: string;
+    }>;
+
+    expect(routes).toHaveLength(1);
+    expect(routes[0]?.contract).toBe(contract);
+    expect(routes[0]?.path).toBe("/orders/:id");
+    expect(routes[0]?.normalizedPath).toBe("/orders/:");
   });
 });

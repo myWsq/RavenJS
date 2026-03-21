@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { access, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
-import { join, relative, resolve } from "path";
+import { join, resolve } from "path";
 
 const isBun = typeof Bun !== "undefined";
 const repoRoot = resolve(import.meta.dir, "..", "..");
@@ -50,12 +50,6 @@ async function createTempDir(tempDirs: string[]) {
   return tmp;
 }
 
-async function createRepoTempDir(tempDirs: string[]) {
-  const tmp = await mkdtemp(join(repoRoot, ".raven-cli-test-"));
-  tempDirs.push(tmp);
-  return tmp;
-}
-
 async function fileExists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -63,84 +57,6 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function waitFor(
-  condition: () => Promise<boolean>,
-  timeoutMs: number,
-  intervalMs = 100,
-): Promise<void> {
-  const startedAt = Date.now();
-
-  while (Date.now() - startedAt < timeoutMs) {
-    if (await condition()) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-
-  throw new Error(`Timed out after ${timeoutMs}ms`);
-}
-
-async function rewriteContractCoreImport(contractFilePath: string) {
-  const content = await readFile(contractFilePath, "utf-8");
-  const relativeCoreImport = relative(
-    resolve(contractFilePath, ".."),
-    join(repoRoot, "packages", "core", "contract", "index.ts"),
-  ).replace(/\\/g, "/");
-
-  const nextContent = content.replace(
-    /from ".*packages\/core\/contract\/index\.ts";/,
-    `from "${relativeCoreImport.startsWith(".") ? relativeCoreImport : `./${relativeCoreImport}`}";`,
-  );
-
-  await writeFile(contractFilePath, nextContent);
-}
-
-async function writeBuildContractConfig(
-  contractPackageDir: string,
-  backendDir: string,
-  overrides?: Partial<{ title: string; version: string }>,
-) {
-  await writeFile(
-    join(contractPackageDir, "package.json"),
-    JSON.stringify(
-      {
-        name: "@tests/backend-contract",
-        version: overrides?.version ?? "1.2.3",
-        private: true,
-      },
-      null,
-      2,
-    ),
-  );
-
-  await writeFile(
-    join(contractPackageDir, "raven.contract.json"),
-    JSON.stringify(
-      {
-        backend: {
-          tsconfig: relative(contractPackageDir, join(backendDir, "tsconfig.json")).replace(
-            /\\/g,
-            "/",
-          ),
-          contracts: [
-            relative(contractPackageDir, join(backendDir, "src", "**", "*.contract.ts")).replace(
-              /\\/g,
-              "/",
-            ),
-          ],
-        },
-        outDir: "./dist",
-        openapi: {
-          title: overrides?.title ?? "Backend Contract API",
-          version: overrides?.version ?? "1.2.3",
-        },
-      },
-      null,
-      2,
-    ),
-  );
 }
 
 async function initGitRepo(cwd: string) {
@@ -516,138 +432,6 @@ describe("CLI E2E", () => {
       expect(result.stderr).toContain("Git worktree");
       expect(await readFile(yamlPath, "utf-8")).toBe(beforeYaml);
     });
-  });
-
-  describe("Build Contract Command", () => {
-    it("should build a contract bundle and OpenAPI artifacts without modifying backend sources", async () => {
-      const contractPackageDir = await createRepoTempDir(tempDirs);
-      const backendDir = join(repoRoot, "tests", "fixtures", "build-contract", "backend");
-      const backendContractPath = join(
-        backendDir,
-        "src",
-        "interface",
-        "create-order",
-        "create-order.contract.ts",
-      );
-      const beforeContract = await readFile(backendContractPath, "utf-8");
-
-      await writeBuildContractConfig(contractPackageDir, backendDir, {
-        title: "Fixture Backend API",
-        version: "9.9.9",
-      });
-
-      const result = await runCli(["build-contract"], contractPackageDir);
-
-      expect(result.exitCode).toBe(0);
-      const out = JSON.parse(result.stdout.trim());
-      expect(out.success).toBe(true);
-
-      const bundlePath = join(contractPackageDir, "dist", "raven-contract.json");
-      const openapiJsonPath = join(contractPackageDir, "dist", "openapi.json");
-      const openapiYamlPath = join(contractPackageDir, "dist", "openapi.yml");
-
-      expect(await fileExists(bundlePath)).toBe(true);
-      expect(await fileExists(openapiJsonPath)).toBe(true);
-      expect(await fileExists(openapiYamlPath)).toBe(true);
-
-      const bundle = JSON.parse(await readFile(bundlePath, "utf-8")) as {
-        schemaTarget: string;
-        contracts: Array<{
-          method: string;
-          path: string;
-          schemas: Record<string, { $ref: string }>;
-        }>;
-        schemas: Record<string, Record<string, unknown>>;
-      };
-      expect(bundle.schemaTarget).toBe("draft-2020-12");
-      expect(bundle.contracts).toHaveLength(1);
-      expect(bundle.contracts[0]?.method).toBe("POST");
-      expect(bundle.contracts[0]?.path).toBe("/orders/:orderId");
-      expect(bundle.contracts[0]?.schemas.body?.$ref).toContain("#/schemas/");
-
-      const openapi = JSON.parse(await readFile(openapiJsonPath, "utf-8")) as {
-        info: { title: string; version: string };
-        paths: Record<string, Record<string, { parameters?: unknown[]; requestBody?: unknown }>>;
-      };
-      expect(openapi.info).toEqual({
-        title: "Fixture Backend API",
-        version: "9.9.9",
-      });
-      expect(openapi.paths["/orders/{orderId}"]?.post).toBeTruthy();
-      expect(openapi.paths["/orders/{orderId}"]?.post?.requestBody).toBeTruthy();
-      expect(openapi.paths["/orders/{orderId}"]?.post?.parameters).toBeTruthy();
-
-      expect(await readFile(backendContractPath, "utf-8")).toBe(beforeContract);
-    });
-
-    it("should report a diagnosable error when a contract cannot be serialized", async () => {
-      const contractPackageDir = await createRepoTempDir(tempDirs);
-      const backendDir = join(repoRoot, "tests", "fixtures", "build-contract", "backend-transform");
-
-      await writeBuildContractConfig(contractPackageDir, backendDir);
-
-      const result = await runCli(["build-contract"], contractPackageDir);
-
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("Failed to serialize contract 'ReportContract'");
-      expect(result.stderr).toContain("Transforms cannot be represented in JSON Schema");
-    });
-
-    it("should rebuild artifacts in watch mode when a contract file changes", async () => {
-      const workspaceDir = await createRepoTempDir(tempDirs);
-      const backendDir = join(workspaceDir, "backend");
-      const contractPackageDir = join(workspaceDir, "backend-contract");
-      const fixtureBackendDir = join(repoRoot, "tests", "fixtures", "build-contract", "backend");
-
-      await cp(fixtureBackendDir, backendDir, { recursive: true });
-      await mkdir(contractPackageDir, { recursive: true });
-
-      const contractFile = join(
-        backendDir,
-        "src",
-        "interface",
-        "create-order",
-        "create-order.contract.ts",
-      );
-      await rewriteContractCoreImport(contractFile);
-      await writeBuildContractConfig(contractPackageDir, backendDir);
-
-      const proc = Bun.spawn({
-        cmd: ["bun", cliPath, "build-contract", "--watch"],
-        cwd: contractPackageDir,
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      try {
-        const bundlePath = join(contractPackageDir, "dist", "raven-contract.json");
-        await waitFor(async () => fileExists(bundlePath), 10000);
-
-        const initialBundle = JSON.parse(await readFile(bundlePath, "utf-8")) as {
-          contracts: Array<{ path: string }>;
-        };
-        expect(initialBundle.contracts[0]?.path).toBe("/orders/:orderId");
-
-        const originalContract = await readFile(contractFile, "utf-8");
-        await writeFile(
-          contractFile,
-          originalContract.replace("/orders/:orderId", "/orders/:updatedId"),
-        );
-
-        await waitFor(async () => {
-          const content = await readFile(bundlePath, "utf-8");
-          return content.includes("/orders/:updatedId");
-        }, 10000);
-
-        const rebuiltBundle = JSON.parse(await readFile(bundlePath, "utf-8")) as {
-          contracts: Array<{ path: string }>;
-        };
-        expect(rebuiltBundle.contracts[0]?.path).toBe("/orders/:updatedId");
-      } finally {
-        proc.kill();
-        await proc.exited;
-      }
-    }, 20000);
   });
 
   describe("Removed module workflow", () => {

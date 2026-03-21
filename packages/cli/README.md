@@ -10,12 +10,11 @@ bun add -d @raven.js/cli
 
 ## Commands
 
-| Command                     | Description                                                                                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bunx raven init`           | Initialize the Raven root, write `raven.yaml`, and install the managed `core/` reference tree.                                                            |
-| `bunx raven sync`           | Rebuild the managed `core/` tree from the embedded source, removing legacy module dirs atomically. Requires a Git worktree and clean managed Raven paths. |
-| `bunx raven status`         | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                                                  |
-| `bunx raven build-contract` | Build distributable contract artifacts (`raven-contract.json`, `openapi.json`, `openapi.yml`) from backend raw contracts.                                 |
+| Command             | Description                                                                                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bunx raven init`   | Initialize the Raven root, write `raven.yaml`, and install the managed `core/` reference tree.                                                            |
+| `bunx raven sync`   | Rebuild the managed `core/` tree from the embedded source, removing legacy module dirs atomically. Requires a Git worktree and clean managed Raven paths. |
+| `bunx raven status` | Show RavenJS installation status for the single managed core tree. Output is JSON for Agent consumption.                                                  |
 
 ## Options
 
@@ -25,73 +24,11 @@ bun add -d @raven.js/cli
 | `--registry <path>` | Path to embedded-source manifest JSON (default: same dir as CLI). Overridable via `RAVEN_DEFAULT_REGISTRY_PATH`. |
 | `--verbose, -v`     | Verbose output.                                                                                                  |
 
-`build-contract` also supports:
-
-| Option            | Description                                                               |
-| ----------------- | ------------------------------------------------------------------------- |
-| `--config <path>` | Path to `raven.contract.json` (default: `./raven.contract.json`).         |
-| `--watch`         | Watch configured contract sources and rebuild artifacts when they change. |
-
 ## Offline behavior
 
 The CLI embeds the managed core source at build time (`dist/source/core/`). `raven init` and `raven sync` read only from this embedded source and do not perform network requests.
 
-`raven build-contract` reads local backend contract source and writes local artifact files. It does not require network access.
-
-## Contract Artifact Build
-
-Use `raven build-contract` when frontend or external consumers should depend on a generated artifact instead of importing backend raw contract source.
-
-Recommended monorepo shape:
-
-```text
-apps/
-  backend/
-    tsconfig.json
-    src/interface/**\/*.contract.ts
-
-packages/
-  backend-contract/
-    package.json
-    raven.contract.json
-    dist/
-```
-
-Example `packages/backend-contract/raven.contract.json`:
-
-```json
-{
-  "backend": {
-    "tsconfig": "../../apps/backend/tsconfig.json",
-    "contracts": ["../../apps/backend/src/interface/**/*.contract.ts"]
-  },
-  "outDir": "./dist",
-  "openapi": {
-    "title": "Backend API",
-    "version": "1.0.0"
-  }
-}
-```
-
-Run from the contract package:
-
-```bash
-bunx raven build-contract
-```
-
-Generated files:
-
-- `dist/raven-contract.json`: canonical Raven contract bundle for downstream tooling
-- `dist/openapi.json`: OpenAPI 3.0 JSON document
-- `dist/openapi.yml`: OpenAPI 3.0 YAML document
-
-During local development:
-
-```bash
-bunx raven build-contract --watch
-```
-
-This keeps the contract package as the distribution boundary while leaving backend raw contract files as the authoring source of truth.
+OpenAPI exposure now lives in the Raven app runtime. Configure it from your app composition root with `app.exportOpenAPI(...)` instead of using a CLI build step.
 
 ## Recommended update flow
 

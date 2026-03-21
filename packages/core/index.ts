@@ -1,5 +1,14 @@
 export { Raven, definePlugin } from "./app/raven.ts";
 export {
+  DEFAULT_OPENAPI_INFO,
+  DEFAULT_OPENAPI_PATH,
+  buildOpenAPIDocument,
+  type OpenAPIDocument,
+  type OpenAPIExportOptions,
+  type OpenAPIInfo,
+  type OpenAPIWarning,
+} from "./app/openapi.ts";
+export {
   defineContract,
   isSerializableContractSchema,
   materializeContractSchema,
@@ -15,10 +24,6 @@ export {
   type InferContractQueryInput,
   type InferContractResponseOutput,
   type MaterializedContractSchemas,
-  type RavenContractArtifact,
-  type RavenContractBundle,
-  type RavenContractSchemaRef,
-  type RavenContractSchemaRefs,
   type RequestContractSchemaKey,
   type SerializableContractSchema,
   type SerializableContractSchemas,

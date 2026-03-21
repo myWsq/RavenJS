@@ -216,7 +216,7 @@ Use `defineContract` to keep `method`, `path`, and `schemas` in a single contrac
 - `interface/<entry>/<entry>.handler.ts`
 - `<app_root>/app.ts` registers the route with `registerContractRoute(...)`
 
-`contract.ts` should import `defineContract` and any `InferContract*` tools from the `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. Same-project frontend may import the raw contract value directly; cross-project consumers should prefer generated artifact/OpenAPI outputs from `raven build-contract`.
+`contract.ts` should import `defineContract` and any `InferContract*` tools from the `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. Same-project frontend may import the raw contract value directly; when another process or project needs a stable API description, prefer exposing OpenAPI from the app composition root with `app.exportOpenAPI(...)`.
 
 Backend example:
 
@@ -245,6 +245,12 @@ export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async 
 }));
 
 registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
+app.exportOpenAPI({
+  info: {
+    title: "Orders API",
+    version: "1.0.0",
+  },
+});
 ```
 
 Same-project frontend example:
@@ -277,16 +283,17 @@ Type-direction rule:
 - handler-side `ctx` reads schema output
 - handler-side return type for declared `response` schema reads schema input
 
-For cross-project or distributable consumption, keep backend raw contract as the authoring source of truth and generate artifact outputs instead of importing backend source directly:
+For cross-project or runtime API exposure, keep backend raw contracts as the authoring source of truth and export OpenAPI from the app composition root instead of importing backend source directly:
 
 ```text
 backend raw contracts
-  -> raven build-contract
-  -> raven-contract.json + openapi.json + openapi.yml
+  -> registerContractRoute(app, Contract, Handler)
+  -> app.exportOpenAPI()
+  -> /openapi.json
   -> frontend / SDK / external consumers
 ```
 
-When you choose direct raw-contract imports, `contract.ts` and its dependency tree must remain frontend-safe. When you choose artifact/OpenAPI distribution, frontend consumes the generated files instead of the backend source tree.
+When you choose direct raw-contract imports, `contract.ts` and its dependency tree must remain frontend-safe. When you choose runtime OpenAPI exposure, the exported document reflects the contract routes that are actually registered on the current app instance.
 
 ## Plugin
 
