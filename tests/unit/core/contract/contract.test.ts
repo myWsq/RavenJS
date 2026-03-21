@@ -2,8 +2,10 @@ import { describe, expect, it, mock } from "bun:test";
 import {
   Raven,
   defineContract,
+  materializeContractSchemas,
   registerContractRoute,
   withSchema,
+  type CombinedSchemaV1,
   type InferContractBodyInput,
   type InferContractHeadersInput,
   type InferContractParamsInput,
@@ -92,10 +94,94 @@ type _responseUsesSchemaOutput = Expect<
   Equal<InferContractResponseOutput<typeof responseContract>, number>
 >;
 
+const requestSerializableSchema = {
+  "~standard": {
+    version: 1,
+    vendor: "test",
+    validate: (value: unknown) =>
+      typeof value === "string" ? { value: value.length } : { issues: [{ message: "invalid" }] },
+    jsonSchema: {
+      input: () => ({ type: "string" }),
+      output: () => ({ type: "number" }),
+    },
+  },
+} as CombinedSchemaV1<string, number>;
+
+const responseSerializableSchema = {
+  "~standard": {
+    version: 1,
+    vendor: "test",
+    validate: (value: unknown) =>
+      typeof value === "string" ? { value: Number(value) } : { issues: [{ message: "invalid" }] },
+    jsonSchema: {
+      input: () => ({ type: "string" }),
+      output: () => ({ type: "number" }),
+    },
+  },
+} as CombinedSchemaV1<string, number>;
+
+const runtimeOnlySchema = {
+  "~standard": {
+    version: 1 as const,
+    vendor: "runtime-only",
+    validate: (value: unknown) =>
+      typeof value === "string"
+        ? { value: value.toUpperCase() }
+        : { issues: [{ message: "invalid" }] },
+  },
+};
+
 describe("defineContract", () => {
   it("should preserve literal method and path values", () => {
     expect(transformedContract.method).toBe("POST");
     expect(transformedContract.path).toBe("/orders");
+  });
+
+  it("should materialize request schemas from input and response schemas from output", () => {
+    const materialized = materializeContractSchemas(
+      {
+        body: requestSerializableSchema,
+        response: responseSerializableSchema,
+      },
+      { target: "draft-2020-12" },
+    );
+
+    expect(materialized.body).toEqual({ type: "string" });
+    expect(materialized.response).toEqual({ type: "number" });
+  });
+
+  it("should fail serialization for runtime-only schemas without affecting runtime validation", async () => {
+    expect(() =>
+      materializeContractSchemas(
+        {
+          body: runtimeOnlySchema,
+        },
+        { target: "draft-2020-12" },
+      ),
+    ).toThrow("does not implement StandardJSONSchemaV1");
+
+    const app = new Raven();
+    const handler = withSchema(
+      {
+        body: runtimeOnlySchema,
+      },
+      async (ctx) => Response.json({ value: ctx.body }),
+    );
+
+    app.post("/runtime-only", handler);
+
+    const response = await (
+      await app.ready()
+    )(
+      new Request("http://localhost/runtime-only", {
+        method: "POST",
+        body: JSON.stringify("hello"),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ value: "HELLO" });
   });
 });
 

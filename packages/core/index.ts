@@ -1,8 +1,12 @@
 export { Raven, definePlugin } from "./app/raven.ts";
 export {
   defineContract,
+  isSerializableContractSchema,
+  materializeContractSchema,
+  materializeContractSchemas,
   type AnyContract,
   type Contract,
+  type ContractSchemaKey,
   type ContractSchemas,
   type HttpMethod,
   type InferContractBodyInput,
@@ -10,6 +14,14 @@ export {
   type InferContractParamsInput,
   type InferContractQueryInput,
   type InferContractResponseOutput,
+  type MaterializedContractSchemas,
+  type RavenContractArtifact,
+  type RavenContractBundle,
+  type RavenContractSchemaRef,
+  type RavenContractSchemaRefs,
+  type RequestContractSchemaKey,
+  type SerializableContractSchema,
+  type SerializableContractSchemas,
 } from "./contract/index.ts";
 
 export type {
@@ -66,4 +78,12 @@ export {
 } from "./schema/with-schema.ts";
 export { SchemaClass } from "./schema/schema-class.ts";
 export { ValidationError, isValidationError, validateRequestSchemas } from "./schema/validation.ts";
+export {
+  isStandardJSONSchema,
+  materializeStandardJSONSchema,
+  type CombinedSchemaV1,
+  type JsonSchemaDirection,
+  type StandardJSONSchemaV1,
+  type StandardTypedV1,
+} from "./schema/standard-json-schema.ts";
 export type { StandardSchemaV1 } from "./schema/standard-schema.ts";

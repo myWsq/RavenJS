@@ -1,4 +1,10 @@
 import type { StandardSchemaV1 } from "../schema/standard-schema.ts";
+import {
+  isStandardJSONSchema,
+  materializeStandardJSONSchema,
+  type CombinedSchemaV1,
+  type StandardJSONSchemaV1,
+} from "../schema/standard-json-schema.ts";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
@@ -21,6 +27,57 @@ export interface Contract<
 }
 
 export type AnyContract = Contract<any, string, ContractSchemas>;
+export type ContractSchemaKey = keyof ContractSchemas;
+export type RequestContractSchemaKey = Exclude<ContractSchemaKey, "response">;
+export type SerializableContractSchema<Input = unknown, Output = Input> = CombinedSchemaV1<
+  Input,
+  Output
+>;
+
+export interface SerializableContractSchemas {
+  body?: SerializableContractSchema<any, any>;
+  query?: SerializableContractSchema<any, any>;
+  params?: SerializableContractSchema<any, any>;
+  headers?: SerializableContractSchema<any, any>;
+  response?: SerializableContractSchema<any, any>;
+}
+
+export interface MaterializedContractSchemas {
+  body?: Record<string, unknown>;
+  query?: Record<string, unknown>;
+  params?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+}
+
+export interface RavenContractSchemaRef {
+  readonly $ref: string;
+}
+
+export interface RavenContractSchemaRefs {
+  body?: RavenContractSchemaRef;
+  query?: RavenContractSchemaRef;
+  params?: RavenContractSchemaRef;
+  headers?: RavenContractSchemaRef;
+  response?: RavenContractSchemaRef;
+}
+
+export interface RavenContractArtifact {
+  readonly id: string;
+  readonly exportName: string;
+  readonly sourcePath: string;
+  readonly method: HttpMethod;
+  readonly path: string;
+  readonly schemas: RavenContractSchemaRefs;
+}
+
+export interface RavenContractBundle {
+  readonly version: 1;
+  readonly schemaTarget: StandardJSONSchemaV1.Target;
+  readonly generatedAt: string;
+  readonly contracts: readonly RavenContractArtifact[];
+  readonly schemas: Readonly<Record<string, Record<string, unknown>>>;
+}
 
 type InferSchemaInput<Schema, Fallback = never> =
   Schema extends StandardSchemaV1<infer Input, any> ? Input : Fallback;
@@ -52,6 +109,48 @@ export type InferContractHeadersInput<TContract extends AnyContract> = InferSche
 export type InferContractResponseOutput<TContract extends AnyContract> = InferSchemaOutput<
   ContractSchema<TContract, "response">
 >;
+
+function getSchemaMaterializeDirection(key: ContractSchemaKey): "input" | "output" {
+  return key === "response" ? "output" : "input";
+}
+
+export function isSerializableContractSchema(
+  schema: unknown,
+): schema is SerializableContractSchema<any, any> {
+  return isStandardJSONSchema(schema);
+}
+
+export function materializeContractSchema(
+  schema: StandardSchemaV1<any, any>,
+  key: ContractSchemaKey,
+  options: StandardJSONSchemaV1.Options,
+): Record<string, unknown> {
+  if (!isSerializableContractSchema(schema)) {
+    throw new Error(
+      `Contract schema '${key}' does not implement StandardJSONSchemaV1 and cannot be serialized`,
+    );
+  }
+
+  return materializeStandardJSONSchema(schema, getSchemaMaterializeDirection(key), options);
+}
+
+export function materializeContractSchemas(
+  schemas: ContractSchemas,
+  options: StandardJSONSchemaV1.Options,
+): MaterializedContractSchemas {
+  const materialized: MaterializedContractSchemas = {};
+
+  for (const key of ["body", "query", "params", "headers", "response"] as const) {
+    const schema = schemas[key];
+    if (!schema) {
+      continue;
+    }
+
+    materialized[key] = materializeContractSchema(schema, key, options);
+  }
+
+  return materialized;
+}
 
 export function defineContract<
   const Method extends HttpMethod,

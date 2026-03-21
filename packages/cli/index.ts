@@ -21,6 +21,12 @@ import { spinner as makeSpinner, log } from "@clack/prompts";
 import pc from "picocolors";
 import { parse, stringify } from "yaml";
 
+import {
+  cmdBuildContract,
+  cmdBuildContractSnapshot,
+  type BuildContractCLIOptions,
+} from "./contract-build.ts";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = "raven";
 const CORE_PACKAGE_NAMES = ["@ravenjs/core", "@raven.js/core"];
@@ -599,6 +605,29 @@ program
   .description("Show RavenJS installation status for the managed core tree.")
   .action(async () => {
     await cmdStatus(program.opts() as CLIOptions);
+  });
+
+program
+  .command("build-contract")
+  .description("Build distributable contract artifacts from backend raw contracts.")
+  .option("--config <path>", "Path to raven.contract.json (default: ./raven.contract.json)")
+  .option("--watch", "Watch contract sources and rebuild artifacts on change")
+  .action(async function (this: { opts: () => BuildContractCLIOptions }) {
+    const options = this.opts();
+    await cmdBuildContract(cwd(), options);
+  });
+
+program
+  .command("__build-contract-snapshot", { hidden: true })
+  .option("--payload <path>")
+  .option("--cache-bust <token>")
+  .action(async function (this: { opts: () => { payload?: string; cacheBust?: string } }) {
+    const options = this.opts();
+    if (!options.payload) {
+      error("Missing --payload for __build-contract-snapshot");
+    }
+
+    await cmdBuildContractSnapshot(options.payload, options.cacheBust);
   });
 
 (async () => {

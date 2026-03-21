@@ -20,7 +20,7 @@ RavenJS Core is a lightweight, high-performance Web framework reference implemen
 For AI-oriented reading, treat `core` as a set of concept modules instead of a single implementation file:
 
 - `index.ts` — public export map
-- `contract/` — frontend-safe contract definition helpers and transport type inference
+- `contract/` — contract definition helpers, transport type inference, and contract materialization helpers
 - `app/` — `Raven` public API, hook types, plugin-facing types
 - `runtime/` — request dispatch, plugin loading, response handling, error flow
 - `state/` — AsyncLocalStorage-backed state storage, descriptors, built-in states
@@ -210,13 +210,13 @@ If you use schema transforms or coercion, keep them transport-scoped. Do not use
 
 ## Contract-First Interface Pattern
 
-Use `defineContract` to keep `method`, `path`, and `schemas` in a single frontend-safe contract value. The recommended split is:
+Use `defineContract` to keep `method`, `path`, and `schemas` in a single contract value. The recommended split is:
 
 - `interface/<entry>/<entry>.contract.ts`
 - `interface/<entry>/<entry>.handler.ts`
 - `<app_root>/app.ts` registers the route with `registerContractRoute(...)`
 
-`contract.ts` should import `defineContract` and any `InferContract*` tools from the frontend-safe `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. frontend should import contract value directly, not handler.
+`contract.ts` should import `defineContract` and any `InferContract*` tools from the `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. Same-project frontend may import the raw contract value directly; cross-project consumers should prefer generated artifact/OpenAPI outputs from `raven build-contract`.
 
 Backend example:
 
@@ -247,7 +247,7 @@ export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async 
 registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
 ```
 
-frontend example:
+Same-project frontend example:
 
 ```typescript
 import {
@@ -277,7 +277,16 @@ Type-direction rule:
 - handler-side `ctx` reads schema output
 - handler-side return type for declared `response` schema reads schema input
 
-This is why `contract.ts` and its dependency tree must remain frontend-safe.
+For cross-project or distributable consumption, keep backend raw contract as the authoring source of truth and generate artifact outputs instead of importing backend source directly:
+
+```text
+backend raw contracts
+  -> raven build-contract
+  -> raven-contract.json + openapi.json + openapi.yml
+  -> frontend / SDK / external consumers
+```
+
+When you choose direct raw-contract imports, `contract.ts` and its dependency tree must remain frontend-safe. When you choose artifact/OpenAPI distribution, frontend consumes the generated files instead of the backend source tree.
 
 ## Plugin
 
