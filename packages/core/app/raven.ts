@@ -158,6 +158,10 @@ export class Raven implements RavenInstance {
     this.markOpenAPIDocumentDirty();
   }
 
+  getOpenAPIDocument(): OpenAPIDocument {
+    return this.getOrBuildOpenAPIDocument();
+  }
+
   private getOrBuildOpenAPIDocument(): OpenAPIDocument {
     if (!this.openAPIExportOptions) {
       throw new Error("OpenAPI export is not configured for this app");
