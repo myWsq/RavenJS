@@ -10,7 +10,7 @@ RavenJS is an **AI-native** web framework on a **Hono** engine. Lightweight, con
 
 ## Philosophy
 
-- **AI-native, skill-first**: RavenJS is optimized for AI agents to learn and write correct code. The framework ships teaching docs inside the package, and a set of skills drives setup, learning, writing, and updating.
+- **AI-native, skill-first**: RavenJS is optimized for AI agents to learn and write correct code. The framework ships teaching docs inside the package, and a `raven-use` skill drives learning and writing correct code.
 - **Published as an npm package**: `@raven.js/core` is a normal dependency you install and `import` — not source copied into your project. `hono` is a peer dependency.
 - **Opinionated design, preserved**: contract-first (serializable contracts), Standard Schema validation (library-agnostic), ambient state DI (`AppState`/`RequestState`, no `c` threading), plugin lifecycle, and a self-built OpenAPI generator.
 - **Hono under the hood**: routing, HTTP plumbing, and serving run on Hono — but Hono's context `c` is an internal detail. Handlers receive only the validated `{ body, query, params, headers }`.
@@ -60,22 +60,18 @@ Deno.serve({ port: 3000 }, await app.ready());
 
 ## AI Skills
 
-Work with RavenJS primarily through skills. They live in this repo under [`skills/`](skills/) — **copy the ones you want into your project** (no installer):
+Work with RavenJS primarily through the **`raven-use`** skill. It lives in this repo under [`skills/`](skills/) — RavenJS ships no installer of its own; install it with the generic [`skills`](https://github.com/vercel-labs/skills) CLI, which pulls straight from this repo:
 
 ```bash
-# from a clone/download of this repo
-cp -r skills/raven-setup skills/raven-use skills/raven-learn skills/raven-update \
-  your-project/.claude/skills/   # or .cursor/skills, .trae/skills
+npx skills add myWsq/RavenJS        # installs into .claude/skills (also .cursor, .codex, …)
+# or copy manually: cp -r skills/raven-use your-project/.claude/skills/
 ```
 
-| Skill            | When to use                                                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **raven‑setup**  | Project not yet set up — installs `@raven.js/core` + `hono`, wires a serve entry, verifies a minimal app.          |
-| **raven‑use**    | Write application code (routes, handlers, hooks, validation, state, contracts). Learns the API and patterns first. |
-| **raven‑learn**  | Load the installed core's GUIDE, API, architecture, and pattern docs before writing code.                          |
-| **raven‑update** | Upgrade the `@raven.js/core` dependency, read the changelog/migration notes, and adapt project code.               |
+| Skill         | When to use                                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **raven‑use** | Learn the installed core (GUIDE, API, architecture, patterns) and write correct application code — routes, handlers, hooks, validation, state, contracts, plugins. |
 
-The skills read the framework's teaching docs (`GUIDE.md`, `pattern/`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so they always match the installed version.
+The skill reads the framework's **API docs** (`GUIDE.md`, `README.md`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so they always match the installed version. The layered **pattern reference** travels with the skill itself (`skills/raven-use/reference/`). Installing the package and upgrading it are ordinary npm operations — see the Quick Start above and, for upgrades, run `npm install @raven.js/core@latest` and check [MIGRATION.md](MIGRATION.md) for breaking changes.
 
 ## Core Reference
 

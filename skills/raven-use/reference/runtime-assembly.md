@@ -1,10 +1,8 @@
-# Runtime Assembly
+# Runtime Assembly — Reference
 
-Read the [overview](./overview.md) first if you want the high-level pattern before the RavenJS-specific runtime rules.
+Reference for the RavenJS-specific runtime concerns: plugins, state, hooks, and app composition. See [overview](./overview.md) for the high-level pattern.
 
-This document covers the part of the pattern that should know RavenJS deeply: plugins, state, hooks, and app composition.
-
-Use this document when the task is about `app.ts`, plugins, states, scopes, or lifecycle hook placement.
+**Scope**: `app.ts`, plugins, states, scopes, and lifecycle hook placement.
 
 State stays in this document because it is part of RavenJS runtime assembly, not a separate architectural layer.
 

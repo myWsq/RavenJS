@@ -1,10 +1,8 @@
-# RavenJS Entity-Centric Pattern
+# RavenJS Entity-Centric Pattern — Reference
 
-This document is the entrypoint for the pattern. Read this file first, then go deeper by topic.
+Pattern reference for the `raven-use` skill: where business-facing RavenJS code belongs. This is the entrypoint of the reference set; the topic docs below go deeper.
 
-The first user of this pattern is the Agent. This document should help an Agent decide where code belongs before it starts generating code.
-
-Use this document when the task is about business-facing RavenJS code structure: `interface`, `service`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping.
+**Scope**: business-facing RavenJS code structure — `interface`, `service`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping. Use it to decide where code belongs before generating code.
 
 ## Reading Guide
 

@@ -173,13 +173,13 @@ Deno.serve({ port: 3000 }, await app.ready());
 
 ### 5.2 skill 改为手动拷贝
 
-- RavenJS 仍是 AI-native 框架，知识以 **skill** 承载。
-- skill 文件**只放在仓库的 `skills/` 目录**。请手动把需要的 skill 拷贝到你自己项目的 `.claude/skills/`（或 `.cursor/skills`、`.trae/skills`）。
+- RavenJS 仍是 AI-native 框架，知识以 **skill** 承载（3.x 已合并为单一 `raven-use` skill）。
+- skill 文件**只放在仓库的 `skills/` 目录**。用通用的 [skills](https://github.com/vercel-labs/skills) CLI 直接从仓库安装：`npx skills add myWsq/RavenJS`（也可手动拷贝 `skills/raven-use` 到你项目的 `.claude/skills/`）。
 
-### 5.3 API / pattern 文档随包发布
+### 5.3 API 文档随包发布，pattern 文档随 skill 分发
 
-- 框架的 API / 架构 / pattern 文档随 `@raven.js/core` 包一起发布：`GUIDE.md`、`pattern/`、`PLUGIN.md`。
-- Agent 应从 `node_modules/@raven.js/core/` 读取这些文档（教学 skill 据此定位）。
+- 框架的 **API / 架构文档**随 `@raven.js/core` 包一起发布：`GUIDE.md`、`PLUGIN.md`、`README.md`。Agent 从 `node_modules/@raven.js/core/` 读取这些与安装版本匹配的文档。
+- 分层 **pattern 文档**不再随包发布，改为随 `raven-use` skill 一起分发（`skills/raven-use/reference/`）；Agent 从 skill 自带的 `reference/` 读取分层规则与自检清单。
 
 ---
 
