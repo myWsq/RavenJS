@@ -67,7 +67,6 @@ export {
 } from "./state/builtins.ts";
 export { currentAppStorage, requestStorage, type ScopeKey } from "./state/storage.ts";
 
-export { RadixRouter, type RouteMatch } from "./routing/radix-router.ts";
 export { registerContractRoute } from "./routing/register-contract-route.ts";
 
 export {

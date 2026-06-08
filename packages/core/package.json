@@ -1,7 +1,52 @@
 {
   "name": "@raven.js/core",
-  "version": "0.0.1",
-  "private": true,
-  "description": "RavenJS core framework providing HTTP services, routing, hooks, state management, and built-in Standard Schema request validation.",
-  "type": "module"
+  "version": "3.0.0",
+  "description": "RavenJS core framework: contract-first routing, Standard Schema request validation, ambient state DI, plugin lifecycle, and self-built OpenAPI — on a Hono engine.",
+  "keywords": [
+    "contract-first",
+    "framework",
+    "hono",
+    "http",
+    "openapi",
+    "ravenjs",
+    "standard-schema",
+    "typescript"
+  ],
+  "license": "MIT",
+  "author": "Shuaiqi Wang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myWsq/RavenJS.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "GUIDE.md",
+    "PLUGIN.md",
+    "pattern",
+    "LICENSE"
+  ],
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown"
+  },
+  "devDependencies": {
+    "tsdown": "^0.22.2"
+  },
+  "peerDependencies": {
+    "hono": "^4.12.0"
+  }
 }

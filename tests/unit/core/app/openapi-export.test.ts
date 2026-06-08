@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   Raven,
   defineContract,
   definePlugin,
   registerContractRoute,
   withSchema,
-} from "../../../../packages/core";
+} from "../../../../packages/core/index.ts";
 import { z } from "zod";
 
 const originalConsoleWarn = console.warn;

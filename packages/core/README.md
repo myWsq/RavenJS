@@ -1,17 +1,62 @@
 # OVERVIEW
 
-RavenJS Core is a lightweight, high-performance Web framework reference implementation for Bun.
+RavenJS Core is a lightweight, high-performance, contract-first Web framework that runs on **Node (20+), Bun, and Deno**. It is built on top of [Hono](https://hono.dev) as its HTTP / routing / serve engine, but exposes a contract-first, ambient-state programming model on top — handlers never see Hono's `c` context.
+
+RavenJS is distributed as a standard npm package: `@raven.js/core` (3.x), with `hono` as a `peerDependency`.
 
 **Features**:
 
-- Logic layer: `app.ready()` returns a `FetchHandler`
-- Radix tree router (path parameters)
+- Logic layer: `app.ready()` returns a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`) you hand to any runtime's serve adapter
+- Runs on Node, Bun, and Deno (server-side; edge / Cloudflare Workers are not a target)
 - Dependency injection (DI) via AsyncLocalStorage (ScopedState)
 - Contract-first interface helpers via `defineContract` and `registerContractRoute`
 - Built-in Standard Schema request/response validation via `withSchema`
-- Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError)
+- Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError, onResponseValidationError)
 - Plugin system
+- Built-in OpenAPI generation (`app.exportOpenAPI(...)` / `app.getOpenAPIDocument()`)
 - `SchemaClass` for schema-shape type inference
+
+---
+
+# INSTALL
+
+```bash
+npm install @raven.js/core hono
+# or: pnpm add @raven.js/core hono
+# or: yarn add @raven.js/core hono
+# or: bun add @raven.js/core hono
+```
+
+`hono` is a `peerDependency` — install it alongside `@raven.js/core`. RavenJS uses Hono internally as its HTTP / routing / serve engine, but the Hono context (`c`) is an internal implementation detail and is never exposed to application code.
+
+## Serving on each runtime
+
+RavenJS does not listen on a port itself. `app.ready()` returns a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`); each runtime wires it to its own server.
+
+**Node** (via `@hono/node-server`):
+
+```ts
+import { serve } from "@hono/node-server";
+import { app } from "./app";
+
+serve({ fetch: await app.ready(), port: 3000 });
+```
+
+**Bun** (native):
+
+```ts
+import { app } from "./app";
+
+export default { port: 3000, fetch: await app.ready() };
+```
+
+**Deno** (native):
+
+```ts
+import { app } from "./app";
+
+Deno.serve({ port: 3000 }, await app.ready());
+```
 
 ---
 
@@ -22,14 +67,14 @@ For AI-oriented reading, treat `core` as a set of concept modules instead of a s
 - `index.ts` — public export map
 - `contract/` — contract definition helpers, transport type inference, and contract materialization helpers
 - `app/` — `Raven` public API, hook types, plugin-facing types
-- `runtime/` — request dispatch, plugin loading, response handling, error flow
+- `runtime/` — Hono adapter, request flow, plugin loading, response handling, error flow
 - `state/` — AsyncLocalStorage-backed state storage, descriptors, built-in states
 - `schema/` — `withSchema`, validation, `SchemaClass`, Standard Schema contract
-- `routing/` — radix router implementation and explicit route-registration helpers
-- `context/` — request context object
+- `context/` — request context object (ambient `RavenContext`)
 - `error/` — framework error model
+- `openapi/` — built-in OpenAPI document generation
 
-Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`.
+Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/` → `state/` / `schema/`.
 
 ---
 
@@ -37,10 +82,10 @@ Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/dispa
 
 Use different reading paths depending on the job:
 
-- **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/dispatch-request.ts` → `state/` / `schema/` / `routing/`
+- **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/` → `state/` / `schema/`
 - **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping files, especially the `contract.ts` / `handler.ts` split: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 - **Runtime-assembly pattern path** — wire `<app_root>/app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
-- **Example plugin path** — after the runtime-assembly docs, see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a concrete plugin built with `definePlugin`, `defineAppState`, and `Bun.SQL`
+- **Example plugin path** — after the runtime-assembly docs, see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a concrete plugin built with `definePlugin` and `defineAppState`
 - **Plugin authoring details** — after the runtime-assembly path, read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
 - **Review path** — before finishing a change, run through [pattern/anti-patterns.md](./pattern/anti-patterns.md)
 
@@ -48,9 +93,13 @@ Use the API / source path to understand what core exposes. Use the pattern paths
 
 For business-code tasks, the pattern is Agent-first: use contract schema for `transport validation`, entity behavior for `domain invariants`, and repository / DB for `persistence constraints`. If a rule still matters after HTTP disappears, it belongs in the entity.
 
+Note for Agents reading this from an installed package: these docs (GUIDE.md, pattern/, PLUGIN.md) ship inside the `@raven.js/core` package and are readable at `node_modules/@raven.js/core/`.
+
 ---
 
 # ARCHITECTURE
+
+RavenJS layers a contract-first, ambient-state programming model on top of Hono. Hono owns HTTP, routing, and serve; RavenJS owns the contract, schema validation, ambient state, lifecycle hooks, and OpenAPI generation. Hono's `c` context never reaches your handlers — handlers receive only the validated `{ body, query, params, headers }` (via `withSchema`) and read request info through ambient state.
 
 **Lifecycle overview**:
 
@@ -62,7 +111,7 @@ app setup (sync)
       │
       ▼
 await app.ready()    ← async build phase: runs plugin loads in order, then onLoaded hooks.
-      │              ← returns a FetchHandler ready for Bun.serve.
+      │              ← returns a Web-standard FetchHandler you hand to a runtime serve adapter.
       ▼
 app ready
 ```
@@ -74,7 +123,7 @@ incoming request (each request)
 [onRequest hooks]     ← global; receives raw Request. Returning a Response short-circuits.
       │
       ▼
-[route matching]      ← no match → 404
+[route matching]      ← handled by Hono's router; no match → 404
       │
       ▼
 [processStates]       ← parses request data, validates declared schemas, populates ParamsState / QueryState / HeadersState / BodyState
@@ -101,37 +150,32 @@ any uncaught exception → [onError hooks] → fallback 500
 ## Raven
 
 The main application class. Register routes with full paths (e.g. `app.get('/api/v1/users', handler)`).
-Raven is a **logic layer** — call `await app.ready()` to get a `FetchHandler`:
+Raven is a **logic layer** — call `await app.ready()` to get a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`), then hand it to your runtime's serve adapter:
 
 ```typescript
+import { Raven } from "@raven.js/core";
+
 const app = new Raven();
 app.get("/", () => new Response("Hello"));
 
 const fetch = await app.ready();
-Bun.serve({ fetch });
+
+// Node:
+import { serve } from "@hono/node-server";
+serve({ fetch, port: 3000 });
+
+// Bun:
+// export default { port: 3000, fetch };
+
+// Deno:
+// Deno.serve({ port: 3000 }, fetch);
 ```
 
-Because Raven is a logic layer, you can combine it with [Bun's Fullstack Dev Server](https://bun.com/docs/bundler/fullstack.md) to serve HTML routes and bundled frontend assets alongside API routes:
-
-```typescript
-import { Raven } from "@raven.js/core";
-import homepage from "./index.html";
-
-const app = new Raven();
-app.get("/api/hello", () => Response.json({ message: "Hello" }));
-
-const fetch = await app.ready();
-Bun.serve({
-  routes: {
-    "/": homepage,
-    "/api/*": fetch,
-  },
-});
-```
+Because Raven is a logic layer that produces a plain `FetchHandler`, you can mount it anywhere a runtime accepts one — behind a reverse proxy, alongside static asset serving, or composed with other fetch handlers. Routing for RavenJS routes is handled by the underlying Hono engine.
 
 ## Context
 
-The per-request context object, exposing `request`, `params`, `query`, `url`, `method`, `headers`, and `body`.
+The per-request context object, exposing `request`, `params`, `query`, `url`, `method`, `headers`, and `body`. This is RavenJS's own ambient context — it is **not** Hono's `c`, which never leaves the framework internals.
 
 Access it via the built-in `RavenContext` state:
 
@@ -164,7 +208,7 @@ For routes registered through `withSchema`, these states contain validated outpu
 
 ## Schema Validation
 
-Core includes Standard Schema-based request and response validation. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. In the RavenJS pattern, these schemas are for transport validation: shape, parsing, coercion, and basic format checks. Domain invariants still belong in entities. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
+Core includes Standard Schema-based request and response validation. Standard Schema is schema-library agnostic — Zod, Valibot, and any other Standard Schema-compatible library work the same way. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. In the RavenJS pattern, these schemas are for transport validation: shape, parsing, coercion, and basic format checks. Domain invariants still belong in entities. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
 
 ```typescript
 import { Raven, isValidationError, withSchema } from "@raven.js/core";
@@ -210,7 +254,7 @@ If you use schema transforms or coercion, keep them transport-scoped. Do not use
 
 ## Contract-First Interface Pattern
 
-Use `defineContract` to keep `method`, `path`, and `schemas` in a single contract value. The recommended split is:
+A contract is a **serializable plain value** holding `method`, `path`, and `schemas` together. Because it is a plain value, same-project frontend code can import it directly. Use `defineContract` to author one. The recommended split is:
 
 - `interface/<entry>/<entry>.contract.ts`
 - `interface/<entry>/<entry>.handler.ts`
@@ -295,6 +339,8 @@ backend raw contracts
 
 When you choose direct raw-contract imports, `contract.ts` and its dependency tree must remain frontend-safe. When you choose runtime OpenAPI exposure, the exported document reflects the contract routes that are actually registered on the current app instance.
 
+RavenJS ships its **own** OpenAPI generator — there is no dependency on `@hono/zod-openapi`. The document is built from the contract routes registered on the app instance. See the OpenAPI export helpers in the public API section below.
+
 ## Plugin
 
 A plugin is a **named object** with a `load(app, set)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration.
@@ -324,6 +370,14 @@ For a concrete database plugin example, see the SQL plugin section in [pattern/r
 
 # DESIGN DECISIONS
 
+## Why a contract-first, ambient-state model on top of Hono?
+
+RavenJS uses Hono for HTTP, routing, and serve, then layers its own programming model on top. The reasons:
+
+- **Hono is a mature, multi-runtime engine**: it handles routing and the request/response pipeline across Node, Bun, and Deno, so RavenJS does not maintain its own router or dispatch pipeline.
+- **The application model stays framework-neutral**: handlers never receive Hono's `c`. They read validated data and request info through ambient state, so business code does not couple to the underlying engine.
+- **Contracts are plain values**: the same contract value drives backend registration, frontend type inference, and OpenAPI generation.
+
 ## Why AsyncLocalStorage for state?
 
 ScopedState uses AsyncLocalStorage as the underlying mechanism for DI. Compared to traditional DI containers or class decorators:
@@ -342,7 +396,7 @@ type Handler = () => Response | Promise<Response>;
 
 This is intentional:
 
-- A handler only needs to return a `Response` — no framework-specific types required
+- A handler only needs to return a `Response` — no framework-specific types required, and never Hono's `c`
 - Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
 - Any plain function can be a handler with zero migration cost
 - `withSchema` keeps the same route registration style while allowing typed handler context where needed
@@ -444,7 +498,7 @@ app.beforeHandle(() => {
 });
 ```
 
-## 6. `onRequest` has a different signature from all other hooks
+## 7. `onRequest` has a different signature from all other hooks
 
 `onRequest` is the only hook that receives an argument — the raw `Request` object. At this point, `RavenContext`, `ParamsState`, and other states **are not yet initialized** (route matching hasn't happened).
 
@@ -461,11 +515,14 @@ app.beforeHandle(() => {
 });
 ```
 
-## 7. Register `onLoaded` before calling `ready()`
+## 8. Register `onLoaded` before calling `ready()`
 
 `onLoaded` hooks are registered on the app instance and run during `await app.ready()`. Register all plugins and `onLoaded` hooks before calling `ready()`.
 
 ```typescript
+import { serve } from "@hono/node-server";
+import { Raven } from "@raven.js/core";
+
 const app = new Raven();
 
 app.register(authPlugin());
@@ -475,9 +532,18 @@ app.onLoaded(async () => {
   await warmupCaches();
 });
 
-const fetch = await app.ready();
-Bun.serve({ fetch, port: 3000 });
+serve({ fetch: await app.ready(), port: 3000 });
 ```
+
+## 9. Routing behavior under the Hono engine
+
+Because routing is handled by Hono, a few path-matching behaviors are worth knowing (these also constitute the 2.x → 3.x behavior changes):
+
+- **HEAD requests**: a route registered only for `GET` still returns `404` for `HEAD` (Hono's auto-HEAD is explicitly intercepted so a `GET` handler's side effects are never triggered by a `HEAD`).
+- **Trailing slash**: `/foo` and `/foo/` are matched **strictly** as distinct paths (no normalization).
+- **Path parameters**: values are automatically `decodeURIComponent`-d by Hono.
+- **Wildcards**: `/path/*` also matches `/path/` and bare `/path`.
+- **`beforeResponse` errors**: a throw inside `beforeResponse` is routed through the `onError` chain.
 
 ---
 
@@ -543,18 +609,21 @@ app.onError((error) => {
 ## Minimal
 
 ```typescript
-import { Raven } from "./index.ts";
+import { serve } from "@hono/node-server";
+import { Raven } from "@raven.js/core";
 
 const app = new Raven();
 app.get("/", () => new Response("Hello, World!"));
 
-Bun.serve({ fetch: await app.ready(), port: 3000 });
+serve({ fetch: await app.ready(), port: 3000 });
 ```
+
+The same `app.ready()` handler runs on Bun (`export default { port: 3000, fetch: await app.ready() }`) and Deno (`Deno.serve({ port: 3000 }, await app.ready())`).
 
 ## Path parameters
 
 ```typescript
-import { Raven, ParamsState } from "./index.ts";
+import { Raven, ParamsState } from "@raven.js/core";
 
 const app = new Raven();
 
@@ -567,7 +636,7 @@ app.get("/user/:id", () => {
 ## Route prefix (use full paths)
 
 ```typescript
-import { Raven } from "./index.ts";
+import { Raven } from "@raven.js/core";
 
 const app = new Raven();
 
@@ -578,7 +647,8 @@ app.post("/api/v1/users", () => new Response("Create user", { status: 201 }));
 ## Auth middleware (hooks must come before routes)
 
 ```typescript
-import { Raven, definePlugin, defineRequestState, RavenContext } from "./index.ts";
+import { serve } from "@hono/node-server";
+import { Raven, definePlugin, defineRequestState, RavenContext } from "@raven.js/core";
 
 interface User {
   id: string;
@@ -609,13 +679,13 @@ app.get("/profile", () => {
   return Response.json({ id: user.id });
 });
 
-Bun.serve({ fetch: await app.ready(), port: 3000 });
+serve({ fetch: await app.ready(), port: 3000 });
 ```
 
 ## Error handling
 
 ```typescript
-import { Raven, RavenError, isRavenError, ParamsState } from "./index.ts";
+import { Raven, RavenError, isRavenError, ParamsState } from "@raven.js/core";
 
 const app = new Raven();
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import {
   Raven,
   defineContract,
@@ -11,7 +11,7 @@ import {
   type InferContractParamsInput,
   type InferContractQueryInput,
   type InferContractResponseOutput,
-} from "../../../../packages/core";
+} from "../../../../packages/core/index.ts";
 import { z } from "zod";
 
 type Equal<A, B> =
@@ -188,7 +188,7 @@ describe("defineContract", () => {
 describe("registerContractRoute", () => {
   it("should delegate contract registration to the app", () => {
     const app = {
-      registerContractRoute: mock(() => app),
+      registerContractRoute: vi.fn(() => app),
     };
 
     const handler = withSchema({}, async () => new Response("ok"));
@@ -206,7 +206,7 @@ describe("registerContractRoute", () => {
 
   it("should preserve request parsing and response serialization when registering schema-aware handlers", async () => {
     const app = new Raven();
-    const businessHandler = mock(async (ctx) => ({
+    const businessHandler = vi.fn(async (ctx) => ({
       page: String(ctx.body.page),
     }));
     const handler = withSchema(transformedContract.schemas, businessHandler);

@@ -2,29 +2,24 @@
   "name": "raven.js",
   "version": "0.0.0",
   "private": true,
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ]
-  },
+  "license": "MIT",
   "type": "module",
-  "module": "index.ts",
   "scripts": {
-    "test": "bun test tests/**/*.test.ts",
-    "test:unit": "bun test tests/unit/**/*.test.ts",
-    "test:integration": "bun test tests/integration/*.test.ts",
-    "test:e2e": "bun test tests/e2e/*.test.ts",
-    "benchmark": "bun run benchmark:micro && bun run benchmark:e2e",
-    "benchmark:micro": "bun run benchmark/micro/router.bench.ts && bun run benchmark/micro/validator.bench.ts && bun run benchmark/micro/state.bench.ts",
-    "benchmark:e2e": "bun run benchmark/e2e/throughput.bench.ts",
-    "benchmark:compare": "bun run benchmark/compare/frameworks.bench.ts",
-    "release": "bun run scripts/release.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "build": "pnpm --filter @raven.js/core build",
+    "benchmark": "pnpm benchmark:micro && pnpm benchmark:e2e",
+    "benchmark:micro": "tsx benchmark/micro/validator.bench.ts && tsx benchmark/micro/state.bench.ts",
+    "benchmark:e2e": "tsx benchmark/e2e/throughput.bench.ts",
+    "benchmark:compare": "tsx benchmark/compare/frameworks.bench.ts",
+    "release": "tsx scripts/release.ts",
     "prepare": "husky",
     "fmt": "oxfmt"
   },
   "devDependencies": {
     "@clack/prompts": "^1.0.1",
-    "@types/bun": "latest",
+    "@hono/node-server": "^2.0.4",
+    "@types/node": "^22.0.0",
     "ajv": "^8.18.0",
     "elysia": "^1.4.25",
     "hono": "^4.12.0",
@@ -32,7 +27,10 @@
     "lint-staged": "^16.2.7",
     "mitata": "^1.0.34",
     "oxfmt": "^0.35.0",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.19.0",
     "typescript": "^5",
+    "vitest": "^3.0.0",
     "zod": "^4.3.6"
   }
 }

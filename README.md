@@ -2,136 +2,102 @@
 
 <img src="./docs/logo.webp" alt="RavenJS Logo" width="320" />
 
-RavenJS is an **AI-native** Bun web framework. Lightweight and high-performance.
+RavenJS is an **AI-native** web framework on a **Hono** engine. Lightweight, contract-first, multi-runtime.
 
-**Primary audience**: AI Agents (e.g. Claude, Cursor Codex).
+**Primary audience**: AI Agents (e.g. Claude, Cursor, Codex).
 
 </div>
 
 ## Philosophy
 
-- **Reference code, not a package**: Code lives in your project as reference—AI Agents learn from it and generate similar code. Copy, modify, and use directly; do not import from npm.
-- **Skill-first workflow**: AI skills install, configure, learn, and write RavenJS code. The CLI is invoked via skills—not manually.
+- **AI-native, skill-first**: RavenJS is optimized for AI agents to learn and write correct code. The framework ships teaching docs inside the package, and a set of skills drives setup, learning, writing, and updating.
+- **Published as an npm package**: `@raven.js/core` is a normal dependency you install and `import` — not source copied into your project. `hono` is a peer dependency.
+- **Opinionated design, preserved**: contract-first (serializable contracts), Standard Schema validation (library-agnostic), ambient state DI (`AppState`/`RequestState`, no `c` threading), plugin lifecycle, and a self-built OpenAPI generator.
+- **Hono under the hood**: routing, HTTP plumbing, and serving run on Hono — but Hono's context `c` is an internal detail. Handlers receive only the validated `{ body, query, params, headers }`.
 
 ## Quick Start
 
-Requires **Bun** `>=1.0`. Raven installs in your **project directory**—framework code is copied in as reference for AI agents to learn from.
+RavenJS runs on **Node (>=20), Bun, or Deno** (server-side). It does **not** target edge / Cloudflare Workers.
 
-**0. New project?**
-
-Use [bun init](https://bun.com/docs/runtime/templating/init) first. RavenJS supports **server-only** (`bun init -y`) or [Full Stack Dev Server](https://bun.sh/docs/bundler/fullstack) (`bun init --react`, `bun init --react=tailwind`, etc.).
-
-**1. Install AI skills**
+**1. Install**
 
 ```bash
-bunx install-raven
+npm install @raven.js/core hono
+# Node only — also install the serve adapter:
+npm install @hono/node-server
 ```
 
-**2. Complete setup via Agent**
+**2. Write an app**
 
+```ts
+// app.ts
+import { Raven, RavenContext } from "@raven.js/core";
+
+export const app = new Raven();
+
+app.get("/hello/:name", () => {
+  const { params } = RavenContext.getOrFailed();
+  return Response.json({ message: `hello ${params.name}` });
+});
 ```
-/raven-setup
-```
 
-The Agent will install the CLI (if missing), initialize the raven root, install the managed core reference tree, and verify the setup.
+**3. Serve it (pick your runtime)**
 
-**3. Write code via Agent**
+`app.ready()` returns a Web-standard fetch handler `(request: Request) => Promise<Response>`; the runtime does the listening.
 
-```
-/raven-use create an HTTP server with /hello
+```ts
+// Node
+import { serve } from "@hono/node-server";
+import { app } from "./app";
+serve({ fetch: await app.ready(), port: 3000 });
+
+// Bun
+export default { port: 3000, fetch: await app.ready() };
+
+// Deno
+Deno.serve({ port: 3000 }, await app.ready());
 ```
 
 ## AI Skills
 
-Work with RavenJS primarily through skills.
+Work with RavenJS primarily through skills. They live in this repo under [`skills/`](skills/) — **copy the ones you want into your project** (no installer):
 
-| Skill            | When to use                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **raven‑setup**  | Project not yet set up for RavenJS.                                                                                                                    |
-| **raven‑use**    | Write application code with RavenJS (routes, handlers, hooks, validation, state). Use when the user wants to build an HTTP server or use RavenJS APIs. |
-| **raven‑learn**  | Learn RavenJS core API, architecture, patterns, and official example plugins before writing code.                                                      |
-| **raven‑update** | Upgrade the project-local Raven CLI, run `raven sync`, analyze the Git diff, and adapt project code when the update introduces breaking changes.       |
+```bash
+# from a clone/download of this repo
+cp -r skills/raven-setup skills/raven-use skills/raven-learn skills/raven-update \
+  your-project/.claude/skills/   # or .cursor/skills, .trae/skills
+```
+
+| Skill            | When to use                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **raven‑setup**  | Project not yet set up — installs `@raven.js/core` + `hono`, wires a serve entry, verifies a minimal app.          |
+| **raven‑use**    | Write application code (routes, handlers, hooks, validation, state, contracts). Learns the API and patterns first. |
+| **raven‑learn**  | Load the installed core's GUIDE, API, architecture, and pattern docs before writing code.                          |
+| **raven‑update** | Upgrade the `@raven.js/core` dependency, read the changelog/migration notes, and adapt project code.               |
+
+The skills read the framework's teaching docs (`GUIDE.md`, `pattern/`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so they always match the installed version.
 
 ## Core Reference
 
-- RavenJS ships a single managed core reference tree with HTTP services, routing, hooks, state management, and built-in Standard Schema request validation.
-- Source docs: [README](packages/core/README.md)
+- `@raven.js/core` provides HTTP services, contract-first routing, lifecycle hooks, ambient state management, Standard Schema request validation, and self-built OpenAPI export.
+- Source docs: [packages/core/README.md](packages/core/README.md) · [GUIDE](packages/core/GUIDE.md) · [PLUGIN](packages/core/PLUGIN.md) · patterns under [packages/core/pattern/](packages/core/pattern/)
 
-## Example Plugins
+## Migrating from 2.x
 
-- SQL plugin example: see [pattern/runtime-assembly.md](packages/core/pattern/runtime-assembly.md)
-
-## CLI
-
-The CLI is intended for **Agent use**. Skills invoke it via `bunx raven`. For command details, options, and output format see [packages/cli/README.md](packages/cli/README.md). The managed core tree and example assets are installed from the CLI’s embedded source; no network fetch is required.
-
-## Updating
-
-- **Recommended**: trigger the Agent skill:
-  ```
-  /raven-update
-  ```
-- **What the skill does**:
-  1. Verifies the Git worktree is clean before starting the upgrade
-  2. Upgrades `@raven.js/cli` in the current project
-  3. Runs `bunx raven sync`, which only requires managed Raven paths to be clean
-  4. Analyzes the Git diff and adapts project code if the update contains breaking changes
-- **AI skills**: Re-run to overwrite with the latest skill content:
-  ```bash
-  npx install-raven
-  ```
+3.x is a breaking rewrite: the engine moved to Hono, distribution moved from vendored source to an npm package, the CLI / `install-raven` were retired, and Bun-only became multi-runtime. The design philosophy and public API semantics are preserved. See [MIGRATION.md](MIGRATION.md).
 
 ## Development
 
-### Prerequisites
-
-- [Bun](https://bun.sh) `>=1.0` (for development)
-
-### Setup
-
 ```bash
-bun install
+pnpm install           # install workspace deps
+pnpm test              # run the unit suite (vitest)
+pnpm build             # build the publishable package (tsdown)
 ```
-
-### Run CLI locally
-
-```bash
-bun run packages/cli/index.ts
-```
-
-### Tests
-
-```bash
-bun test
-bun run test:unit
-bun run test:integration
-bun run test:e2e
-```
-
-### Benchmarks
-
-```bash
-bun run benchmark
-bun run benchmark:micro
-bun run benchmark:e2e
-bun run benchmark:compare
-```
-
-### Local manifest
-
-Use `--registry` or `RAVEN_DEFAULT_REGISTRY_PATH` so E2E tests use a local embedded-source manifest JSON.
 
 ## Release
 
-Push a version tag to trigger the release workflow. The CLI is published to npm as `@raven.js/cli`.
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-Requires `NPM_TOKEN` in GitHub Secrets.
+`@raven.js/core` is published to npm via CI. Run `pnpm release` to bump the version, commit, and push a `v*` tag; the [`release-core`](.github/workflows/release-core.yml) workflow then builds and publishes to npm with provenance on tag push. Requires an `NPM_TOKEN` repository secret.
 
 ## License
 
-See repository for license information.
+[MIT](LICENSE) © Shuaiqi Wang

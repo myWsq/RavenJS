@@ -1,5 +1,5 @@
-import { describe, test, expect } from "bun:test";
-import { Raven, RavenContext } from "../../../../packages/core";
+import { describe, test, expect } from "vitest";
+import { Raven, RavenContext } from "../../../../packages/core/index.ts";
 
 describe("Raven Context Assembly", () => {
   test("onRequest should NOT have access to params and query, but beforeHandle SHOULD", async () => {
