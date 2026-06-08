@@ -1,5 +1,5 @@
 import { bench, group, run } from "mitata";
-import { Raven, type Handler } from "../../modules/core";
+import { Raven, type Handler } from "../../packages/core/index.ts";
 
 const simpleHandler: Handler = () => {
   return new Response("Hello, World!");

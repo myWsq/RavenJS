@@ -8,7 +8,7 @@ Use this document when the task is about `app.ts`, plugins, states, scopes, or l
 
 State stays in this document because it is part of RavenJS runtime assembly, not a separate architectural layer.
 
-Below is a concrete SQL plugin example that uses this exact pattern.
+Below is a concrete database plugin example that uses this exact pattern. It is runtime-agnostic: the database client is a placeholder you replace with your actual driver (`pg`, `postgres`, `mysql2`, `Bun.SQL`, a Deno driver, etc.).
 
 ## Runtime Assembly
 
@@ -75,13 +75,28 @@ Recommended pattern:
 
 ```ts
 // <app_root>/plugins/database.plugin.ts
-const DBState = defineAppState<Bun.SQL>({ name: "db" });
 
-function databasePlugin(config: Bun.SQL.Options) {
+// Replace this placeholder with your actual driver's client type,
+// e.g. pg.Pool, the `postgres` Sql instance, mysql2 Connection,
+// Bun.SQL, or a Deno database client.
+interface DbClient {
+  query<T>(text: string, params?: unknown[]): Promise<T[]>;
+}
+
+interface DbConfig {
+  url: string;
+}
+
+// Replace with your driver's real constructor / connect call.
+declare function createDbClient(config: DbConfig): DbClient;
+
+const DBState = defineAppState<DbClient>({ name: "db" });
+
+function databasePlugin(config: DbConfig) {
   return definePlugin({
     name: "database",
     load(_app, set) {
-      set(DBState, new Bun.SQL(config));
+      set(DBState, createDbClient(config));
     },
   });
 }
@@ -109,11 +124,13 @@ function authPlugin() {
 export { CurrentUserState, authPlugin };
 ```
 
-The SQL example shipped with Raven uses this exact pattern:
+A reusable database plugin uses this exact pattern. The client type and
+constructor are runtime-agnostic placeholders; swap them for your real driver
+(`pg`, `postgres`, `mysql2`, `Bun.SQL`, a Deno driver, etc.):
 
 ```ts
-// SQL Plugin Example
-// Minimal pattern for wrapping Bun.SQL with Raven's plugin + state APIs:
+// Database Plugin Example
+// Minimal pattern for wrapping any database client with Raven's plugin + state APIs:
 // 1. declare an AppState
 // 2. create a definePlugin(...)
 // 3. initialize the shared client in load(app, set)
@@ -121,13 +138,24 @@ The SQL example shipped with Raven uses this exact pattern:
 
 import { defineAppState, definePlugin } from "@raven.js/core";
 
-export const ClientState = defineAppState<Bun.SQL>();
+// Replace with your actual driver's client + config types and connect call.
+interface DbClient {
+  query<T>(text: string, params?: unknown[]): Promise<T[]>;
+}
 
-export function sqlPlugin(config: Bun.SQL.Options) {
+interface DbConfig {
+  url: string;
+}
+
+declare function createDbClient(config: DbConfig): DbClient;
+
+export const ClientState = defineAppState<DbClient>();
+
+export function databasePlugin(config: DbConfig) {
   return definePlugin({
-    name: "raven-sql",
+    name: "raven-database",
     load(_app, set) {
-      set(ClientState, new Bun.SQL(config));
+      set(ClientState, createDbClient(config));
     },
   });
 }
@@ -137,13 +165,13 @@ Usage:
 
 ```ts
 import { Raven } from "@raven.js/core";
-import { ClientState, sqlPlugin } from "./plugins/sql.plugin";
+import { ClientState, databasePlugin } from "./plugins/database.plugin";
 
-const app = new Raven().register(sqlPlugin("sqlite://./app.db"));
+const app = new Raven().register(databasePlugin({ url: "postgres://localhost/app" }));
 
 app.get("/users", async () => {
-  const sql = ClientState.getOrFailed();
-  const rows = await sql`SELECT * FROM users LIMIT 10`;
+  const db = ClientState.getOrFailed();
+  const rows = await db.query("SELECT * FROM users LIMIT 10");
   return Response.json(rows);
 });
 ```
@@ -327,6 +355,41 @@ export { app };
 ```
 
 This keeps framework assembly out of entity code and out of interface folders.
+
+## Serving Entrypoint
+
+RavenJS does not listen on a port itself. `await app.ready()` returns a Web-standard
+`FetchHandler` (`(request: Request) => Promise<Response>`). The serving entrypoint
+hands that handler to whatever runtime you target — Node (via `@hono/node-server`),
+Bun, or Deno. Keep `app.ready()` out of `<app_root>/app.ts` and call it here.
+
+Node (`@hono/node-server`):
+
+```ts
+// <app_root>/server.ts
+import { serve } from "@hono/node-server";
+import { app } from "./app";
+
+serve({ fetch: await app.ready(), port: 3000 });
+```
+
+Bun (native):
+
+```ts
+// <app_root>/server.ts
+import { app } from "./app";
+
+export default { port: 3000, fetch: await app.ready() };
+```
+
+Deno (native):
+
+```ts
+// <app_root>/server.ts
+import { app } from "./app";
+
+Deno.serve({ port: 3000 }, await app.ready());
+```
 
 This is the default RavenJS style for this pattern:
 

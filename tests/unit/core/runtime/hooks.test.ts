@@ -1,5 +1,5 @@
-import { describe, test, expect } from "bun:test";
-import { Raven, RavenContext } from "../../../../packages/core";
+import { describe, test, expect } from "vitest";
+import { Raven, RavenContext } from "../../../../packages/core/index.ts";
 
 describe("Raven Lifecycle Hooks", () => {
   test("should execute hooks in order and have context access", async () => {
@@ -65,5 +65,27 @@ describe("Raven Lifecycle Hooks", () => {
 
     expect(errorCaught).toBe(true);
     expect(await response.text()).toBe("test error");
+  });
+
+  test("should route beforeResponse hook errors through onError", async () => {
+    const app = new Raven();
+    let errorCaught = false;
+
+    app.beforeResponse(() => {
+      throw new Error("br-fail");
+    });
+    app.onError((err) => {
+      errorCaught = true;
+      return new Response(err.message, { status: 500 });
+    });
+
+    app.get("/", () => new Response("ok"));
+
+    const fetch = await app.ready();
+    const response = await fetch(new Request("http://localhost/"));
+
+    expect(errorCaught).toBe(true);
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe("br-fail");
   });
 });

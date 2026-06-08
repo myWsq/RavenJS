@@ -1,5 +1,10 @@
-import { describe, expect, it } from "bun:test";
-import { QueryState, Raven, isValidationError, withSchema } from "../../../../packages/core";
+import { describe, expect, it } from "vitest";
+import {
+  QueryState,
+  Raven,
+  isValidationError,
+  withSchema,
+} from "../../../../packages/core/index.ts";
 import { z } from "zod";
 
 type Equal<A, B> =

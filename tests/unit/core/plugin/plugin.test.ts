@@ -1,16 +1,16 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, vi } from "vitest";
 import {
   Raven,
   defineAppState,
   currentAppStorage,
   definePlugin,
   type StateSetter,
-} from "../../../../packages/core";
+} from "../../../../packages/core/index.ts";
 
 describe("Plugin System", () => {
   it("should register a plugin and call load after build()", async () => {
     const raven = new Raven();
-    const load = mock((app: Raven, _set: StateSetter) => {
+    const load = vi.fn((app: Raven, _set: StateSetter) => {
       app.onRequest(() => {});
     });
 

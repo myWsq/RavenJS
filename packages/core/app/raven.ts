@@ -25,22 +25,36 @@ import {
   normalizeRoutePathShape,
   type RegisteredRoute,
 } from "./route-manifest.ts";
-import { BodyState, HeadersState, ParamsState, QueryState } from "../state/builtins.ts";
+import {
+  BodyState,
+  HeadersState,
+  ParamsState,
+  QueryState,
+  RavenContext,
+} from "../state/builtins.ts";
 import type { AnyContract, HttpMethod } from "../contract/index.ts";
 import { isValidationError, validateResponseSchema } from "../schema/validation.ts";
-import { currentAppStorage, type ScopeKey } from "../state/storage.ts";
+import { currentAppStorage, requestStorage, type ScopeKey } from "../state/storage.ts";
 import { isSchemaAwareHandler, type SchemaAwareHandler } from "../schema/with-schema.ts";
-import { RadixRouter } from "../routing/radix-router.ts";
 import { executePluginLoad, loadPlugins } from "../runtime/load-plugins.ts";
-import { dispatchRequest } from "../runtime/dispatch-request.ts";
+import { makeRavenHandler } from "../runtime/make-raven-handler.ts";
+import { handleError } from "../runtime/handle-error.ts";
 import { handleResponseValidationHooks } from "../runtime/handle-response-validation.ts";
+import { Context } from "../context/context.ts";
+import { RavenError } from "../error/raven-error.ts";
+import { internalSet } from "../state/descriptors.ts";
+import { Hono } from "hono";
 
 export function definePlugin(plugin: Plugin): Plugin {
   return plugin;
 }
 
 export class Raven implements RavenInstance {
-  private readonly router = new RadixRouter<RouteData>();
+  /**
+   * 底层 HTTP 引擎。路由匹配、请求收发、serve 均由 Hono 承担；
+   * 其 context `c` 仅在 runtime 内部使用，绝不暴露给应用作者。
+   */
+  private readonly hono = new Hono();
   private readonly routeManifest = new Map<string, RegisteredRoute>();
   public readonly scopedStateMaps = new Map<ScopeKey, Map<symbol, any>>();
 
@@ -59,6 +73,31 @@ export class Raven implements RavenInstance {
   private openAPIDocumentCache: OpenAPIDocument | null = null;
   private openAPIDocumentDirty = true;
 
+  constructor() {
+    // 路由未命中（含 method 不匹配）：复刻原 dispatch 的 404 分支，
+    // 在 ambient 上下文内补建 Context 并走 onError 链（404 也对 onError 可见）。
+    this.hono.notFound((c) => {
+      const request = c.req.raw;
+      if (!RavenContext.get()) {
+        internalSet(RavenContext, new Context(request));
+      }
+      return handleError(new Error("Not Found"), this.hooks.onError, 404);
+    });
+
+    // 路由 handler / processStates / beforeHandle 抛出的错误由 Hono 捕获并交到这里，
+    // 复刻原 dispatch 的 catch 分支，归一化错误后走 onError 链。
+    this.hono.onError((error, c) => {
+      const request = c.req.raw;
+      if (!RavenContext.get()) {
+        internalSet(RavenContext, new Context(request));
+      }
+      return handleError(
+        error instanceof Error ? error : RavenError.ERR_UNKNOWN_ERROR(String(error)),
+        this.hooks.onError,
+      );
+    });
+  }
+
   register(plugin: Plugin, scopeKey?: ScopeKey): this {
     this.pendingPlugins.push({ plugin, scopeKey });
     return this;
@@ -75,15 +114,42 @@ export class Raven implements RavenInstance {
 
     this.buildPromise = currentAppStorage.run(this, async () => {
       await loadPlugins(this, this.pendingPlugins, this.hooks.onLoaded);
-      return (request: Request) =>
-        dispatchRequest(request, {
-          app: this,
-          router: this.router,
-          hooks: this.hooks,
-        });
+      return (request: Request) => this.dispatch(request);
     });
 
     return this.buildPromise;
+  }
+
+  /**
+   * 请求入口。建立两层 AsyncLocalStorage（app scope + request scope），
+   * 先跑 onRequest 钩子（可短路，且此时 RavenContext 尚未建立），
+   * 再交给内部 Hono 实例完成路由匹配与命中后的生命周期（见 makeRavenHandler）。
+   * 因为 `this.hono.fetch` 在 ALS 回调内被 await，Hono 内部的 handler / onError / notFound
+   * 都运行在同一 ambient 上下文中。
+   */
+  private dispatch(request: Request): Promise<Response> {
+    return currentAppStorage.run(this, () =>
+      requestStorage.run(new Map(), async (): Promise<Response> => {
+        try {
+          for (const hook of this.hooks.onRequest) {
+            const result = await hook(request);
+            if (result instanceof Response) {
+              return result;
+            }
+          }
+
+          return await this.hono.fetch(request);
+        } catch (error) {
+          if (!RavenContext.get()) {
+            internalSet(RavenContext, new Context(request));
+          }
+          return handleError(
+            error instanceof Error ? error : RavenError.ERR_UNKNOWN_ERROR(String(error)),
+            this.hooks.onError,
+          );
+        }
+      }),
+    );
   }
 
   private createRouteData(handler: RouteHandler): RouteData {
@@ -154,7 +220,7 @@ export class Raven implements RavenInstance {
       data: routeData,
       contract,
     });
-    this.router.add(method, path, routeData);
+    this.hono.on(method, path, makeRavenHandler(routeData, this.hooks));
     this.markOpenAPIDocumentDirty();
   }
 

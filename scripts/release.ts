@@ -1,6 +1,6 @@
-import { readFile, writeFile } from "fs/promises";
-import { join } from "path";
-import { $ } from "bun";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { execSync } from "node:child_process";
 import {
   intro,
   outro,
@@ -107,20 +107,17 @@ function generateNextVersions(current: Version): { name: string; version: string
 
 async function checkGitStatus(): Promise<boolean> {
   try {
-    const status = await $`git status --porcelain`.text();
+    const status = execSync("git status --porcelain", { encoding: "utf-8" });
     return status.trim().length > 0;
   } catch {
     return true;
   }
 }
 
-const PACKAGE_JSON_PATHS = [
-  "packages/cli/package.json",
-  "packages/install-raven/package.json",
-] as const;
+const PACKAGE_JSON_PATHS = ["packages/core/package.json"] as const;
 
 async function updatePackageJson(version: string): Promise<void> {
-  const rootDir = join(import.meta.dir, "..");
+  const rootDir = join(import.meta.dirname, "..");
   for (const relPath of PACKAGE_JSON_PATHS) {
     const absPath = join(rootDir, relPath);
     const content = await readFile(absPath, "utf-8");
@@ -132,11 +129,12 @@ async function updatePackageJson(version: string): Promise<void> {
 
 async function commitAndTag(version: string): Promise<void> {
   const tagName = `v${version}`;
-  await $`git add ${[...PACKAGE_JSON_PATHS]}`;
-  await $`git commit -m "release: ${version}"`;
-  await $`git tag ${tagName}`;
-  await $`git push`;
-  await $`git push origin ${tagName}`;
+  const run = (cmd: string) => execSync(cmd, { stdio: "inherit" });
+  run(`git add ${PACKAGE_JSON_PATHS.join(" ")}`);
+  run(`git commit -m "release: ${version}"`);
+  run(`git tag ${tagName}`);
+  run("git push");
+  run(`git push origin ${tagName}`);
 }
 
 async function main() {
@@ -149,9 +147,9 @@ async function main() {
       process.exit(1);
     }
 
-    const rootDir = join(import.meta.dir, "..");
-    const cliPackageJsonPath = join(rootDir, "packages", "cli", "package.json");
-    const content = await readFile(cliPackageJsonPath, "utf-8");
+    const rootDir = join(import.meta.dirname, "..");
+    const corePackageJsonPath = join(rootDir, "packages", "core", "package.json");
+    const content = await readFile(corePackageJsonPath, "utf-8");
     const pkg = JSON.parse(content);
     const currentVersion = pkg.version;
 
@@ -219,9 +217,9 @@ async function main() {
 
     const s = spinner();
 
-    s.start("更新 packages/cli 与 packages/install-raven 版本号...");
+    s.start("更新 packages/core 版本号...");
     await updatePackageJson(selectedVersion);
-    s.stop("packages/cli 与 packages/install-raven 已更新");
+    s.stop("packages/core 已更新");
 
     s.start("提交代码并打标签...");
     await commitAndTag(selectedVersion);

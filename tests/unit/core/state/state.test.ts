@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import {
   Raven,
   RavenContext,
@@ -6,7 +6,7 @@ import {
   defineRequestState,
   currentAppStorage,
   type StateSetter,
-} from "../../../../packages/core";
+} from "../../../../packages/core/index.ts";
 
 describe("Unified State Mount (AppState & RequestState)", () => {
   describe("RequestState", () => {
