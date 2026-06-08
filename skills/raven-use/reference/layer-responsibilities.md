@@ -1,10 +1,8 @@
-# Layer Responsibilities
+# Layer Responsibilities — Reference
 
-Read the [overview](./overview.md) first if you have not established the overall mental model yet.
+Reference for where business-facing code lives and what each layer may do. See [overview](./overview.md) for the overall model.
 
-This document focuses on where business-facing code lives and what each layer is allowed to do.
-
-Use this document when you need to decide whether logic belongs in `interface`, `object-style-service`, `entity`, `repository`, `command`, `query`, `dto`, or explicit query-result mapping.
+**Scope**: deciding whether logic belongs in `interface`, `object-style-service`, `entity`, `repository`, `command`, `query`, `dto`, or explicit query-result mapping.
 
 ## Layer Map
 

@@ -6,26 +6,6 @@ To understand the public API, runtime entrypoints, and source layout, read:
 - [index.ts](./index.ts)
 - [app/raven.ts](./app/raven.ts)
 
-# PATTERN ENTRYPOINTS
-
-Use the docs above to learn the public surface and source map. When the task is about how RavenJS code should be organized, switch to the pattern docs:
-
-- Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result mapping) → [pattern/overview.md](./pattern/overview.md), then [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md), [pattern/conventions.md](./pattern/conventions.md), and [pattern/anti-patterns.md](./pattern/anti-patterns.md)
-  The default interface shape is `interface/<entry>/<entry>.contract.ts` + `<entry>.handler.ts`.
-  Same-project frontend may import the raw contract value directly; when another process or project needs API documentation, prefer `app.exportOpenAPI(...)` from the app composition root.
-- Runtime assembly (`<app_root>/app.ts`, plugins, states, scopes, hooks) → [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
-  The default route registration helper is `registerContractRoute(app, Contract, Handler)`, and the default OpenAPI exposure path is `app.exportOpenAPI(...)`.
-- Concrete plugin example → see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a minimal database plugin that combines `defineAppState`, `definePlugin`, and `Bun.SQL`
-- Review or final self-check → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
-
-For Agents, apply this boundary language while reading the pattern docs:
-
-- `transport validation` lives in contract schema
-- `domain invariants` live in entity behavior
-- `persistence constraints` live in repository / DB
-
-Quick test: if a rule still matters after HTTP disappears, it belongs in the entity.
-
 # SOURCE MAP
 
 | Document                                                                         | Read when…                                                                                                                                                                                              |

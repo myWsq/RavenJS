@@ -71,7 +71,7 @@ npx skills add myWsq/RavenJS        # installs into .claude/skills (also .cursor
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **raven‑use** | Learn the installed core (GUIDE, API, architecture, patterns) and write correct application code — routes, handlers, hooks, validation, state, contracts, plugins. |
 
-The skill reads the framework's teaching docs (`GUIDE.md`, `pattern/`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so it always matches the installed version. Installing the package and upgrading it are ordinary npm operations — see the Quick Start above and, for upgrades, run `npm install @raven.js/core@latest` and check [MIGRATION.md](MIGRATION.md) for breaking changes.
+The skill reads the framework's **API docs** (`GUIDE.md`, `README.md`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so they always match the installed version. The layered **pattern reference** travels with the skill itself (`skills/raven-use/reference/`). Installing the package and upgrading it are ordinary npm operations — see the Quick Start above and, for upgrades, run `npm install @raven.js/core@latest` and check [MIGRATION.md](MIGRATION.md) for breaking changes.
 
 ## Core Reference
 

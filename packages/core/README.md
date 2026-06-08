@@ -83,15 +83,9 @@ Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/` →
 Use different reading paths depending on the job:
 
 - **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/` → `state/` / `schema/`
-- **Business-code pattern path** — decide how to structure `interface`, `entity`, `repository`, `command`, `query`, `dto`, and query-result mapping files, especially the `contract.ts` / `handler.ts` split: [pattern/overview.md](./pattern/overview.md) → [pattern/layer-responsibilities.md](./pattern/layer-responsibilities.md) → [pattern/conventions.md](./pattern/conventions.md) → [pattern/anti-patterns.md](./pattern/anti-patterns.md)
-- **Runtime-assembly pattern path** — wire `<app_root>/app.ts`, plugins, state, scopes, and hooks: [pattern/runtime-assembly.md](./pattern/runtime-assembly.md)
-- **Example plugin path** — after the runtime-assembly docs, see the SQL plugin example in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md) for a concrete plugin built with `definePlugin` and `defineAppState`
-- **Plugin authoring details** — after the runtime-assembly path, read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
-- **Review path** — before finishing a change, run through [pattern/anti-patterns.md](./pattern/anti-patterns.md)
+- **Plugin authoring details** — read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
 
-Use the API / source path to understand what core exposes. Use the pattern paths to decide where new code belongs and how it should be organized.
-
-For business-code tasks, the pattern is Agent-first: use contract schema for `transport validation`, entity behavior for `domain invariants`, and repository / DB for `persistence constraints`. If a rule still matters after HTTP disappears, it belongs in the entity.
+Use the API / source path to understand what core exposes.
 
 Note for Agents reading this from an installed package: these docs (GUIDE.md, pattern/, PLUGIN.md) ship inside the `@raven.js/core` package and are readable at `node_modules/@raven.js/core/`.
 
@@ -361,8 +355,6 @@ The second argument to `load` is a **`StateSetter`** — a scope-bound function 
 `app.register()` accepts an optional `scopeKey` string to isolate state for that registration. Use this when registering the same plugin multiple times with independent state; read scoped values via `state.in(scopeKey)`.
 
 `app.onLoaded(hook)` registers hooks that run during `ready()`, after all plugin loads complete. Use them for one-time initialization that shouldn't block plugin registration.
-
-For a concrete database plugin example, see the SQL plugin section in [pattern/runtime-assembly.md](./pattern/runtime-assembly.md).
 
 → **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
 
