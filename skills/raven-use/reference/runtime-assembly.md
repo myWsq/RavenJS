@@ -147,7 +147,7 @@ interface DbConfig {
 
 declare function createDbClient(config: DbConfig): DbClient;
 
-export const ClientState = defineAppState<DbClient>();
+export const ClientState = defineAppState<DbClient>({ name: "db-client" });
 
 export function databasePlugin(config: DbConfig) {
   return definePlugin({

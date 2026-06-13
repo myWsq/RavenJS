@@ -10,7 +10,7 @@ RavenJS is an **AI-native** web framework on a **Hono** engine. Lightweight, con
 
 ## Philosophy
 
-- **AI-native, skill-first**: RavenJS is optimized for AI agents to learn and write correct code. The framework ships teaching docs inside the package, and a `raven-use` skill drives learning and writing correct code.
+- **AI-native, skill-first**: RavenJS is optimized for AI agents to learn and write correct code. All teaching material travels with the self-contained `raven-use` skill; the npm package ships only compiled code, types, and a thin README.
 - **Published as an npm package**: `@raven.js/core` is a normal dependency you install and `import` — not source copied into your project. `hono` is a peer dependency.
 - **Opinionated design, preserved**: contract-first (serializable contracts), Standard Schema validation (library-agnostic), ambient state DI (`AppState`/`RequestState`, no `c` threading), plugin lifecycle, and a self-built OpenAPI generator.
 - **Hono under the hood**: routing, HTTP plumbing, and serving run on Hono — but Hono's context `c` is an internal detail. Handlers receive only the validated `{ body, query, params, headers }`.
@@ -67,16 +67,16 @@ npx skills add myWsq/RavenJS        # installs into .claude/skills (also .cursor
 # or copy manually: cp -r skills/raven-use your-project/.claude/skills/
 ```
 
-| Skill         | When to use                                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **raven‑use** | Learn the installed core (GUIDE, API, architecture, patterns) and write correct application code — routes, handlers, hooks, validation, state, contracts, plugins. |
+| Skill         | When to use                                                                                                                                                                                                                                                     |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **raven‑use** | Learn RavenJS (API surface, request lifecycle, ambient state/DI, schema & contract, plugins, OpenAPI, gotchas, and the layered code-organization patterns) and write correct application code — routes, handlers, hooks, validation, state, contracts, plugins. |
 
-The skill reads the framework's **API docs** (`GUIDE.md`, `README.md`, `PLUGIN.md`) from the installed package at `node_modules/@raven.js/core/`, so they always match the installed version. The layered **pattern reference** travels with the skill itself (`skills/raven-use/reference/`). Installing the package and upgrading it are ordinary npm operations — see the Quick Start above and, for upgrades, run `npm install @raven.js/core@latest` and check [MIGRATION.md](MIGRATION.md) for breaking changes.
+The skill is **self-contained**: all teaching material — the API/runtime reference and the layered pattern reference — ships inside the skill at [`skills/raven-use/reference/`](skills/raven-use/reference/). It does **not** read docs from `node_modules`; the npm package no longer bundles teaching docs. For exact, version-matched type signatures, the skill consults `node_modules/@raven.js/core/dist/index.d.mts` in the installed package. Installing the package and upgrading it are ordinary npm operations — see the Quick Start above and, for upgrades, run `npm install @raven.js/core@latest` and check [MIGRATION.md](MIGRATION.md) for breaking changes.
 
 ## Core Reference
 
 - `@raven.js/core` provides HTTP services, contract-first routing, lifecycle hooks, ambient state management, Standard Schema request validation, and self-built OpenAPI export.
-- Source docs: [packages/core/README.md](packages/core/README.md) · [GUIDE](packages/core/GUIDE.md) · [PLUGIN](packages/core/PLUGIN.md) · patterns under [packages/core/pattern/](packages/core/pattern/)
+- Package overview: [packages/core/README.md](packages/core/README.md). The full teaching reference (API, lifecycle, state/DI, schema & contract, plugins, OpenAPI, gotchas, and layered patterns) lives in the skill: [skills/raven-use/reference/](skills/raven-use/reference/).
 
 ## Migrating from 2.x
 

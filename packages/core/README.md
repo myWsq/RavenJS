@@ -1,713 +1,78 @@
-# OVERVIEW
+# @raven.js/core
 
-RavenJS Core is a lightweight, high-performance, contract-first Web framework that runs on **Node (20+), Bun, and Deno**. It is built on top of [Hono](https://hono.dev) as its HTTP / routing / serve engine, but exposes a contract-first, ambient-state programming model on top — handlers never see Hono's `c` context.
+RavenJS is an **AI-native**, contract-first web framework on a **Hono** engine. Lightweight,
+multi-runtime, and optimized for AI agents to learn and write correct code.
 
-RavenJS is distributed as a standard npm package: `@raven.js/core` (3.x), with `hono` as a `peerDependency`.
+`@raven.js/core` runs on **Node (20+), Bun, and Deno** (server-side; edge / Cloudflare Workers
+are not a target). It layers a contract-first, ambient-state programming model on top of Hono —
+**handlers never see Hono's `c`**; they receive only the validated `{ body, query, params,
+headers }` and read everything else through ambient state.
 
-**Features**:
+- Contract-first interface helpers (`defineContract`, `registerContractRoute`)
+- Standard Schema request/response validation (`withSchema`) — library-agnostic (Zod, Valibot, …)
+- Ambient-state dependency injection via `AsyncLocalStorage` (`AppState` / `RequestState`)
+- Lifecycle hooks and a plugin system with scoped state
+- Self-built OpenAPI generation (`app.exportOpenAPI(...)`)
 
-- Logic layer: `app.ready()` returns a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`) you hand to any runtime's serve adapter
-- Runs on Node, Bun, and Deno (server-side; edge / Cloudflare Workers are not a target)
-- Dependency injection (DI) via AsyncLocalStorage (ScopedState)
-- Contract-first interface helpers via `defineContract` and `registerContractRoute`
-- Built-in Standard Schema request/response validation via `withSchema`
-- Lifecycle hooks (onLoaded, onRequest, beforeHandle, beforeResponse, onError, onResponseValidationError)
-- Plugin system
-- Built-in OpenAPI generation (`app.exportOpenAPI(...)` / `app.getOpenAPIDocument()`)
-- `SchemaClass` for schema-shape type inference
-
----
-
-# INSTALL
+## Install
 
 ```bash
 npm install @raven.js/core hono
-# or: pnpm add @raven.js/core hono
-# or: yarn add @raven.js/core hono
-# or: bun add @raven.js/core hono
+# Node also needs a serve adapter:
+npm install @hono/node-server
 ```
 
-`hono` is a `peerDependency` — install it alongside `@raven.js/core`. RavenJS uses Hono internally as its HTTP / routing / serve engine, but the Hono context (`c`) is an internal implementation detail and is never exposed to application code.
+`hono` is a `peerDependency` — install it alongside `@raven.js/core`.
 
-## Serving on each runtime
-
-RavenJS does not listen on a port itself. `app.ready()` returns a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`); each runtime wires it to its own server.
-
-**Node** (via `@hono/node-server`):
+## Quick start
 
 ```ts
+// app.ts
+import { Raven, RavenContext } from "@raven.js/core";
+
+export const app = new Raven();
+
+app.get("/hello/:name", () => {
+  const { params } = RavenContext.getOrFailed();
+  return Response.json({ message: `hello ${params.name}` });
+});
+```
+
+`app.ready()` returns a Web-standard fetch handler `(request: Request) => Promise<Response>`; the
+runtime does the listening.
+
+```ts
+// Node
 import { serve } from "@hono/node-server";
 import { app } from "./app";
-
 serve({ fetch: await app.ready(), port: 3000 });
-```
 
-**Bun** (native):
-
-```ts
-import { app } from "./app";
-
+// Bun
 export default { port: 3000, fetch: await app.ready() };
-```
 
-**Deno** (native):
-
-```ts
-import { app } from "./app";
-
+// Deno
 Deno.serve({ port: 3000 }, await app.ready());
 ```
 
----
+## Learn RavenJS — the `raven-use` skill
 
-# SOURCE MAP
+RavenJS is **skill-first**: the full teaching material (API surface, request lifecycle, ambient
+state/DI, schema & contract, plugins, OpenAPI, gotchas, and the layered code-organization
+patterns) lives in the **`raven-use`** skill, not in this package. The npm package ships only
+compiled code, type declarations, and this README. For exact, version-matched type signatures,
+read `node_modules/@raven.js/core/dist/index.d.mts`.
 
-For AI-oriented reading, treat `core` as a set of concept modules instead of a single implementation file:
+Work with RavenJS through the skill — it ships in the [RavenJS repo](https://github.com/myWsq/RavenJS)
+under `skills/`. Install it with the generic [`skills`](https://github.com/vercel-labs/skills)
+CLI, which pulls straight from the repo:
 
-- `index.ts` — public export map
-- `contract/` — contract definition helpers, transport type inference, and contract materialization helpers
-- `app/` — `Raven` public API, hook types, plugin-facing types
-- `runtime/` — Hono adapter, request flow, plugin loading, response handling, error flow
-- `state/` — AsyncLocalStorage-backed state storage, descriptors, built-in states
-- `schema/` — `withSchema`, validation, `SchemaClass`, Standard Schema contract
-- `context/` — request context object (ambient `RavenContext`)
-- `error/` — framework error model
-- `openapi/` — built-in OpenAPI document generation
-
-Recommended code-reading order: `index.ts` → `app/raven.ts` → `runtime/` → `state/` / `schema/`.
-
----
-
-# READING PATHS
-
-Use different reading paths depending on the job:
-
-- **API / source path** — understand exports, runtime flow, and implementation boundaries: `index.ts` → `app/raven.ts` → `runtime/` → `state/` / `schema/`
-- **Plugin authoring details** — read [PLUGIN.md](./PLUGIN.md) for plugin-specific API and gotchas
-
-Use the API / source path to understand what core exposes.
-
-Note for Agents reading this from an installed package: these docs (GUIDE.md, pattern/, PLUGIN.md) ship inside the `@raven.js/core` package and are readable at `node_modules/@raven.js/core/`.
-
----
-
-# ARCHITECTURE
-
-RavenJS layers a contract-first, ambient-state programming model on top of Hono. Hono owns HTTP, routing, and serve; RavenJS owns the contract, schema validation, ambient state, lifecycle hooks, and OpenAPI generation. Hono's `c` context never reaches your handlers — handlers receive only the validated `{ body, query, params, headers }` (via `withSchema`) and read request info through ambient state.
-
-**Lifecycle overview**:
-
-```
-app setup (sync)
-      │
-      ▼
-[plugin register]    ← app.register(plugin) — sync, queues plugins for loading.
-      │
-      ▼
-await app.ready()    ← async build phase: runs plugin loads in order, then onLoaded hooks.
-      │              ← returns a Web-standard FetchHandler you hand to a runtime serve adapter.
-      ▼
-app ready
+```bash
+npx skills add myWsq/RavenJS   # installs into .claude/skills (also .cursor, .codex, …)
+# or copy manually: cp -r skills/raven-use your-project/.claude/skills/
 ```
 
-```
-incoming request (each request)
-      │
-      ▼
-[onRequest hooks]     ← global; receives raw Request. Returning a Response short-circuits.
-      │
-      ▼
-[route matching]      ← handled by Hono's router; no match → 404
-      │
-      ▼
-[processStates]       ← parses request data, validates declared schemas, populates ParamsState / QueryState / HeadersState / BodyState
-      │
-      ▼
-[beforeHandle hooks]  ← route-scoped; no args. Returning a Response short-circuits.
-      │
-      ▼
-[handler()]           ← zero-arg handler, or typed schema handler registered through withSchema
-      │
-      ▼
-[beforeResponse hooks] ← route-scoped; receives Response. Returning a new Response replaces it.
-      │
-      ▼
-outgoing response
-
-any uncaught exception → [onError hooks] → fallback 500
-```
-
----
-
-# CORE CONCEPTS
-
-## Raven
-
-The main application class. Register routes with full paths (e.g. `app.get('/api/v1/users', handler)`).
-Raven is a **logic layer** — call `await app.ready()` to get a Web-standard `FetchHandler` (`(request: Request) => Promise<Response>`), then hand it to your runtime's serve adapter:
-
-```typescript
-import { Raven } from "@raven.js/core";
-
-const app = new Raven();
-app.get("/", () => new Response("Hello"));
-
-const fetch = await app.ready();
-
-// Node:
-import { serve } from "@hono/node-server";
-serve({ fetch, port: 3000 });
-
-// Bun:
-// export default { port: 3000, fetch };
-
-// Deno:
-// Deno.serve({ port: 3000 }, fetch);
-```
-
-Because Raven is a logic layer that produces a plain `FetchHandler`, you can mount it anywhere a runtime accepts one — behind a reverse proxy, alongside static asset serving, or composed with other fetch handlers. Routing for RavenJS routes is handled by the underlying Hono engine.
-
-## Context
-
-The per-request context object, exposing `request`, `params`, `query`, `url`, `method`, `headers`, and `body`. This is RavenJS's own ambient context — it is **not** Hono's `c`, which never leaves the framework internals.
-
-Access it via the built-in `RavenContext` state:
-
-```typescript
-const ctx = RavenContext.getOrFailed();
-console.log(ctx.method); // "GET"
-console.log(ctx.params); // { id: "42" }
-```
-
-## Dependency Injection (DI)
-
-**ScopedState is RavenJS's dependency injection (DI) implementation.** It uses `AsyncLocalStorage` to inject state into the async call chain, allowing handlers and hooks to access dependencies without explicit parameter passing. Each ScopedState is a state container with a well-defined lifetime:
-
-| Type           | Lifetime                     | Typical use                          |
-| -------------- | ---------------------------- | ------------------------------------ |
-| `AppState`     | Shared across the entire app | DB connections, config, counters     |
-| `RequestState` | Isolated per HTTP request    | Current user, parsed body, auth info |
-
-**Built-in states** (populated automatically by the framework — do not set manually):
-
-| State          | Type                     | Description                             |
-| -------------- | ------------------------ | --------------------------------------- |
-| `RavenContext` | `Context`                | Full request context                    |
-| `ParamsState`  | `Record<string, string>` | URL path parameters                     |
-| `QueryState`   | `Record<string, string>` | Query string parameters                 |
-| `HeadersState` | `Record<string, string>` | Request headers (lowercased keys)       |
-| `BodyState`    | `unknown`                | Request body (JSON only; cast required) |
-
-For routes registered through `withSchema`, these states contain validated output values before `beforeHandle` runs. Treat those schemas as transport validation only. If you need the raw request, read `RavenContext.getOrFailed().request` directly.
-
-## Schema Validation
-
-Core includes Standard Schema-based request and response validation. Standard Schema is schema-library agnostic — Zod, Valibot, and any other Standard Schema-compatible library work the same way. Use `withSchema` to declare schemas for `body`, `query`, `params`, `headers`, and optionally `response`; Raven validates request schemas during `processStates`, writes validated output back into the built-in states, and passes a typed `ctx` object to your handler. In the RavenJS pattern, these schemas are for transport validation: shape, parsing, coercion, and basic format checks. Domain invariants still belong in entities. If `response` is declared, the handler returns the response schema input type and core serializes the validated output with `Response.json(...)`. If the response schema does not match, Raven triggers `onResponseValidationError` and falls back to `Response.json(handlerReturnValue)` instead of failing the whole request. If `response` is omitted, the handler keeps returning `Response` as before.
-
-```typescript
-import { Raven, isValidationError, withSchema } from "@raven.js/core";
-import { z } from "zod";
-
-const app = new Raven();
-
-app.post(
-  "/users",
-  withSchema(
-    {
-      body: z.object({
-        name: z.string(),
-      }),
-      response: z.object({
-        id: z.number(),
-        name: z.string(),
-      }),
-    },
-    async (ctx) => ({
-      id: 1,
-      name: ctx.body.name,
-    }),
-  ),
-);
-
-app.onResponseValidationError(({ error, value }) => {
-  console.error("Response schema mismatch", error.responseIssues, value);
-});
-
-app.onError((error) => {
-  if (isValidationError(error)) {
-    return Response.json({ issues: error.bodyIssues }, { status: 400 });
-  }
-});
-```
-
-`responseIssues` is primarily useful inside `onResponseValidationError`. Request-side validation failures still go through `onError` as before.
-
-If you use schema transforms or coercion, keep them transport-scoped. Do not use request schema to encode business rules that should live in entity factories or entity mutators.
-
-`SchemaClass(shape)` is also exported from core for DTO-style type inference. It exposes `_shape` on the class and instance, but does not perform runtime validation.
-
-## Contract-First Interface Pattern
-
-A contract is a **serializable plain value** holding `method`, `path`, and `schemas` together. Because it is a plain value, same-project frontend code can import it directly. Use `defineContract` to author one. The recommended split is:
-
-- `interface/<entry>/<entry>.contract.ts`
-- `interface/<entry>/<entry>.handler.ts`
-- `<app_root>/app.ts` registers the route with `registerContractRoute(...)`
-
-`contract.ts` should import `defineContract` and any `InferContract*` tools from the `contract/` subentry. `handler.ts` should use `withSchema(contract.schemas, ...)`. Same-project frontend may import the raw contract value directly; when another process or project needs a stable API description, prefer exposing OpenAPI from the app composition root with `app.exportOpenAPI(...)`.
-
-Backend example:
-
-```typescript
-import { defineContract } from "@raven.js/core/contract";
-import { registerContractRoute, withSchema } from "@raven.js/core";
-import { z } from "zod";
-
-export const CreateOrderContract = defineContract({
-  method: "POST",
-  path: "/orders",
-  schemas: {
-    body: z.object({
-      quantity: z.string().transform((value) => Number(value)),
-    }),
-    response: z.object({
-      id: z.string(),
-      quantity: z.string().transform((value) => Number(value)),
-    }),
-  },
-});
-
-export const CreateOrderHandler = withSchema(CreateOrderContract.schemas, async (ctx) => ({
-  id: "order_1",
-  quantity: String(ctx.body.quantity),
-}));
-
-registerContractRoute(app, CreateOrderContract, CreateOrderHandler);
-app.exportOpenAPI({
-  info: {
-    title: "Orders API",
-    version: "1.0.0",
-  },
-});
-```
-
-Same-project frontend example:
-
-```typescript
-import {
-  type InferContractBodyInput,
-  type InferContractResponseOutput,
-} from "@raven.js/core/contract";
-import { CreateOrderContract } from "../../../backend/src/interface/create-order/create-order.contract.ts";
-
-type CreateOrderInput = InferContractBodyInput<typeof CreateOrderContract>;
-type CreateOrderResponse = InferContractResponseOutput<typeof CreateOrderContract>;
-
-export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResponse> {
-  const response = await fetch(CreateOrderContract.path, {
-    method: CreateOrderContract.method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  return response.json();
-}
-```
-
-Type-direction rule:
-
-- contract-side request inference reads schema input
-- contract-side response inference reads schema output
-- handler-side `ctx` reads schema output
-- handler-side return type for declared `response` schema reads schema input
-
-For cross-project or runtime API exposure, keep backend raw contracts as the authoring source of truth and export OpenAPI from the app composition root instead of importing backend source directly:
-
-```text
-backend raw contracts
-  -> registerContractRoute(app, Contract, Handler)
-  -> app.exportOpenAPI()
-  -> /openapi.json
-  -> frontend / SDK / external consumers
-```
-
-When you choose direct raw-contract imports, `contract.ts` and its dependency tree must remain frontend-safe. When you choose runtime OpenAPI exposure, the exported document reflects the contract routes that are actually registered on the current app instance.
-
-RavenJS ships its **own** OpenAPI generator — there is no dependency on `@hono/zod-openapi`. The document is built from the contract routes registered on the app instance. See the OpenAPI export helpers in the public API section below.
-
-## Plugin
-
-A plugin is a **named object** with a `load(app, set)` method, registered via `app.register()`. Plugins are created by factory functions so they can accept configuration.
-
-`app.register()` is **synchronous** — it queues the plugin for loading. Plugins are loaded in registration order during `await app.ready()`, which awaits each `load()` serially. This means a later plugin's `load()` can safely read state written by an earlier plugin's async `load()`.
-
-`app.register()` returns `this`, enabling **chained registration**:
-
-```typescript
-const fetch = await app
-  .register(dbPlugin({ dsn: "postgres://..." }))
-  .register(authPlugin())
-  .ready();
-```
-
-The second argument to `load` is a **`StateSetter`** — a scope-bound function for writing state: `set(state, value)`. It captures the scope key provided at `register()` time, so writes always land in the correct scope.
-
-`app.register()` accepts an optional `scopeKey` string to isolate state for that registration. Use this when registering the same plugin multiple times with independent state; read scoped values via `state.in(scopeKey)`.
-
-`app.onLoaded(hook)` registers hooks that run during `ready()`, after all plugin loads complete. Use them for one-time initialization that shouldn't block plugin registration.
-
-→ **Creating a plugin?** See [PLUGIN.md](./PLUGIN.md) for the full authoring guide and state patterns.
-
----
-
-# DESIGN DECISIONS
-
-## Why a contract-first, ambient-state model on top of Hono?
-
-RavenJS uses Hono for HTTP, routing, and serve, then layers its own programming model on top. The reasons:
-
-- **Hono is a mature, multi-runtime engine**: it handles routing and the request/response pipeline across Node, Bun, and Deno, so RavenJS does not maintain its own router or dispatch pipeline.
-- **The application model stays framework-neutral**: handlers never receive Hono's `c`. They read validated data and request info through ambient state, so business code does not couple to the underlying engine.
-- **Contracts are plain values**: the same contract value drives backend registration, frontend type inference, and OpenAPI generation.
-
-## Why AsyncLocalStorage for state?
-
-ScopedState uses AsyncLocalStorage as the underlying mechanism for DI. Compared to traditional DI containers or class decorators:
-
-- **Async-safe**: state propagates automatically through the async call chain without cross-request leakage
-- **Zero boilerplate**: handlers don't need to receive a context argument — dependencies are injected into the call chain automatically
-- **Flexible access**: unlike decorators that bake dependencies into constructor or method signatures, you can obtain injected dependencies anywhere in the call chain, only when needed — no rigid injection points
-- **Object-style services fit naturally**: reusable functions can read ScopedState on demand, so ordinary services do not need singleton class injection by default
-- **High performance**: zero-copy access, lighter than decorators or full-featured DI containers
-
-## Why are handlers zero-argument functions?
-
-```typescript
-type Handler = () => Response | Promise<Response>;
-```
-
-This is intentional:
-
-- A handler only needs to return a `Response` — no framework-specific types required, and never Hono's `c`
-- Data is accessed on demand via `BodyState.get()`, `RavenContext.getOrFailed()`, etc.
-- Any plain function can be a handler with zero migration cost
-- `withSchema` keeps the same route registration style while allowing typed handler context where needed
-
-## Why is `register()` sync and `ready()` async?
-
-Two distinct phases with different semantics:
-
-- **`register()` (sync)**: declares structure — routes, hooks, and the plugin load queue. No I/O, no side effects. Immediately reflects in the app's route table and hook list.
-- **`ready()` (async)**: runs all plugin `load()` functions serially (supporting async init like DB connections), then fires `onLoaded` hooks. Returns the `FetchHandler` when complete.
-
-This separation means plugin B's `load()` can safely `await` async work and write state that plugin C's `load()` will read — serial ordering is guaranteed.
-
----
-
-# GOTCHAS
-
-## 1. Hooks are global once registered
-
-```typescript
-// Hooks apply to every matching request once registered
-app.get("/users", handler);
-app.beforeHandle(authHook);
-```
-
-Reason: hooks are evaluated during request dispatch, not snapshotted into individual routes. If a hook should only affect a subset of paths, check `RavenContext` or `request.url` inside the hook.
-
-## 2. `register()` is sync — plugins load during `ready()`
-
-`register()` only queues the plugin. The actual `load()` call happens inside `await app.ready()`. Always call `ready()` before serving traffic.
-
-```typescript
-// ❌ Wrong: load() hasn't run yet
-app.register(myPlugin());
-// state written by myPlugin is not available here
-
-// ✓ Correct: wait for ready()
-app.register(myPlugin());
-const fetch = await app.ready();
-// state is fully initialized
-```
-
-## 3. `StateSetter` only works inside an active context
-
-`set(state, value)` (the `StateSetter` injected into `load()`) writes `AppState` values using `currentAppStorage`. It is only valid:
-
-- during the `load(app, set)` call (for `AppState`)
-- inside hooks or handlers that run within an active request context (for `RequestState` — use the captured `set` closure)
-
-Calling it outside these locations has no effect or throws `ERR_STATE_CANNOT_SET`.
-
-```typescript
-const dbState = defineAppState<DB>({ name: "db" });
-
-// ✓ Correct: write via set inside load()
-app.register(
-  definePlugin({
-    name: "db",
-    load(_app, set) {
-      set(dbState, db);
-    },
-  }),
-);
-```
-
-## 4. `BodyState` only parses JSON
-
-The framework automatically parses the body and populates `BodyState` only when `Content-Type: application/json` is present. For all other content types (form-data, plain text, binary), `BodyState.get()` returns `undefined` — read the body manually via `RavenContext`.
-
-```typescript
-// Content-Type: application/json → populated automatically
-const body = BodyState.getOrFailed() as { name: string };
-
-// Content-Type: multipart/form-data → read manually
-const ctx = RavenContext.getOrFailed();
-const formData = await ctx.request.formData();
-```
-
-## 5. `BodyState` is typed `unknown` — cast required
-
-`ParamsState`, `QueryState`, and `HeadersState` are typed as `Record<string, string>` and can be used directly. Only `BodyState` remains `unknown` because JSON structure is arbitrary.
-
-```typescript
-// ParamsState / QueryState / HeadersState — use directly, no cast needed
-const { id } = ParamsState.getOrFailed();
-
-// BodyState — cast required
-const body = BodyState.getOrFailed() as { name: string };
-```
-
-## 6. Schema-aware routes write validated output back into State
-
-When a route is registered with `withSchema`, the output of each schema is written into the built-in states before `beforeHandle` runs. This means transport transforms such as `z.string().transform(Number)` affect both `ctx.query` and `QueryState`.
-
-```typescript
-app.beforeHandle(() => {
-  const query = QueryState.getOrFailed() as { page: number };
-  console.log(query.page); // number
-});
-```
-
-## 7. `onRequest` has a different signature from all other hooks
-
-`onRequest` is the only hook that receives an argument — the raw `Request` object. At this point, `RavenContext`, `ParamsState`, and other states **are not yet initialized** (route matching hasn't happened).
-
-```typescript
-// onRequest: receives the raw Request
-app.onRequest((request) => {
-  // RavenContext is NOT set here — do not call RavenContext.get()
-  const token = request.headers.get("authorization");
-});
-
-// beforeHandle: no args, all states are ready
-app.beforeHandle(() => {
-  const ctx = RavenContext.getOrFailed(); // ✓ safe
-});
-```
-
-## 8. Register `onLoaded` before calling `ready()`
-
-`onLoaded` hooks are registered on the app instance and run during `await app.ready()`. Register all plugins and `onLoaded` hooks before calling `ready()`.
-
-```typescript
-import { serve } from "@hono/node-server";
-import { Raven } from "@raven.js/core";
-
-const app = new Raven();
-
-app.register(authPlugin());
-app.register(dbPlugin());
-
-app.onLoaded(async () => {
-  await warmupCaches();
-});
-
-serve({ fetch: await app.ready(), port: 3000 });
-```
-
-## 9. Routing behavior under the Hono engine
-
-Because routing is handled by Hono, a few path-matching behaviors are worth knowing (these also constitute the 2.x → 3.x behavior changes):
-
-- **HEAD requests**: a route registered only for `GET` still returns `404` for `HEAD` (Hono's auto-HEAD is explicitly intercepted so a `GET` handler's side effects are never triggered by a `HEAD`).
-- **Trailing slash**: `/foo` and `/foo/` are matched **strictly** as distinct paths (no normalization).
-- **Path parameters**: values are automatically `decodeURIComponent`-d by Hono.
-- **Wildcards**: `/path/*` also matches `/path/` and bare `/path`.
-- **`beforeResponse` errors**: a throw inside `beforeResponse` is routed through the `onError` chain.
-
----
-
-# ANTI-PATTERNS
-
-## Do not store request-scoped data in AppState
-
-```typescript
-const userState = defineAppState<User>({ name: "user" }); // ❌
-
-// AppState is shared across the entire app — concurrent requests will overwrite each other
-app.register(
-  definePlugin({
-    name: "bad-plugin",
-    load(app, set) {
-      app.beforeHandle(async () => {
-        set(userState, await fetchUser()); // dangerous! concurrent requests corrupt this value
-      });
-    },
-  }),
-);
-
-// ✓ Use RequestState instead
-const userState = defineRequestState<User>({ name: "user" });
-```
-
-## Do not register route-specific hooks globally
-
-```typescript
-// ❌ Intended to only hook /api, but the hook applies to ALL routes
-app.get("/api/users", handler);
-app.beforeHandle(apiOnlyHook); // applies to all routes registered after this
-
-// ✓ Use path checks inside the hook, or structure routes so hooks apply only where needed
-app.beforeHandle(() => {
-  const ctx = RavenContext.getOrFailed();
-  if (!ctx.url.pathname.startsWith("/api")) return;
-  return apiOnlyHook();
-});
-app.get("/api/users", handler);
-```
-
-## Do not forget to return a Response from `onError`
-
-```typescript
-// ❌ Missing return — the framework falls through to subsequent hooks or the default 500
-app.onError((error) => {
-  console.error(error);
-  // no return!
-});
-
-// ✓ Always return a Response
-app.onError((error) => {
-  console.error(error);
-  return new Response("Something went wrong", { status: 500 });
-});
-```
-
----
-
-# USAGE EXAMPLES
-
-## Minimal
-
-```typescript
-import { serve } from "@hono/node-server";
-import { Raven } from "@raven.js/core";
-
-const app = new Raven();
-app.get("/", () => new Response("Hello, World!"));
-
-serve({ fetch: await app.ready(), port: 3000 });
-```
-
-The same `app.ready()` handler runs on Bun (`export default { port: 3000, fetch: await app.ready() }`) and Deno (`Deno.serve({ port: 3000 }, await app.ready())`).
-
-## Path parameters
-
-```typescript
-import { Raven, ParamsState } from "@raven.js/core";
-
-const app = new Raven();
-
-app.get("/user/:id", () => {
-  const { id } = ParamsState.getOrFailed();
-  return new Response(`User ID: ${id}`);
-});
-```
-
-## Route prefix (use full paths)
-
-```typescript
-import { Raven } from "@raven.js/core";
-
-const app = new Raven();
-
-app.get("/api/v1/users", () => new Response("Users list"));
-app.post("/api/v1/users", () => new Response("Create user", { status: 201 }));
-```
-
-## Auth middleware (hooks must come before routes)
-
-```typescript
-import { serve } from "@hono/node-server";
-import { Raven, definePlugin, defineRequestState, RavenContext } from "@raven.js/core";
-
-interface User {
-  id: string;
-  role: string;
-}
-const currentUser = defineRequestState<User>({ name: "currentUser" });
-
-const app = new Raven();
-
-// register auth plugin first (hooks apply to routes registered after)
-app.register(
-  definePlugin({
-    name: "auth",
-    load(app, set) {
-      app.beforeHandle(async () => {
-        const ctx = RavenContext.getOrFailed();
-        const token = ctx.headers.get("authorization");
-        if (!token) return new Response("Unauthorized", { status: 401 });
-        set(currentUser, await verifyToken(token));
-      });
-    },
-  }),
-);
-
-// then register routes
-app.get("/profile", () => {
-  const user = currentUser.getOrFailed();
-  return Response.json({ id: user.id });
-});
-
-serve({ fetch: await app.ready(), port: 3000 });
-```
-
-## Error handling
-
-```typescript
-import { Raven, RavenError, isRavenError, ParamsState } from "@raven.js/core";
-
-const app = new Raven();
-
-app.onError((error) => {
-  if (isRavenError(error)) {
-    return error.toResponse(); // serializes to JSON using statusCode
-  }
-  console.error("Unexpected error:", error);
-  return new Response("Internal Server Error", { status: 500 });
-});
-
-app.get("/items/:id", () => {
-  const { id } = ParamsState.getOrFailed();
-  if (!id.match(/^\d+$/)) {
-    throw RavenError.ERR_BAD_REQUEST("id must be numeric");
-  }
-  return Response.json({ id });
-});
-```
-
-## Mutating the response (beforeResponse hook)
-
-```typescript
-const app = new Raven();
-
-app.beforeResponse((response) => {
-  const newResponse = new Response(response.body, response);
-  newResponse.headers.set("Access-Control-Allow-Origin", "*");
-  return newResponse;
-});
-
-app.get("/data", () => Response.json({ ok: true }));
-```
+## Links
+
+- Repository, full docs, and the `raven-use` skill: <https://github.com/myWsq/RavenJS>
+- Migrating from 2.x: see `MIGRATION.md` in the repo
+- License: [MIT](./LICENSE)

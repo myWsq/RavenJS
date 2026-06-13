@@ -1,42 +1,84 @@
 ---
 name: raven-use
-description: Learn the installed @raven.js/core and write correct RavenJS code — confirm the package resolves, read the installed core's GUIDE/API docs plus this skill's bundled pattern reference, plan structure against the layered conventions, implement, then self-check. Use when creating or editing RavenJS servers, routes, handlers, hooks, validation, ambient state, contracts, plugins, or query/DTO code.
-compatibility: Requires @raven.js/core installed (npm)
+description: Learn RavenJS from this skill's own bundled reference and write correct @raven.js/core code — confirm the package resolves, study the self-contained reference (API surface, request lifecycle, ambient state/DI, schema & contract, plugins, OpenAPI, gotchas) plus the layered pattern docs, plan the structure, implement, then self-check. Use when creating or editing RavenJS servers, routes, handlers, hooks, validation, ambient state, contracts, plugins, or query/DTO code.
+compatibility: Requires @raven.js/core (npm) installed so the code you write can import it. This skill ships ALL teaching docs itself and does NOT read documentation from node_modules. For exact, version-matched type signatures, consult node_modules/@raven.js/core/dist/index.d.mts.
 ---
 
 # RavenJS Use Skill
 
-A workflow for writing correct RavenJS code: confirm the package, learn the installed core and patterns, plan structure, then write. The framework is a normal npm dependency — this skill assumes `@raven.js/core` is already installed: it reads the core's API docs from the installed package and the layered pattern rules from its own bundled `reference/` docs.
+A workflow for writing correct RavenJS code: confirm the package, learn from this skill's
+bundled reference, plan the structure, write, then self-check.
+
+RavenJS is a normal npm dependency (`@raven.js/core`, on a `hono` peer). This skill is
+**self-contained**: every concept, API, lifecycle detail, gotcha, and layered pattern rule
+ships inside this skill's `reference/` directory. The npm package itself ships only compiled
+code, types, and a thin README — it no longer carries teaching docs. So do **not** look for
+`GUIDE.md` / `PLUGIN.md` in `node_modules`; learn from `reference/` here, and use the
+installed package only to (a) confirm it resolves and (b) check exact type signatures in
+`dist/index.d.mts`.
 
 ## Step 0 — Confirm the package resolves
 
-Confirm `@raven.js/core` (and the `hono` peer) resolve:
+The code you write must `import` from `@raven.js/core`, so confirm it (and the `hono` peer)
+are installed:
 
 ```bash
 node -e "console.log(require.resolve('@raven.js/core/package.json'))"
 ```
 
-Handle the result:
+- **Not resolvable** → stop and tell the user the package is not installed yet; point them at
+  the npm package README Quick Start (install `@raven.js/core` + `hono`, and `@hono/node-server`
+  for Node) before any code is written.
+- **Resolvable** → continue. Note the resolved package dir: its `dist/index.d.mts` is the
+  **version-matched** source of exact type signatures — consult it when you need to confirm a
+  signature precisely. Do **not** read `GUIDE.md` / `README.md` / `PLUGIN.md` from there;
+  those teaching docs no longer ship in the package.
 
-- **Not resolvable** → stop and tell the user the package is not installed yet; point them at the README Quick Start to set the project up first.
-- **Resolvable** → continue; use the resolved package dir as the docs source for learning and self-check. (In monorepos / pnpm it may be hoisted or symlinked — resolve the real path.)
+## Step 1 — Learn from this skill's bundled reference
 
-## Step 1 — Learn the installed core
+Do not rely on prior knowledge of RavenJS — APIs and behaviors are exact and easy to
+misremember. The bundled `reference/` has two groups; read what your task touches.
 
-Learn from two sources — do not rely on prior knowledge:
+**API & runtime knowledge** (in [`reference/api/`](./reference/api/)) — read what your task touches:
 
-- **Installed core API docs** (version-matched, at `node_modules/@raven.js/core/`): `GUIDE.md`, `README.md`, `PLUGIN.md`.
-- **Bundled pattern reference** (ships with this skill, in `reference/`): the layered methodology and self-check rules.
+- [`api/overview.md`](./reference/api/overview.md) — public API surface (the real `index.ts`
+  exports), the source concept map, and the core concepts (Raven, Context, DI, Schema,
+  Contract, Plugin).
+- [`api/lifecycle.md`](./reference/api/lifecycle.md) — build lifecycle (`register` → `ready` →
+  `FetchHandler`) and request lifecycle (two-layer AsyncLocalStorage, hook order, strict HEAD,
+  query last-value-wins, the three error paths).
+- [`api/state-and-di.md`](./reference/api/state-and-di.md) — `ScopedState`, `AppState` /
+  `RequestState`, built-in states, scopes, and the two write paths (`StateSetter` vs internal).
+- [`api/schema-and-contract.md`](./reference/api/schema-and-contract.md) — `withSchema`,
+  request/response validation, `defineContract`, `SchemaClass`, and the type-direction rules.
+- [`api/plugins.md`](./reference/api/plugins.md) — `definePlugin`, `register` / `use` /
+  `onLoaded`, and the four state-ownership patterns.
+- [`api/openapi.md`](./reference/api/openapi.md) — `exportOpenAPI` / `getOpenAPIDocument` /
+  `buildOpenAPIDocument` and what does (and does not) appear in the document.
+- [`api/gotchas.md`](./reference/api/gotchas.md) — the framework-level traps and runtime
+  anti-patterns; this is also the framework half of the Step 4 self-check.
 
-1. **Read the core GUIDE** — `GUIDE.md` is the primary reading map for the installed version: it points at the public API surface and the source map.
-2. **Follow the pattern reference by task shape** (in this skill's `reference/`):
-   - Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result mapping) → `reference/overview.md`, then the relevant sections of `reference/layer-responsibilities.md`, `reference/conventions.md`, and `reference/anti-patterns.md`.
-   - Runtime assembly (`app.ts`, plugins, states, scopes, hooks, serve) → `reference/runtime-assembly.md`, then `reference/anti-patterns.md` before finishing.
-3. **Read API/plugin references when relevant** — `README.md` for the public API and request lifecycle; `PLUGIN.md` for writing a plugin (`definePlugin`, the three state patterns, gotchas).
+**Layered pattern methodology** (in [`reference/`](./reference/)) — for organizing business code:
 
-**Engine boundary**: RavenJS 3.x runs on a **Hono** engine, but Hono's context `c` is an internal detail — handlers receive only the validated `{ body, query, params, headers }` and read everything else via ambient state (`RavenContext`, `AppState`/`RequestState`). Do not write code that expects a Hono `c` parameter.
+- Business code (`interface`, `entity`, `repository`, `command`, `query`, `dto`, query-result
+  mapping) → [`reference/overview.md`](./reference/overview.md), then the relevant sections of
+  [`reference/layer-responsibilities.md`](./reference/layer-responsibilities.md),
+  [`reference/conventions.md`](./reference/conventions.md), and
+  [`reference/anti-patterns.md`](./reference/anti-patterns.md).
+- Runtime assembly (`app.ts`, plugins, states, scopes, hooks, serve) →
+  [`reference/runtime-assembly.md`](./reference/runtime-assembly.md), then
+  [`reference/anti-patterns.md`](./reference/anti-patterns.md) before finishing.
 
-Do not stop until both the relevant GUIDE path and the relevant pattern path are complete.
+There are two "anti-pattern" docs, by layer: `api/gotchas.md` covers **framework-runtime** traps
+(ambient state, hook scope, HEAD/404, validation/error mapping, response fail-open, scopes);
+`anti-patterns.md` covers **business-layer** smells (entity/repository/contract boundaries).
+
+**Engine boundary**: RavenJS 3.x runs on a **Hono** engine, but Hono's context `c` is an
+internal detail. Handlers receive only the validated `{ body, query, params, headers }` (via
+`withSchema`) and read everything else through ambient state (`RavenContext`,
+`AppState` / `RequestState`). Never write code that expects a Hono `c` parameter.
+
+Do not stop until both the relevant API/runtime path and the relevant pattern path are complete.
 
 ## Step 2 — Make a Pattern Plan
 
@@ -53,31 +95,56 @@ Write down a short Pattern Plan before touching files. It must answer:
 - which task shape applies
 - which layers are required, and which are explicitly not needed
 - which files/directories to create or update
-- whether each reusable dependency is runtime state, an `Object Style Service`, or a specialized form (`Repository` / `Command` / `Query`)
+- whether each reusable dependency is runtime state, an `Object Style Service`, or a
+  specialized form (`Repository` / `Command` / `Query`)
 - where business rules, persistence, query logic, hooks, and plugins belong
 
 ## Step 3 — Write the code
 
-Apply the Pattern Plan and the guide output. Import from the package:
+Apply the Pattern Plan and the reference. Import runtime APIs from the package root, and author
+frontend-safe contracts from the `/contract` subentry:
 
 ```ts
-import { Raven, defineContract, defineAppState /* ... */ } from "@raven.js/core";
+// handler / app code (server-only)
+import { Raven, withSchema, registerContractRoute, defineAppState } from "@raven.js/core";
+// contract.ts (must stay frontend-safe — import only from the contract subentry)
+import { defineContract, type InferContractBodyInput } from "@raven.js/core/contract";
 ```
 
-Follow the pattern docs, GOTCHAS, ANTI-PATTERNS, and USAGE EXAMPLES exactly. Handlers receive only `{ body, query, params, headers }` and read other request data via ambient state — never expect a Hono `c`.
+Follow the reference's concepts, gotchas, anti-patterns, and examples exactly. In particular:
+
+- Handlers receive only `{ body, query, params, headers }` and read other request data via
+  ambient state — never expect a Hono `c`.
+- A failed **request** schema validation throws `ValidationError`, which is **not** a
+  `RavenError`; without an `onError` hook that maps it, it falls through to a generic **500**,
+  not a 400. Only a malformed JSON body auto-yields a 400. (See `api/schema-and-contract.md`.)
+- Only routes registered via `registerContractRoute` (carrying a contract) appear in the
+  exported OpenAPI document; plain `app.get/post/...` routes are silently skipped.
+- Confirm any uncertain signature against `dist/index.d.mts` in the installed package.
 
 ## Step 4 — Run a pattern self-check
 
-Before finishing, review the changed code against this skill's `reference/anti-patterns.md` and `reference/conventions.md`. At minimum verify:
+Before finishing, review the changed code against both halves of the self-check:
 
-- entities and repositories did not import Raven runtime APIs without a strong reason
-- hooks and plugins did not absorb business logic that belongs elsewhere
-- ordinary reusable helpers were not turned into `AppState` when `Object Style Service` was enough
-- new files follow the expected naming and placement rules
+- Framework-level — [`reference/api/gotchas.md`](./reference/api/gotchas.md): ambient-state
+  context rules, hook scope, HEAD/404 behavior, validation/error mapping, response fail-open,
+  scoped reads using `.in(scopeKey)`, `onError` returning a `Response`.
+- Business-layer — [`reference/anti-patterns.md`](./reference/anti-patterns.md) and
+  [`reference/conventions.md`](./reference/conventions.md). At minimum verify:
+  - entities and repositories did not import Raven runtime APIs without a strong reason
+  - hooks and plugins did not absorb business logic that belongs elsewhere
+  - ordinary reusable helpers were not turned into `AppState` when an `Object Style Service`
+    was enough
+  - new files follow the expected naming and placement rules
 
 ## Guardrails
 
 - Confirm `@raven.js/core` resolves at the start of every invocation.
-- Do not rely on prior knowledge — follow the GUIDE structure and the installed docs. Treat the installed GUIDE / README / PLUGIN as the API map, and this skill's bundled `reference/` docs as the source of truth for file structure and boundary rules.
-- Do not edit files inside `node_modules/@raven.js/core` (the framework is an installed dependency, not project source).
-- Do not write code until the relevant guide and pattern reading is complete.
+- Do not rely on prior knowledge — this skill's `reference/` is the source of truth for API,
+  lifecycle, gotchas, file structure, and boundary rules. Use the installed package's
+  `dist/index.d.mts` only to confirm exact type signatures.
+- Do not read teaching docs from `node_modules/@raven.js/core` — they are not shipped there.
+- Do not edit files inside `node_modules/@raven.js/core` (the framework is an installed
+  dependency, not project source).
+- Do not write code until the relevant API/runtime reference and the relevant pattern
+  reference have been read.

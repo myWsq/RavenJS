@@ -176,10 +176,12 @@ Deno.serve({ port: 3000 }, await app.ready());
 - RavenJS 仍是 AI-native 框架，知识以 **skill** 承载（3.x 已合并为单一 `raven-use` skill）。
 - skill 文件**只放在仓库的 `skills/` 目录**。用通用的 [skills](https://github.com/vercel-labs/skills) CLI 直接从仓库安装：`npx skills add myWsq/RavenJS`（也可手动拷贝 `skills/raven-use` 到你项目的 `.claude/skills/`）。
 
-### 5.3 API 文档随包发布，pattern 文档随 skill 分发
+### 5.3 全部教学文档随 skill 分发，npm 包不再打包教学文档
 
-- 框架的 **API / 架构文档**随 `@raven.js/core` 包一起发布：`GUIDE.md`、`PLUGIN.md`、`README.md`。Agent 从 `node_modules/@raven.js/core/` 读取这些与安装版本匹配的文档。
-- 分层 **pattern 文档**不再随包发布，改为随 `raven-use` skill 一起分发（`skills/raven-use/reference/`）；Agent 从 skill 自带的 `reference/` 读取分层规则与自检清单。
+- 所有框架教学材料——**API/运行时参考**（API 表面、请求生命周期、ambient state/DI、schema 与 contract、插件、OpenAPI、gotcha）与**分层 pattern 参考**——统一随 `raven-use` skill 分发，置于 `skills/raven-use/reference/`（API/运行时在 `reference/api/`，分层方法论在 `reference/` 顶层）。
+- `@raven.js/core` npm 包**不再打包任何教学文档**：早期版本随包发布的 `GUIDE.md`、`PLUGIN.md` 已移除；包的发布物只含 `dist`、精简的 `README.md` 与 `LICENSE`。skill **不再从 `node_modules` 读取教学文档**。
+- 唯一与安装版本匹配的精确接口参考是随包发布的类型声明 `node_modules/@raven.js/core/dist/index.d.mts`；skill 在需要核对精确签名时读取它。
+- 新增前端安全的 **`@raven.js/core/contract` 子入口**：在 `contract.ts` 中从该子入口导入 `defineContract` 与 `InferContract*`，其依赖图不含任何运行时（无 Hono / AsyncLocalStorage / `Raven`），可被前端代码安全导入；`withSchema`、`registerContractRoute` 等运行时 API 仍从包根 `@raven.js/core` 导入。
 
 ---
 
