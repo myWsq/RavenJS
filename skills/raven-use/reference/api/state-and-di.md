@@ -56,9 +56,14 @@ const replica = DBState.in("replica").get(); // scoped read
 > `getOrFailed` on it throws. `BodyState` in particular is only written when the validated body
 > is not `undefined`.
 
-`AppState` is readable **inside a request** as well — `dispatch` nests the request store inside
-the app store, so both ALS layers are active and `AppState.get()` still resolves while handling
-a request.
+**`AppState` reads need an active app context.** A value written during plugin `load()` is only
+readable where the app's `AsyncLocalStorage` layer is active: inside plugin `load()`, lifecycle
+hooks, and route handlers (during a request, `dispatch` nests the request store inside the app
+store, so `AppState` resolves there too). Reading `AppState` at **module top level**, or from a
+plain function called **outside** any request / `ready()` / serving, finds no app store —
+`get()` returns `undefined` and `getOrFailed()` throws `ERR_STATE_NOT_INITIALIZED`. So read
+`AppState` on demand inside handlers/hooks/services, not eagerly at import time. (For tests or
+scripts that need it outside a request, run the read inside `currentAppStorage.run(app, () => …)`.)
 
 ## Built-in states
 

@@ -17,22 +17,16 @@ code, types, and a thin README — it no longer carries teaching docs. So do **n
 installed package only to (a) confirm it resolves and (b) check exact type signatures in
 `dist/index.d.mts`.
 
-## Step 0 — Confirm the package resolves
+## Step 0 — Make sure the package is installed
 
-The code you write must `import` from `@raven.js/core`, so confirm it (and the `hono` peer)
-are installed:
+Your code imports from `@raven.js/core` (with `hono` as its peer), so it must be installed in
+the target project. Verify that however you see fit; if it is not installed, stop and tell the
+user to install it per the npm package README Quick Start (`@raven.js/core` + `hono`, plus
+`@hono/node-server` for Node) before writing any code.
 
-```bash
-node -e "console.log(require.resolve('@raven.js/core/package.json'))"
-```
-
-- **Not resolvable** → stop and tell the user the package is not installed yet; point them at
-  the npm package README Quick Start (install `@raven.js/core` + `hono`, and `@hono/node-server`
-  for Node) before any code is written.
-- **Resolvable** → continue. Note the resolved package dir: its `dist/index.d.mts` is the
-  **version-matched** source of exact type signatures — consult it when you need to confirm a
-  signature precisely. Do **not** read `GUIDE.md` / `README.md` / `PLUGIN.md` from there;
-  those teaching docs no longer ship in the package.
+The installed package ships compiled code and types only — **no teaching docs**. When you need an
+exact, version-matched type signature, read `dist/index.d.mts` inside the installed package;
+learn everything else from this skill's `reference/`.
 
 ## Step 1 — Learn from this skill's bundled reference
 
