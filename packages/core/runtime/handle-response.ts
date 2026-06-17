@@ -1,4 +1,5 @@
 import type { BeforeResponseHook } from "../app/types.ts";
+import { isResponse } from "./is-response.ts";
 
 export async function handleResponseHooks(
   response: Response,
@@ -7,7 +8,7 @@ export async function handleResponseHooks(
   let current = response;
   for (const hook of hooks) {
     const result = await hook(current);
-    if (result instanceof Response) {
+    if (isResponse(result)) {
       current = result;
     }
   }

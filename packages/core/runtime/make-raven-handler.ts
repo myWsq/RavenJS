@@ -5,6 +5,7 @@ import { internalSet } from "../state/descriptors.ts";
 import type { RouteData } from "../app/route-data.ts";
 import type { RavenHooks } from "../app/types.ts";
 import { handleResponseHooks } from "./handle-response.ts";
+import { isResponse } from "./is-response.ts";
 import { processStates } from "./process-states.ts";
 
 /**
@@ -45,7 +46,7 @@ export function makeRavenHandler(routeData: RouteData, hooks: RavenHooks) {
 
     for (const hook of hooks.beforeHandle) {
       const result = await hook();
-      if (result instanceof Response) {
+      if (isResponse(result)) {
         return handleResponseHooks(result, hooks.beforeResponse);
       }
     }

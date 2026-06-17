@@ -39,6 +39,7 @@ import { isSchemaAwareHandler, type SchemaAwareHandler } from "../schema/with-sc
 import { executePluginLoad, loadPlugins } from "../runtime/load-plugins.ts";
 import { makeRavenHandler } from "../runtime/make-raven-handler.ts";
 import { handleError } from "../runtime/handle-error.ts";
+import { isResponse } from "../runtime/is-response.ts";
 import { handleResponseValidationHooks } from "../runtime/handle-response-validation.ts";
 import { Context } from "../context/context.ts";
 import { RavenError } from "../error/raven-error.ts";
@@ -133,7 +134,7 @@ export class Raven implements RavenInstance {
         try {
           for (const hook of this.hooks.onRequest) {
             const result = await hook(request);
-            if (result instanceof Response) {
+            if (isResponse(result)) {
               return result;
             }
           }

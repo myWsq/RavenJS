@@ -1,5 +1,6 @@
 import type { OnErrorHook } from "../app/types.ts";
 import { isRavenError } from "../error/raven-error.ts";
+import { isResponse } from "./is-response.ts";
 
 export async function handleError(
   error: Error,
@@ -8,7 +9,7 @@ export async function handleError(
 ): Promise<Response> {
   for (const hook of hooks) {
     const result = await hook(error);
-    if (result instanceof Response) {
+    if (isResponse(result)) {
       return result;
     }
   }
